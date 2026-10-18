@@ -41,7 +41,6 @@ export default function App() {
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
-  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [driverQueue, setDriverQueue] = useState<Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number }>>([]);
   const [driverRide, setDriverRide] = useState<{ rideId: string; status: string } | null>(null);
   const [adminMetrics, setAdminMetrics] = useState<{ onlineDrivers: number; ridesByStatus: Record<string, number> } | null>(null);
@@ -276,7 +275,6 @@ export default function App() {
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Could not update availability.");
       setDriverOnline(online);
-      setDriverLocation(coords);
       setNotice(online ? "You are online and can accept ride requests." : "You are now offline.");
       if (online) await refreshDriverQueue();
     };
