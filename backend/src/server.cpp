@@ -886,18 +886,43 @@ std::optional<saarthi_security::Claims> bearer_claims(
 #include "driver_queue.inc"
 
 void handle_request(tcp::socket socket) {
+    // Bound memory and connection occupancy before any route handler runs. Checking
+    // request.body().size() after http::read is too late: Beast has already buffered it.
+    beast::tcp_stream stream(std::move(socket));
+    stream.expires_after(std::chrono::seconds(10));
     beast::flat_buffer buffer;
-    http::request<http::string_body> request;
+    http::request_parser<http::string_body> parser;
+    parser.header_limit(8192);
+    parser.body_limit(16384);
     boost::system::error_code ec;
-    http::read(socket, buffer, request, ec);
-    if (ec) return;
-    request.body().shrink_to_fit();
+    http::read(stream, buffer, parser, ec);
+    if (ec) {
+        if (ec == http::error::end_of_stream || ec == asio::error::operation_aborted ||
+            ec == beast::error::timeout) {
+            return;
+        }
+        const auto status = ec == http::error::body_limit
+            ? http::status::payload_too_large : http::status::bad_request;
+        http::response<http::string_body> rejected{status, 11};
+        rejected.set(http::field::server, "Saarthi API");
+        rejected.set(http::field::content_type, "application/json; charset=utf-8");
+        rejected.set(http::field::cache_control, "no-store");
+        rejected.set("X-Content-Type-Options", "nosniff");
+        rejected.keep_alive(false);
+        rejected.body() = status == http::status::payload_too_large
+            ? R"({"error":"request_too_large"})" : R"({"error":"invalid_http_request"})";
+        rejected.prepare_payload();
+        stream.expires_after(std::chrono::seconds(2));
+        http::write(stream, rejected, ec);
+        return;
+    }
+    auto request = parser.release();
 
     http::response<http::string_body> result;
     const std::string path(request.target().data(), request.target().size());
     if (request.method() == http::verb::post &&
         (path == "/api/v1/auth/register" || path == "/api/v1/auth/login")) {
-        result = handle_auth(request, path, client_ip(socket));
+        result = handle_auth(request, path, client_ip(stream.socket()));
     } else if (request.method() == http::verb::options) {
         result = response(http::status::no_content, json::object(), request);
         result.set(http::field::access_control_allow_methods, "GET, POST, PUT, OPTIONS");
@@ -916,7 +941,7 @@ void handle_request(tcp::socket socket) {
     } else if (request.method() == http::verb::post && path == "/api/v1/rides") {
         result = handle_booking(request);
     } else if (request.method() == http::verb::post && path == "/api/v1/routes/quote") {
-        if (!quote_limiter.allow(client_ip(socket))) {
+        if (!quote_limiter.allow(client_ip(stream.socket()))) {
             result = response(http::status::too_many_requests, {{"error", "rate_limited"}}, request);
         } else if (request.body().size() > 16384) {
             result = response(http::status::payload_too_large, {{"error", "request_too_large"}}, request);
@@ -1141,9 +1166,11 @@ void handle_request(tcp::socket socket) {
         result = response(http::status::not_found, {{"error", "not_found"}}, request);
     }
 
-    result.keep_alive(request.keep_alive());
-    http::write(socket, result, ec);
-    socket.shutdown(tcp::socket::shutdown_send, ec);
+    // This server processes exactly one request per connection; do not advertise keep-alive.
+    result.keep_alive(false);
+    stream.expires_after(std::chrono::seconds(5));
+    http::write(stream, result, ec);
+    stream.socket().shutdown(tcp::socket::shutdown_send, ec);
 }
 
 } // namespace
