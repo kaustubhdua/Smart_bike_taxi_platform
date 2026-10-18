@@ -10,7 +10,7 @@ type RideRequest = {
   distanceMeters?: number;
   pickupDistanceMeters?: number;
 };
-type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number };
+type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number; pendingOutboxEvents?: number; deadLetteredOutboxEvents?: number; oldestPendingOutboxAgeSeconds?: number };
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
 
@@ -382,7 +382,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                 <button className="outline-button" onClick={refreshDrivers} disabled={busy}><RefreshCw size={15} /> Refresh drivers</button>
                 <button className="outline-button" onClick={refreshAudit} disabled={busy}><ShieldCheck size={15} /> Refresh audit history</button>
               </div>
-              {metrics && <div className="driver-queue"><h3>PostgreSQL-backed counts</h3><p>Online drivers: <strong>{metrics.onlineDrivers}</strong></p>{Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}</div>}
+              {metrics && <div className="driver-queue"><h3>PostgreSQL-backed counts</h3><p>Online drivers: <strong>{metrics.onlineDrivers}</strong></p><p>Outbox backlog: <strong>{metrics.pendingOutboxEvents ?? "—"}</strong> pending · <strong>{metrics.deadLetteredOutboxEvents ?? "—"}</strong> dead-lettered · oldest pending {metrics.oldestPendingOutboxAgeSeconds ?? "—"}s</p>{(metrics.deadLetteredOutboxEvents ?? 0) > 0 && <p role="alert">Dead-lettered ride events need operator review.</p>}{Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}</div>}
               <div className="driver-queue"><h3>Privileged action audit ({auditEvents.length})</h3>
                 {auditEvents.length === 0 ? <p>Refresh audit history to inspect driver provisioning, approval and suspension events.</p> : auditEvents.map(event => <div className="ride-confirmation" key={event.id}>
                   <div><strong>{event.action.replaceAll(".", " ")}</strong><span>{event.actorEmail} · {event.targetType} · {event.targetId}</span><small>{new Date(event.createdAt).toLocaleString()} · {JSON.stringify(event.details)}</small></div>
