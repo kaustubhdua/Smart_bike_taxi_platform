@@ -223,6 +223,21 @@ status="$(curl --silent --show-error --output "$tmp_dir/driver-login.json" --wri
 test "$status" = "200"
 driver_token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/driver-login.json")"
 
+# A provisioned-but-unapproved driver must not become dispatch-eligible.
+unapproved_id="$(psql -v ON_ERROR_STOP=1 -tAqc "INSERT INTO accounts (email,display_name,role,password_hash) SELECT 'smoke-unapproved-driver@example.test','Unapproved Driver','driver',password_hash FROM accounts WHERE email='smoke-passenger@example.test' RETURNING id")"
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO driver_profiles (account_id,vehicle_registration,is_online,is_approved) VALUES ('$unapproved_id','CI-DRIVER-PENDING-001',false,false)" >/dev/null
+status="$(curl --silent --show-error --output "$tmp_dir/unapproved-login.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"email":"smoke-unapproved-driver@example.test","password":"a-long-ci-password-123"}' \
+  "$base_url/api/v1/auth/login")"
+test "$status" = "200"
+unapproved_token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/unapproved-login.json")"
+status="$(curl --silent --show-error --output "$tmp_dir/unapproved-online.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $unapproved_token" \
+  --data '{"online":true,"latitude":28.53,"longitude":77.35}' \
+  "$base_url/api/v1/driver/availability")"
+test "$status" = "403"
+
 # Offline drivers must not receive pickup/drop-off data from the dispatch queue.
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-offline.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
