@@ -35,78 +35,79 @@ void require_command(PGconn* connection, const char* sql) {
     }
 }
 
-void require_tuples(PGconn* connection, const char* sql, int count, const char* const* values,
-                    Result& result) {
-    result = Result(PQexecParams(connection, sql, count, nullptr, values, nullptr, nullptr, 0));
-    if (result.get() == nullptr || PQresultStatus(result.get()) != PGRES_TUPLES_OK) {
-        throw std::runtime_error(result.get() == nullptr ? PQerrorMessage(connection)
-                                                        : PQresultErrorMessage(result.get()));
-    }
-}
-
 bool publish_one(PGconn* connection) {
-    require_command(connection, "BEGIN");
+    std::string outbox_id, event_id, ride_id, status, created_at;
+    int attempts = 0;
+    command(connection, "BEGIN");
     try {
         Result event(PQexec(connection,
-            "SELECT o.id::text,o.ride_event_id::text,o.ride_id::text,"
-            "e.new_status::text,e.created_at::text "
+            "SELECT o.id::text,o.ride_event_id::text,o.ride_id::text,e.new_status::text,e.created_at::text "
             "FROM ride_event_outbox o JOIN ride_events e ON e.id=o.ride_event_id "
-            "WHERE o.published_at IS NULL AND o.dead_lettered_at IS NULL "
-            "AND o.available_at<=now() AND (o.claimed_until IS NULL OR o.claimed_until<now()) "
+            "WHERE o.published_at IS NULL AND o.dead_lettered_at IS NULL AND o.available_at<=now() "
+            "AND (o.claimed_until IS NULL OR o.claimed_until<now()) "
             "ORDER BY o.id FOR UPDATE OF o SKIP LOCKED LIMIT 1"));
-        if (event.get() == nullptr || PQresultStatus(event.get()) != PGRES_TUPLES_OK) {
-            throw std::runtime_error(event.get() == nullptr ? PQerrorMessage(connection)
-                                                            : PQresultErrorMessage(event.get()));
-        }
+        if (event.get() == nullptr || PQresultStatus(event.get()) != PGRES_TUPLES_OK)
+            throw std::runtime_error("outbox_select_failed");
         if (PQntuples(event.get()) == 0) {
-            require_command(connection, "COMMIT");
+            command(connection, "COMMIT");
             return false;
         }
-
-        const std::string outbox_id = PQgetvalue(event.get(), 0, 0);
-        const std::string event_id = PQgetvalue(event.get(), 0, 1);
-        const std::string ride_id = PQgetvalue(event.get(), 0, 2);
-        const std::string status = PQgetvalue(event.get(), 0, 3);
-        const std::string created_at = PQgetvalue(event.get(), 0, 4);
-        const int attempts = [&] {
-            const char* values[] = {outbox_id.c_str()};
-            Result updated(PQexecParams(connection,
-                "UPDATE ride_event_outbox SET attempts=attempts+1,claimed_until=now()+interval '30 seconds' "
-                "WHERE id=$1::bigint RETURNING attempts::text",
-                1, nullptr, values, nullptr, nullptr, 0));
-            if (updated.get() == nullptr || PQresultStatus(updated.get()) != PGRES_TUPLES_OK ||
-                PQntuples(updated.get()) != 1) {
-                throw std::runtime_error("Could not claim outbox event");
-            }
-            return std::stoi(PQgetvalue(updated.get(), 0, 0));
-        }();
-
-        const json payload{{"eventId", event_id}, {"rideId", ride_id},
-                           {"status", status}, {"createdAt", created_at}};
-        const std::string serialized = payload.dump();
-        const char* notify_values[] = {serialized.c_str()};
-        Result notified(PQexecParams(connection,
-            "SELECT pg_notify('rideforge_ride_events',$1)", 1, nullptr,
-            notify_values, nullptr, nullptr, 0));
-        if (notified.get() == nullptr || PQresultStatus(notified.get()) != PGRES_TUPLES_OK) {
-            throw std::runtime_error("Could not publish PostgreSQL notification");
-        }
-
-        const char* update_values[] = {outbox_id.c_str()};
-        Result marked(PQexecParams(connection,
-            "UPDATE ride_event_outbox SET published_at=now(),claimed_until=NULL,last_error=NULL "
-            "WHERE id=$1::bigint", 1, nullptr, update_values, nullptr, nullptr, 0));
-        if (marked.get() == nullptr || PQresultStatus(marked.get()) != PGRES_COMMAND_OK ||
-            std::string(PQcmdTuples(marked.get())) != "1") {
-            throw std::runtime_error("Could not mark outbox event published");
-        }
-        require_command(connection, "COMMIT");
-        std::cout << "{\"event\":\"ride_event_published\",\"eventId\":" << event_id
-                  << ",\"attempt\":" << attempts << "}\n";
-        return true;
+        outbox_id = PQgetvalue(event.get(), 0, 0);
+        event_id = PQgetvalue(event.get(), 0, 1);
+        ride_id = PQgetvalue(event.get(), 0, 2);
+        status = PQgetvalue(event.get(), 0, 3);
+        created_at = PQgetvalue(event.get(), 0, 4);
+        const char* values[] = {outbox_id.c_str()};
+        Result claimed(PQexecParams(connection,
+            "UPDATE ride_event_outbox SET attempts=attempts+1,claimed_until=now()+interval '30 seconds' "
+            "WHERE id=$1::bigint RETURNING attempts::text", 1, nullptr, values, nullptr, nullptr, 0));
+        if (claimed.get() == nullptr || PQresultStatus(claimed.get()) != PGRES_TUPLES_OK ||
+            PQntuples(claimed.get()) != 1) throw std::runtime_error("outbox_claim_failed");
+        attempts = std::stoi(PQgetvalue(claimed.get(), 0, 0));
+        command(connection, "COMMIT");
     } catch (...) {
         Result rollback(PQexec(connection, "ROLLBACK"));
         throw;
+    }
+
+    try {
+        command(connection, "BEGIN");
+        const std::string payload = json{{"eventId", event_id}, {"rideId", ride_id},
+            {"status", status}, {"createdAt", created_at}}.dump();
+        const char* values[] = {payload.c_str()};
+        Result notified(PQexecParams(connection, "SELECT pg_notify('rideforge_ride_events',$1)",
+            1, nullptr, values, nullptr, nullptr, 0));
+        if (notified.get() == nullptr || PQresultStatus(notified.get()) != PGRES_TUPLES_OK)
+            throw std::runtime_error("outbox_notify_failed");
+        const char* update_values[] = {outbox_id.c_str()};
+        Result marked(PQexecParams(connection,
+            "UPDATE ride_event_outbox SET published_at=now(),claimed_until=NULL,last_error=NULL "
+            "WHERE id=$1::bigint AND published_at IS NULL",
+            1, nullptr, update_values, nullptr, nullptr, 0));
+        if (marked.get() == nullptr || PQresultStatus(marked.get()) != PGRES_COMMAND_OK ||
+            std::string(PQcmdTuples(marked.get())) != "1")
+            throw std::runtime_error("outbox_mark_failed");
+        command(connection, "COMMIT");
+        std::cout << "{\\"event\\":\\"ride_event_published\\",\\"eventId\\":" << event_id
+                  << ",\\"attempt\\":" << attempts << "}\\n";
+        return true;
+    } catch (...) {
+        Result rollback(PQexec(connection, "ROLLBACK"));
+        if (PQstatus(connection) != CONNECTION_OK) throw std::runtime_error("database_disconnected");
+        const char* values[] = {outbox_id.c_str()};
+        Result failed(PQexecParams(connection,
+            "UPDATE ride_event_outbox SET claimed_until=NULL,last_error='publish_failed',"
+            "dead_lettered_at=CASE WHEN attempts>=10 THEN now() ELSE NULL END,"
+            "available_at=CASE WHEN attempts>=10 THEN available_at ELSE now()+"
+            "make_interval(secs=>LEAST(300,power(2,LEAST(attempts,8))::integer)) END "
+            "WHERE id=$1::bigint AND published_at IS NULL",
+            1, nullptr, values, nullptr, nullptr, 0));
+        if (failed.get() == nullptr || PQresultStatus(failed.get()) != PGRES_COMMAND_OK)
+            throw std::runtime_error("outbox_retry_schedule_failed");
+        std::cerr << "{\\"event\\":\\"ride_event_delivery_failed\\",\\"eventId\\":" << event_id
+                  << ",\\"attempt\\":" << attempts
+                  << ",\\"deadLettered\\":" << (attempts >= 10 ? "true" : "false") << "}\\n";
+        return true;
     }
 }
 } // namespace
