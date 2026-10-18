@@ -20,3 +20,12 @@ endif()
 
 enable_testing()
 add_test(NAME smart_bike_taxi_tests COMMAND smart_bike_taxi_tests)
+
+option(SMART_BIKE_TAXI_BUILD_BENCHMARKS "Build the opt-in benchmark executable" OFF)
+if(SMART_BIKE_TAXI_BUILD_BENCHMARKS)
+    add_executable(smart_bike_taxi_benchmark benchmarks/benchmark.cpp)
+    target_include_directories(smart_bike_taxi_benchmark PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(smart_bike_taxi_benchmark PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
