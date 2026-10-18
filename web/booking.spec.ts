@@ -354,3 +354,36 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await expect(page.getByText("Approved", { exact: false })).toBeVisible();
   expect(drivers[0].approved).toBe(true);
 });
+
+
+test("driver uses browser geolocation, refreshes availability, and goes offline on sign-out", async ({ page }) => {
+  await page.context().grantPermissions(["geolocation"]);
+  await page.context().setGeolocation({ latitude: 28.53, longitude: 77.35 });
+  await page.route("http://api.test/api/v1/auth/login", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      accessToken: "test-driver-token",
+      account: { email: "driver@example.test", role: "driver" },
+    }) });
+  });
+  const availability: Array<{ online: boolean; latitude: number; longitude: number }> = [];
+  await page.route("http://api.test/api/v1/driver/availability", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-driver-token");
+    availability.push(route.request().postDataJSON() as { online: boolean; latitude: number; longitude: number });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ updated: true }) });
+  });
+  await page.route("http://api.test/api/v1/driver/rides", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [] }) });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Drive with us" }).click();
+  await page.locator('.auth-panel input[type="email"]').first().fill("driver@example.test");
+  await page.locator('.auth-panel input[type="password"]').first().fill("a-long-driver-password-123");
+  await page.getByRole("button", { name: /Sign in securely/ }).click();
+  await page.getByRole("button", { name: /Use my location and go online/ }).click();
+  await expect(page.getByRole("button", { name: "Go offline" })).toBeVisible();
+  expect(availability[0]).toMatchObject({ online: true, latitude: 28.53, longitude: 77.35 });
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("button", { name: /Sign in securely/ })).toBeVisible();
+  expect(availability.at(-1)).toMatchObject({ online: false, latitude: 28.53, longitude: 77.35 });
+});
