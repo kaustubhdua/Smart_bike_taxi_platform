@@ -6,6 +6,7 @@
 #include "security.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cctype>
 #include <cmath>
@@ -722,6 +723,7 @@ private:
 
 RateLimiter quote_limiter{30};
 RateLimiter auth_limiter{10};
+std::atomic<unsigned> active_sessions{0};
 
 http::response<http::string_body> response(http::status status, const json& body,
                                            const http::request<http::string_body>& request) {
@@ -1153,6 +1155,15 @@ int main() {
     for (;;) {
         tcp::socket socket{context};
         acceptor.accept(socket);
-        std::thread(handle_request, std::move(socket)).detach();
+        if (active_sessions.fetch_add(1, std::memory_order_relaxed) >= 64) {
+            active_sessions.fetch_sub(1, std::memory_order_relaxed);
+            boost::system::error_code close_error;
+            socket.close(close_error);
+            continue;
+        }
+        std::thread([socket = std::move(socket)]() mutable {
+            try { handle_request(std::move(socket)); } catch (...) {}
+            active_sessions.fetch_sub(1, std::memory_order_relaxed);
+        }).detach();
     }
 }
