@@ -57,8 +57,14 @@ jobs:
         run: cmake --build build-backend --parallel
       - name: Run C++ unit tests
         run: ctest --test-dir build-backend --output-on-failure
-      - name: Apply database schema
-        run: psql -v ON_ERROR_STOP=1 -f backend/migrations/001_initial_schema.sql
+      - name: Apply versioned database migration
+        env:
+          SAARTHI_SCHEMA_FILE: backend/migrations/001_initial_schema.sql
+        run: sh backend/scripts/migrate-if-needed.sh
+      - name: Verify migration runner idempotency
+        env:
+          SAARTHI_SCHEMA_FILE: backend/migrations/001_initial_schema.sql
+        run: sh backend/scripts/migrate-if-needed.sh
       - name: Seed deterministic quote fixtures
         run: psql -v ON_ERROR_STOP=1 -f backend/tests/seed_quotes.sql
       - name: Start API and verify HTTP behavior
