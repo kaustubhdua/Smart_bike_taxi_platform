@@ -35,6 +35,18 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+      - name: Enforce JavaScript bundle budgets
+        run: |
+          main_js=$(find dist/assets -maxdepth 1 -name 'index-*.js' -print -quit)
+          map_js=$(find dist/assets -maxdepth 1 -name 'RouteMap-*.js' -print -quit)
+          test -n "$main_js"
+          test -n "$map_js"
+          main_gzip=$(gzip -c "$main_js" | wc -c)
+          map_gzip=$(gzip -c "$map_js" | wc -c)
+          echo "Main JavaScript gzip bytes: $main_gzip (budget: 150000)"
+          echo "Lazy map JavaScript gzip bytes: $map_gzip (budget: 60000)"
+          test "$main_gzip" -le 150000
+          test "$map_gzip" -le 60000
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
       - name: Browser end-to-end tests
