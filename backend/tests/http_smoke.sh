@@ -405,6 +405,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/detail.json" --write-out
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$ride_id")"
 test "$status" = "200"
 grep -q '"status":"completed"' "$tmp_dir/detail.json"
+python3 -c 'import json,sys; assert "driverLocation" not in json.load(sys.stdin)' < "$tmp_dir/detail.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/cancel.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" --request POST "$base_url/api/v1/rides/$second_ride_id/cancel")"
