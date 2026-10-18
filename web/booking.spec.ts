@@ -387,3 +387,53 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
   await expect(page.getByRole("button", { name: /Sign in securely/ })).toBeVisible();
   expect(availability.at(-1)).toMatchObject({ online: false, latitude: 28.53, longitude: 77.35 });
 });
+
+
+test("passenger applies authenticated server-sent ride events without waiting for polling", async ({ page }) => {
+  await mockRouting(page);
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
+      durationMinutes: 14, farePaise: 4750, currency: "INR",
+      expiresAt: new Date(Date.now() + 120_000).toISOString(),
+    }) });
+  });
+  await page.route("http://api.test/api/v1/auth/register", async route => {
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({
+      accessToken: "sse-passenger-token",
+      account: { email: "sse@example.test", displayName: "SSE Rider", role: "passenger" },
+    }) });
+  });
+  await page.route("http://api.test/api/v1/rides", async route => {
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({
+      rideId: "30000000-0000-4000-8000-000000000077", status: "requested",
+    }) });
+  });
+  await page.route("http://api.test/api/v1/rides/30000000-0000-4000-8000-000000000077", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      rideId: "30000000-0000-4000-8000-000000000077", status: "requested",
+    }) });
+  });
+  let streamRequests = 0;
+  await page.route("http://api.test/api/v1/rides/30000000-0000-4000-8000-000000000077/events", async route => {
+    streamRequests += 1;
+    expect(route.request().headers()["authorization"]).toBe("Bearer sse-passenger-token");
+    if (streamRequests > 1) { await route.abort(); return; }
+    await route.fulfill({
+      status: 200,
+      headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache" },
+      body: 'id: 12\nevent: ride-status\ndata: {"eventId":12,"rideId":"30000000-0000-4000-8000-000000000077","status":"assigned","createdAt":"2026-10-18T00:00:00Z"}\n\n',
+    });
+  });
+
+  await page.goto("/");
+  await expect(page.getByText("5.2 km · 14 min · Road route")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await page.getByLabel("Your name").fill("SSE Rider");
+  await page.locator('.auth-panel input[type="email"]').first().fill("sse@example.test");
+  await page.locator('.auth-panel input[type="password"]').first().fill("a-long-password-123");
+  await page.getByRole("button", { name: "Create passenger account" }).click();
+  await page.getByRole("button", { name: "Confirm ride request" }).click();
+  await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned", { timeout: 5000 });
+  expect(streamRequests).toBeGreaterThan(0);
+});
