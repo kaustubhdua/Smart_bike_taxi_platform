@@ -34,6 +34,7 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
+  const [bookingKey, setBookingKey] = useState("");
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup !== destination && Boolean(pickup && destination) && Boolean(route) && !routeLoading;
 
@@ -70,6 +71,7 @@ export default function App() {
     const remaining = expiresAt - Date.now();
     if (!Number.isFinite(remaining) || remaining <= 0) {
       setQuote(null);
+      setBookingKey("");
       setNotice("Your fare quote expired. Request a fresh quote before making a decision.");
       return;
     }
@@ -128,6 +130,7 @@ export default function App() {
         distanceKm: data.distanceKm, durationMinutes: data.durationMinutes as number,
         expiresAt: new Date(expiry).toISOString(),
       });
+      setBookingKey(`saarthi-${crypto.randomUUID()}`);
       setNotice(`Server quote received: ${data.distanceKm} km · ₹${((data.farePaise as number) / 100).toFixed(2)}. This checks the quote only; it does not create a ride.`);
       setApiState("idle");
     } catch (error) {
@@ -183,6 +186,7 @@ export default function App() {
     }
     if (!quote.expiresAt || Date.parse(quote.expiresAt) <= Date.now()) {
       setQuote(null);
+      setBookingKey("");
       setNotice("Your quote expired. Request a fresh quote before booking.");
       return;
     }
@@ -193,7 +197,7 @@ export default function App() {
           "Content-Type": "application/json",
           "Accept": "application/json",
           "Authorization": `Bearer ${account.token}`,
-          "Idempotency-Key": `saarthi-${crypto.randomUUID()}`,
+          "Idempotency-Key": bookingKey || `saarthi-${crypto.randomUUID()}`,
         },
         body: JSON.stringify({ quoteId: quote.quoteId }),
       });
