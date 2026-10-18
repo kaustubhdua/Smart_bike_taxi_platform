@@ -278,6 +278,65 @@ std::string client_ip(const tcp::socket& socket) {
     return ec ? "unknown" : address.to_string();
 }
 
+http::response<http::string_body> handle_auth(
+    const http::request<http::string_body>& request, const std::string& path) {
+    if (request.body().size() > 16384) {
+        return response(http::status::payload_too_large, {{"error", "request_too_large"}}, request);
+    }
+    try {
+        const auto body = json::parse(request.body());
+        const bool registering = path == "/api/v1/auth/register";
+        if (!body.is_object() || !body.contains("email") || !body["email"].is_string() ||
+            !body.contains("password") || !body["password"].is_string() ||
+            (registering && (!body.contains("displayName") || !body["displayName"].is_string()))) {
+            throw std::invalid_argument("email and password are required");
+        }
+        std::string email = body["email"].get<std::string>();
+        const std::string password = body["password"].get<std::string>();
+        std::transform(email.begin(), email.end(), email.begin(),
+            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        if (email.empty() || email.size() > 254 || password.empty() || password.size() > 128) {
+            throw std::invalid_argument("email or password length is invalid");
+        }
+        Database database(env_or("DATABASE_URL", ""));
+        if (registering) {
+            std::string name = body["displayName"].get<std::string>();
+            const auto at = email.find('@');
+            if (at == std::string::npos || at == 0 || email.find('.', at) == std::string::npos ||
+                name.empty() || name.size() > 120 || password.size() < 12) {
+                throw std::invalid_argument("valid email, displayName, and 12-character password required");
+            }
+            const std::string hash = saarthi_security::password_hash(password);
+            const std::string id = database.create_passenger(email, name, hash);
+            const std::string token = saarthi_security::sign_access_token(
+                id, "passenger", env_or("SAARTHI_JWT_SECRET", ""));
+            return response(http::status::created, {
+                {"accessToken", token}, {"tokenType", "Bearer"}, {"expiresIn", 900},
+                {"account", {{"id", id}, {"email", email}, {"displayName", name}, {"role", "passenger"}}}
+            }, request);
+        }
+        const auto account = database.find_account(email);
+        if (!account || !account->active ||
+            !saarthi_security::verify_password(password, account->password_hash)) {
+            return response(http::status::unauthorized, {{"error", "invalid_credentials"}}, request);
+        }
+        const std::string token = saarthi_security::sign_access_token(
+            account->id, account->role, env_or("SAARTHI_JWT_SECRET", ""));
+        return response(http::status::ok, {
+            {"accessToken", token}, {"tokenType", "Bearer"}, {"expiresIn", 900},
+            {"account", {{"id", account->id}, {"email", email}, {"role", account->role}}}
+        }, request);
+    } catch (const std::domain_error&) {
+        return response(http::status::conflict, {{"error", "email_already_exists"}}, request);
+    } catch (const std::invalid_argument& error) {
+        return response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
+    } catch (const json::exception&) {
+        return response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+    } catch (const std::exception&) {
+        return response(http::status::service_unavailable, {{"error", "authentication_unavailable"}}, request);
+    }
+}
+
 void handle_request(tcp::socket socket) {
     beast::flat_buffer buffer;
     http::request<http::string_body> request;
@@ -288,7 +347,10 @@ void handle_request(tcp::socket socket) {
 
     http::response<http::string_body> result;
     const std::string path(request.target().data(), request.target().size());
-    if (request.method() == http::verb::options) {
+    if (request.method() == http::verb::post &&
+        (path == "/api/v1/auth/register" || path == "/api/v1/auth/login")) {
+        result = handle_auth(request, path);
+    } else if (request.method() == http::verb::options) {
         result = response(http::status::no_content, json::object(), request);
         result.set(http::field::access_control_allow_methods, "GET, POST, OPTIONS");
         result.set(http::field::access_control_allow_headers, "Content-Type, Authorization, Idempotency-Key");
