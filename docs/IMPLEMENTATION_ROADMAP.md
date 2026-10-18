@@ -1,75 +1,112 @@
-# Smart Bike Taxi Platform — implementation roadmap
+# Saarthi — implementation and release roadmap
+
+Last reconciled: 2026-10-18. This document describes the feature branch, not a claim that the service is commercially ready.
 
 ## Product goal
-Build an original, accessible, portfolio-grade bike-taxi booking product with a real backend. It is inspired by common ride-hailing workflows, not a copy of Rapido's proprietary code, branding, illustrations, or assets.
 
-## Current verified baseline (2026-10-18)
-- Repository: `kaustubhdua/Smart_bike_taxi_platform`, default branch `main`.
-- Existing app is a C++17 terminal simulation; it has a graph/Dijkstra route engine, custom linear-probing hash table, FIFO request queue, driver selection, local text persistence, CMake tests, and GitHub Actions for GCC, Clang, and sanitizers.
-- Latest observed Actions run on `main` (commit `822e9e5c574aab59a48599e4558acdc6a3103051`) completed successfully on 2026-10-01: sanitizer, GCC, and Clang jobs passed.
-- No open pull requests were returned by GitHub at audit time.
-- There is no web frontend, HTTP API, PostgreSQL schema, auth system, or production deployment in the current tree.
-- No local build was run in this review. The passing CI run is historical evidence for that exact commit, not proof for future changes.
-- REA has not yet been installed or run; do not claim reverse-engineering observations until evidence is captured.
+Build an original, accessible, portfolio-grade bike-taxi product with a React/TypeScript client, a C++17 HTTP API, PostgreSQL persistence, route/fare quotes, passenger bookings, driver operations and an admin workspace. Preserve the C++ DSA core as a documented, benchmarkable part of the portfolio. A deployed demo must clearly distinguish simulated payment/safety features from real services.
 
-## Delivery phases and acceptance gates
+## Current implemented foundations
 
-### Phase 0 — audit and product/design foundation
-- [x] Inspect repository tree, CMake, workflow, README and core C++ headers.
-- [x] Record existing CI evidence and scope limitations.
-- [x] Create a safe feature branch for the full-stack foundation.
-- [ ] Run the existing build/tests in a working checkout.
-- [ ] Install/verify REA in a compatible environment and record version + command output.
-- [ ] Document any public reference observations with screenshots/notes and separate evidence from assumptions.
+- C++17 DSA application, graph routing, deterministic selection/lifecycle tests and an opt-in benchmark.
+- React + TypeScript + Vite passenger experience with a lazy-loaded map and configurable geocoding/routing adapter.
+- C++17 Boost.Beast API for health, server-authoritative route quotes, passenger registration/login, persisted idempotent bookings, history/detail, cancellation, driver availability/queue/acceptance/status and protected admin metrics.
+- PostgreSQL migration 001 for accounts, profiles, rides, quotes, ride events and idempotency; migration 002 adds explicit driver approval and a transactional event notification outbox.
+- Driver queue reads are limited to approved profiles online with a location updated in the last five minutes. Availability and acceptance enforce approval.
+- Migration runner applies ordered SQL files and fails closed on an existing unversioned schema.
+- CI covers C++ builds/tests, API HTTP smoke behavior, PostgreSQL migration/invariant checks, frontend typecheck/build/E2E/accessibility checks, and container/Compose validation. Only runs on the exact head SHA count as release evidence.
 
-### Phase 1 — preserve and harden DSA core
-- [ ] Expand graph tests: disconnected components, equal-cost paths, duplicate roads, zero-weight edges, very large finite weights, route reconstruction invariants.
-- [ ] Audit hash table collision/update/full-capacity behavior; document fixed capacity and benchmark against `std::unordered_map`.
-- [ ] Test FIFO semantics, deterministic driver tie-breaks, unavailable/unreachable drivers, failed dispatch state preservation, lifecycle transitions.
-- [ ] Add fare rounding policy and finite/overflow input tests.
-- [ ] Add reproducible benchmark program + generated datasets; publish results only after measuring.
-- [ ] Add property/fuzz-style malformed persistence tests and document single-user limitations.
+## Known gaps — do not represent as complete
 
-### Phase 2 — API + persistent data
-- [ ] Choose and justify a C++ HTTP framework after checking portability and maintenance.
-- [ ] Define versioned OpenAPI contract before UI integration.
-- [ ] Add PostgreSQL migrations and repository layer; no production ride data in local text files.
-- [ ] Model users, driver profiles, ride requests, rides, state-transition audit events, and idempotency records.
-- [ ] Enforce authenticated identity, role checks, ownership checks, request validation, rate limits and safe errors.
-- [ ] Make assignment transactional; add database constraints that prevent a driver having conflicting active rides.
-- [ ] Add API integration tests and concurrency tests.
+- No self-service or admin UI for driver provisioning and approval; trusted provisioning currently requires an explicit operator/database action.
+- The ride-event outbox is durable, but there is no publisher worker, WebSocket/SSE delivery, retry loop or client resync protocol yet. Passenger status polling remains the recovery mechanism.
+- Dispatch queue filtering currently uses approval, online status and location freshness; it is not yet a full road-ETA ranking service or geographic matching engine.
+- Admin workspace currently exposes operational metrics, not full driver approval, incident, audit-search or suspension workflows.
+- No real payment processing, refund/reconciliation, real SMS delivery, production safety response or commercial fleet operations.
+- No live production deployment, production provider contract, tested production backup/restore, or legal authorization for commercial rides is claimed.
+- No production-grade distributed rate limiting or shared connection pool is claimed.
+- REA research tooling has not been installed/run in this implementation branch unless a later evidence artifact says otherwise.
 
-### Phase 3 — passenger experience
-- [ ] Responsive booking shell, pickup/drop selection, route/fare quote, confirmation, active trip, cancellation and ride history.
-- [ ] Real map provider adapter and geocoding policy; no reliance on public OSM demo endpoints for production.
-- [ ] Keyboard, screen-reader, reduced-motion, loading, empty, offline, and error states.
-- [ ] Booking submits to API; never silently create fake bookings when API is unavailable.
+## Phase 0 — establish trustworthy evidence
 
-### Phase 4 — driver experience + real time
-- [ ] Driver availability, incoming requests, accept/reject, trip state controls and trip history.
-- [ ] Atomic acceptance and conflict tests.
-- [ ] WebSocket updates with reconnect/backoff and REST resync fallback.
-- [ ] Passenger/driver status agreement through cancellation and completion.
+- [x] Inspect the current branch, backend, frontend, migrations, tests and CI configuration.
+- [x] Add a reproducible frontend lockfile install (npm ci).
+- [x] Add explicit driver approval and a transactional event outbox foundation.
+- [x] Add smoke tests for offline queue privacy and unapproved driver rejection.
+- [ ] Re-run every workflow against the latest exact commit SHA; fix all failures.
+- [ ] Ensure README, this roadmap, OpenAPI, PR description and issue tracker agree.
+- [ ] Verify the Compose startup path applies all migrations from a clean database and is repeatable.
 
-### Phase 5 — admin, safety and operations
-- [ ] Admin-only account/trip inspection, incident reports and audited actions.
-- [ ] Trip-sharing and emergency-support flows appropriate for a portfolio demo.
-- [ ] Health/readiness endpoints, structured logs, redaction, backup/restore documentation.
-- [ ] Dependency/security scans and secrets review.
+Acceptance: every current-head check is green, migration 001 and 002 apply in order and the second migration run is a no-op.
 
-### Phase 6 — release
-- [ ] C++ and frontend CI; lockfile-backed install.
-- [ ] API integration and Playwright end-to-end tests.
-- [ ] WCAG 2.2 AA review, responsive visual QA, performance baseline and load tests.
-- [ ] Deploy frontend and API; verify both against the exact release commit.
-- [ ] README with architecture, local setup, screenshots, demo limitations and benchmark methodology.
+## Phase 1 — transactional API and security
 
-## Design direction
-- Product name: **Saarthi** (working name; changeable before public branding).
-- Visual language: premium urban mobility, warm off-white canvas, deep ink typography, electric-lime action accent, cobalt map/route accent, generous whitespace, restrained motion, strong information hierarchy.
-- Distinguish from reference products through clearer fare transparency, explainable driver matching, accessible controls, honest trip states and a visible DSA lab.
-- Open-source inspirations may include React Bits, Magic UI, Radix UI, Motion and Lucide. Reuse specific components only under their license and preserve required notices; avoid copying brand assets or an entire competitor screen.
-- Target WCAG 2.2 AA. Respect reduced-motion preferences. Use focus-visible states and semantic controls.
+- [ ] Expand cross-account and cross-role authorization tests for every protected endpoint.
+- [ ] Test same-key booking retries, payload conflicts, expired/consumed quotes, cancellation races and concurrent driver acceptance.
+- [ ] Verify event rows and outbox rows commit/rollback together.
+- [ ] Add a real connection pool or bounded database concurrency strategy.
+- [ ] Make account deactivation/revocation take effect promptly; document the short-lived token model.
+- [ ] Add distributed rate limits before horizontally scaling.
+- [ ] Review malformed JSON, oversized headers/bodies, route path parsing, SQLSTATE mapping, and safe error/log behavior.
+- [ ] Add least-privilege database roles and a secrets/dependency scan.
 
-## Explicit MVP non-goals
-No real-money collection, real SMS/OTP delivery, live commercial dispatch, unverified legal claims, native mobile apps, ML demand prediction, multi-city fleet operations, or microservices/Kubernetes in the first MVP. A sandbox payment must be visibly labelled as simulated.
+Acceptance: adversarial integration tests pass and no client can read or mutate another account's ride.
+
+## Phase 2 — driver trust and operations
+
+- [ ] Add an admin-only driver provisioning/approval/suspension API and corresponding UI.
+- [ ] Record approval actor/time and audit every privileged change.
+- [ ] Add driver profile/vehicle fields and a documented demo verification policy.
+- [ ] Reject stale or out-of-area offers at both queue and acceptance time.
+- [ ] Add a driver trip history/earnings ledger that is derived from persisted rides.
+- [ ] Add admin ride search, failed dispatch inspection and incident records.
+
+Acceptance: a newly created driver cannot go online until explicitly approved; suspended drivers lose dispatch eligibility.
+
+## Phase 3 — realtime and dispatch
+
+- [ ] Implement an outbox publisher with row leasing, bounded retries, redaction and dead-letter visibility.
+- [ ] Add WebSocket (or SSE if chosen deliberately) authenticated subscriptions scoped to passenger/driver ride ownership.
+- [ ] Use event sequence/version numbers, reconnect backoff and REST resynchronization.
+- [ ] Add fresh driver-location updates while online; stop sharing on offline/logout and enforce retention.
+- [ ] Rank eligible drivers by configured distance/ETA policy, with a provider adapter and timeout/failure behavior.
+- [ ] Test duplicate, delayed and out-of-order event delivery.
+
+Acceptance: passenger and driver converge on the same persisted ride state after refresh, disconnect, reconnect and duplicate events.
+
+## Phase 4 — passenger product completeness
+
+- [ ] Finish pickup/destination autocomplete, map selection, accessible map alternatives and quote expiry handling.
+- [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
+- [ ] Add trip detail/history, receipt, support reporting and clear empty/error/offline states.
+- [ ] Ensure no fabricated success when the API/provider is unavailable.
+- [ ] Complete mobile/browser QA and WCAG 2.2 AA review.
+
+Acceptance: a passenger can register, quote, book, refresh, track, cancel when permitted and view trip history on the deployed build.
+
+## Phase 5 — reliability, privacy and deployment
+
+- [ ] Add request IDs and structured redacted logs, readiness checks, graceful shutdown and dependency timeouts.
+- [ ] Document and test backup/restore; verify schema upgrade and rollback/recovery procedures.
+- [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
+- [ ] Run dependency, container and API security scans; review data retention and deletion.
+- [ ] Select a suitable contracted or self-hosted routing/geocoding provider for any public service.
+- [ ] Deploy frontend/API/database using protected secrets and HTTPS; verify the exact release SHA.
+- [ ] Capture genuine desktop/mobile screenshots, record the deployment URL and publish a demo walkthrough.
+
+Acceptance: clean setup and deployment are reproducible, all checks pass on one release SHA, and operations/recovery steps have been exercised.
+
+## Phase 6 — optional commercial capabilities
+
+- [ ] Payment sandbox first, then signed/deduplicated webhooks, reconciliation, refunds and support operations.
+- [ ] Real notifications only after consent, provider setup, delivery/retry monitoring and cost limits.
+- [ ] Safety/incident escalation that never falsely claims to contact emergency services.
+- [ ] Assess Indian DPDP applicability/commencement, state transport rules, insurance, driver/vehicle verification and legal permission before commercial operation.
+
+Acceptance: each external capability has separate operational and legal approval. A portfolio demo is not represented as an authorized ride-hailing service.
+
+## UI/engineering principles
+
+- Use React, TypeScript, Radix/accessibility primitives, Motion with reduced-motion support, and Lucide icons where appropriate.
+- Preserve required notices for third-party open-source components; do not copy competitor branding or proprietary assets.
+- Prioritize clear fare transparency, honest state transitions, accessible controls, explainable dispatch and evidence-backed DSA benchmarks over decorative effects.
