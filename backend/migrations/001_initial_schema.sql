@@ -73,6 +73,26 @@ CREATE TABLE ride_events (
 );
 CREATE INDEX ride_events_by_ride ON ride_events(ride_id, created_at);
 
+CREATE TABLE route_quotes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  pickup_label text NOT NULL CHECK (length(trim(pickup_label)) BETWEEN 2 AND 240),
+  pickup_latitude double precision NOT NULL CHECK (pickup_latitude BETWEEN -90 AND 90),
+  pickup_longitude double precision NOT NULL CHECK (pickup_longitude BETWEEN -180 AND 180),
+  destination_label text NOT NULL CHECK (length(trim(destination_label)) BETWEEN 2 AND 240),
+  destination_latitude double precision NOT NULL CHECK (destination_latitude BETWEEN -90 AND 90),
+  destination_longitude double precision NOT NULL CHECK (destination_longitude BETWEEN -180 AND 180),
+  route_distance_m integer NOT NULL CHECK (route_distance_m > 0),
+  route_duration_seconds integer NOT NULL CHECK (route_duration_seconds > 0),
+  fare_paise integer NOT NULL CHECK (fare_paise >= 0),
+  currency char(3) NOT NULL DEFAULT 'INR' CHECK (currency = 'INR'),
+  expires_at timestamptz NOT NULL,
+  consumed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (pickup_latitude <> destination_latitude OR pickup_longitude <> destination_longitude)
+);
+CREATE INDEX route_quotes_expiry ON route_quotes(expires_at);
+CREATE INDEX route_quotes_created_at ON route_quotes(created_at DESC);
+
 CREATE TABLE booking_idempotency (
   passenger_id uuid NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   idempotency_key text NOT NULL,
