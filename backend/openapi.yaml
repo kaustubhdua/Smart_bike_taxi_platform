@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Saarthi Ride API
+  title: RideForge Ride API
   version: 0.1.0
   description: Versioned API contract for implemented passenger quote/booking operations, driver lifecycle routes, and admin metrics.
 servers:
