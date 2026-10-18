@@ -227,6 +227,7 @@ private:
 
 class RateLimiter {
 public:
+    explicit RateLimiter(unsigned limit = 30) : limit_(limit) {}
     bool allow(const std::string& key) {
         using clock = std::chrono::steady_clock;
         std::lock_guard<std::mutex> lock(mutex_);
@@ -236,7 +237,7 @@ public:
             bucket.window = now;
             bucket.count = 0;
         }
-        if (++bucket.count > 30) return false;
+        if (++bucket.count > limit_) return false;
         if (buckets_.size() > 10000) {
             for (auto it = buckets_.begin(); it != buckets_.end();) {
                 if (now - it->second.window >= std::chrono::minutes(2)) it = buckets_.erase(it);
@@ -249,9 +250,11 @@ private:
     struct Bucket { std::chrono::steady_clock::time_point window = std::chrono::steady_clock::now(); unsigned count{}; };
     std::mutex mutex_;
     std::map<std::string, Bucket> buckets_;
+    unsigned limit_{30};
 };
 
-RateLimiter quote_limiter;
+RateLimiter quote_limiter{30};
+RateLimiter auth_limiter{10};
 
 http::response<http::string_body> response(http::status status, const json& body,
                                            const http::request<http::string_body>& request) {
@@ -280,7 +283,10 @@ std::string client_ip(const tcp::socket& socket) {
 }
 
 http::response<http::string_body> handle_auth(
-    const http::request<http::string_body>& request, const std::string& path) {
+    const http::request<http::string_body>& request, const std::string& path, const std::string& ip) {
+    if (!auth_limiter.allow(ip)) {
+        return response(http::status::too_many_requests, {{"error", "rate_limited"}}, request);
+    }
     if (request.body().size() > 16384) {
         return response(http::status::payload_too_large, {{"error", "request_too_large"}}, request);
     }
@@ -350,7 +356,7 @@ void handle_request(tcp::socket socket) {
     const std::string path(request.target().data(), request.target().size());
     if (request.method() == http::verb::post &&
         (path == "/api/v1/auth/register" || path == "/api/v1/auth/login")) {
-        result = handle_auth(request, path);
+        result = handle_auth(request, path, client_ip(socket));
     } else if (request.method() == http::verb::options) {
         result = response(http::status::no_content, json::object(), request);
         result.set(http::field::access_control_allow_methods, "GET, POST, OPTIONS");
