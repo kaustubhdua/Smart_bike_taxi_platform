@@ -6,7 +6,6 @@ import {
   MapPin, Menu, Navigation, Route, ShieldCheck, Sparkles, Wallet, X,
 } from "lucide-react";
 
-type Field = "pickup" | "destination";
 const locations = [
   "JIIT Sector 128",
   "Botanical Garden Metro",
@@ -30,7 +29,6 @@ export default function App() {
   const reduceMotion = useReducedMotion();
   const [pickup, setPickup] = useState(locations[0]);
   const [destination, setDestination] = useState(locations[2]);
-  const [activeField, setActiveField] = useState<Field | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [mode, setMode] = useState<"ride" | "driver" | "insights">("ride");
