@@ -229,9 +229,10 @@ public:
                 PQclear(existing);
                 if (fingerprint != quote_id) throw std::domain_error("idempotency_conflict");
                 if (!has_ride) throw std::runtime_error("Incomplete idempotency record");
+                const char* ride_params[] = {existing_ride.c_str()};
                 PGresult* ride = PQexecParams(connection_,
                     "SELECT id::text,status::text,quoted_fare_paise FROM rides WHERE id=$1::uuid",
-                    1, nullptr, &idem_params[2], nullptr, nullptr, 0);
+                    1, nullptr, ride_params, nullptr, nullptr, 0);
                 if (ride == nullptr || PQresultStatus(ride) != PGRES_TUPLES_OK || PQntuples(ride) != 1) {
                     if (ride != nullptr) PQclear(ride);
                     throw std::runtime_error("Could not read existing ride");
