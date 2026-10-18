@@ -8,6 +8,7 @@ int main() {
     const std::string password = "a-long-demo-password-with-entropy";
     const auto encoded = rideforge_security::password_hash(password);
     assert(encoded.rfind("pbkdf2_sha256$", 0) == 0);
+    assert(encoded.rfind("pbkdf2_sha256$600000$", 0) == 0);
     assert(rideforge_security::verify_password(password, encoded));
     assert(!rideforge_security::verify_password("incorrect-password", encoded));
     assert(!rideforge_security::verify_password(password, "plaintext"));
