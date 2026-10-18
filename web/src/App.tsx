@@ -93,6 +93,11 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [quote?.expiresAt]);
 
+  useEffect(() => {
+    if (account?.role === "driver") void refreshDriverQueue();
+    if (account?.role === "admin") void loadAdminMetrics();
+  }, [account?.role]);
+
   async function requestRide() {
     setNotice("");
     setApiState("checking");
