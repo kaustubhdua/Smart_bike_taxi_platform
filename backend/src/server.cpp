@@ -1268,6 +1268,7 @@ bool stream_ride_events(beast::tcp_stream& stream,
         if (ready > 0 && (descriptor.revents & POLLIN) != 0) {
             if (PQconsumeInput(connection) == 0) break;
             PGnotify* notification = nullptr;
+            bool stream_writable = true;
             while ((notification = PQnotifies(connection)) != nullptr) {
                 try {
                     const auto payload = json::parse(notification->extra);
@@ -1278,11 +1279,12 @@ bool stream_ride_events(beast::tcp_stream& stream,
                             const std::string frame = "id: " + std::to_string(event_id) +
                                 "\nevent: ride-status\ndata: " + payload.dump() + "\n\n";
                             last_event_id = event_id;
-                            if (!send_chunk(frame)) break;
+                            if (!send_chunk(frame)) stream_writable = false;
                         }
                     }
                 } catch (...) { /* Ignore malformed notification payloads. */ }
                 PQfreemem(notification);
+                if (!stream_writable) break;
             }
         }
         const auto now = std::chrono::steady_clock::now();
