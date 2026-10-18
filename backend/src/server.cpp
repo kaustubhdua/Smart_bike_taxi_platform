@@ -395,7 +395,25 @@ public:
         }
         const int online_drivers = std::stoi(PQgetvalue(drivers, 0, 0));
         PQclear(drivers);
-        return json{{"ridesByStatus", counts}, {"onlineDrivers", online_drivers}};
+        PGresult* outbox = PQexec(connection_,
+            "SELECT count(*) FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL)::text,"
+            "count(*) FILTER (WHERE dead_lettered_at IS NOT NULL)::text,"
+            "COALESCE(EXTRACT(EPOCH FROM now()-min(created_at) FILTER "
+            "(WHERE published_at IS NULL AND dead_lettered_at IS NULL))::integer,0)::text "
+            "FROM ride_event_outbox");
+        if (outbox == nullptr || PQresultStatus(outbox) != PGRES_TUPLES_OK ||
+            PQntuples(outbox) != 1) {
+            if (outbox != nullptr) PQclear(outbox);
+            throw std::runtime_error("Could not read outbox metrics");
+        }
+        const int pending_outbox = std::stoi(PQgetvalue(outbox, 0, 0));
+        const int dead_lettered_outbox = std::stoi(PQgetvalue(outbox, 0, 1));
+        const int oldest_pending_age = std::stoi(PQgetvalue(outbox, 0, 2));
+        PQclear(outbox);
+        return json{{"ridesByStatus", counts}, {"onlineDrivers", online_drivers},
+                    {"pendingOutboxEvents", pending_outbox},
+                    {"deadLetteredOutboxEvents", dead_lettered_outbox},
+                    {"oldestPendingOutboxAgeSeconds", oldest_pending_age}};
     }
 
     std::optional<json> get_ride(const std::string& ride_id, const std::string& actor_id,
