@@ -4,6 +4,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 import json
 import os
+import time
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -19,6 +20,9 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/search":
             query = parse_qs(parsed.query).get("q", [""])[0]
+            if "provider timeout" in query.lower():
+                time.sleep(7)
+                return self._send(200, [{"lat": "28.53", "lon": "77.35", "display_name": "Late response"}])
             if "provider failure" in query.lower():
                 return self._send(503, {"error": "test_provider_unavailable"})
             if "missing place" in query.lower():
