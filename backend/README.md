@@ -23,6 +23,8 @@ cmake -S backend -B build-backend -DCMAKE_BUILD_TYPE=Release
 cmake --build build-backend --parallel
 ```
 
+The container also includes a one-time administrator bootstrap utility. After local Compose startup, run the steps in [the operations runbook](../docs/OPERATIONS_RUNBOOK.md). The utility reads the password from standard input, refuses to overwrite an existing email, and does not expose an API endpoint for granting admin privileges.
+
 Configure `DATABASE_URL`, `PORT`, `RIDEFORGE_ALLOWED_ORIGIN`, and `RIDEFORGE_USER_AGENT` in the deployment environment. `RIDEFORGE_GEOCODING_URL` and `RIDEFORGE_ROUTING_URL` can point to compatible providers; their defaults target Nominatim and OSRM. Keep the base URLs free of trailing slashes. CI injects deterministic local mock providers so quote behavior is tested without network calls. Never commit credentials. The service defaults to port 8080 and a development origin of `http://localhost:5173`. Set a real contact identifier in the user agent before using public Nominatim services. Public Nominatim/OSRM endpoints are evaluation services, not a production SLA; production should use a contracted provider or self-hosted services.
 
 The current demo fare is ₹20 base + ₹11/km, rounded up to a whole paise. This is a portfolio demonstration tariff, not a commercial tariff. Quote requests are limited in-process to 30 requests per minute and auth requests to 10 per minute per direct client IP; these are not distributed limiters. The CORS origin is configurable. Do not trust client-provided distance or price.
