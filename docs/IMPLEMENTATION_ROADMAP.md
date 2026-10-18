@@ -1,4 +1,4 @@
-# Saarthi — implementation and release roadmap
+# RideForge — implementation and release roadmap
 
 Last reconciled: 2026-10-18. This document describes the feature branch, not a claim that the service is commercially ready.
 
