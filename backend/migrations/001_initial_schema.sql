@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TYPE account_role AS ENUM ('passenger', 'driver', 'admin');
@@ -101,3 +103,5 @@ CREATE TABLE booking_idempotency (
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (passenger_id, idempotency_key)
 );
+
+COMMIT;
