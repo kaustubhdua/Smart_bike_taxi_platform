@@ -57,11 +57,13 @@ export async function calculateRoute(
       reject(new DOMException("Route lookup cancelled.", "AbortError"));
       return;
     }
+    let timer: ReturnType<typeof setTimeout>;
     const onAbort = () => {
       clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
       reject(new DOMException("Route lookup cancelled.", "AbortError"));
     };
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       signal.removeEventListener("abort", onAbort);
       resolve();
     }, 1100);
