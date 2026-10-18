@@ -166,4 +166,36 @@ status="$(curl --silent --show-error --output "$tmp_dir/cancel.json" --write-out
 test "$status" = "200"
 grep -q '"status":"cancelled"' "$tmp_dir/cancel.json"
 
-echo "PASS: health, validation, auth, persisted booking, history, detail, and cancellation, idempotent replay/conflict, and expired quote rejection"
+status="$(curl --silent --show-error --output "$tmp_dir/third-booking.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --header 'Idempotency-Key: smoke-booking-key-0003' \
+  --data '{"quoteId":"40000000-0000-4000-8000-000000000004"}' "$base_url/api/v1/rides")"
+test "$status" = "201"
+third_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/third-booking.json")"
+
+status="$(curl --silent --show-error --output "$tmp_dir/fourth-booking.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --header 'Idempotency-Key: smoke-booking-key-0004' \
+  --data '{"quoteId":"40000000-0000-4000-8000-000000000005"}' "$base_url/api/v1/rides")"
+test "$status" = "201"
+fourth_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/fourth-booking.json")"
+
+curl --silent --show-error --output "$tmp_dir/concurrent-a.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" --request POST \
+  "$base_url/api/v1/driver/rides/$third_ride_id/accept" > "$tmp_dir/concurrent-a.status" &
+pid_a=$!
+curl --silent --show-error --output "$tmp_dir/concurrent-b.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" --request POST \
+  "$base_url/api/v1/driver/rides/$fourth_ride_id/accept" > "$tmp_dir/concurrent-b.status" &
+pid_b=$!
+wait "$pid_a"
+wait "$pid_b"
+status_a="$(cat "$tmp_dir/concurrent-a.status")"
+status_b="$(cat "$tmp_dir/concurrent-b.status")"
+if ! { test "$status_a" = "200" && test "$status_b" = "409"; } &&
+   ! { test "$status_a" = "409" && test "$status_b" = "200"; }; then
+  echo "Expected exactly one concurrent driver acceptance to win, got $status_a and $status_b"
+  exit 1
+fi
+
+echo "PASS: health, validation, auth, persisted booking, history, detail, cancellation, and concurrent driver assignment, idempotent replay/conflict, and expired quote rejection"
