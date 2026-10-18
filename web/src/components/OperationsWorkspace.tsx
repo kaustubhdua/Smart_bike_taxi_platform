@@ -90,7 +90,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     setBusy(true);
     try {
       const data = await request("/api/v1/driver/rides/" + encodeURIComponent(rideId) + (action === "accept" ? "/accept" : "/status"), {
-        method: "POST",
+        method: action === "accept" ? "POST" : "PUT",
         ...(action === "accept" ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: action }) }),
       });
       if (typeof data.rideId !== "string" || typeof data.status !== "string") throw new Error("The API returned an invalid ride state.");
