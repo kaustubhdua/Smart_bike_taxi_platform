@@ -61,7 +61,7 @@ The benchmark prints CSV timing data for route queries and custom-versus-standar
 
 ### Backend contract and schema
 
-See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service now supports database-backed quotes, passenger registration/login, signed access tokens, idempotent booking transactions, ride history/detail reads, cancellation, driver availability updates and admin metrics. Backend CI covers authentication and transactional booking behavior. Driver acceptance and status-transition data methods exist, but their HTTP routes and end-to-end driver experience still need completion; real-time delivery and deployment also remain release gates. Track the remaining work in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
+See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service now supports database-backed quotes, passenger registration/login, signed access tokens, idempotent booking transactions, ride history/detail reads, cancellation, driver availability updates and admin metrics. Backend CI covers authentication and transactional booking behavior, and the API now exposes driver availability, acceptance, and lifecycle-transition endpoints. The driver UI/onboarding, real-time delivery, and production deployment remain release gates. Track the remaining work in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
 
 ### Run the API and PostgreSQL locally
 
