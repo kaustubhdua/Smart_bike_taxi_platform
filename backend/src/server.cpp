@@ -940,6 +940,53 @@ void handle_request(tcp::socket socket) {
                                   {{"error", "quote_service_unavailable"}}, request);
             }
         }
+    } else if (request.method() == http::verb::put && path == "/api/v1/driver/availability") {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "driver") {
+            result = response(http::status::forbidden, {{"error", "driver_role_required"}}, request);
+        } else {
+            try {
+                const auto body = json::parse(request.body());
+                if (!body.is_object() || !body.contains("online") || !body["online"].is_boolean() ||
+                    !body.contains("latitude") || !body["latitude"].is_number() ||
+                    !body.contains("longitude") || !body["longitude"].is_number()) {
+                    throw std::invalid_argument("online, latitude and longitude are required");
+                }
+                const double latitude = body["latitude"].get<double>();
+                const double longitude = body["longitude"].get<double>();
+                if (!std::isfinite(latitude) || latitude < -90 || latitude > 90 ||
+                    !std::isfinite(longitude) || longitude < -180 || longitude > 180) {
+                    throw std::invalid_argument("invalid_coordinates");
+                }
+                Database database(env_or("DATABASE_URL", ""));
+                database.set_driver_availability(claims->subject, body["online"].get<bool>(), latitude, longitude);
+                result = response(http::status::ok, {{"online", body["online"]}, {"updated", true}}, request);
+            } catch (const std::domain_error& error) {
+                result = response(http::status::forbidden, {{"error", error.what()}}, request);
+            } catch (const std::invalid_argument& error) {
+                result = response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
+            } catch (const json::exception&) {
+                result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "driver_unavailable"}}, request);
+            }
+        }
+    } else if (request.method() == http::verb::get && path == "/api/v1/admin/metrics") {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "admin") {
+            result = response(http::status::forbidden, {{"error", "admin_role_required"}}, request);
+        } else {
+            try {
+                Database database(env_or("DATABASE_URL", ""));
+                result = response(http::status::ok, database.admin_metrics(), request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "metrics_unavailable"}}, request);
+            }
+        }
     } else if (request.method() == http::verb::get && path == "/api/v1/rides") {
         const auto claims = bearer_claims(request);
         if (!claims) {
