@@ -305,6 +305,175 @@ public:
         }
     }
 
+    void set_driver_availability(const std::string& driver_id, bool online,
+                                 double latitude, double longitude) {
+        const char* params[] = {driver_id.c_str(), online ? "true" : "false",
+            std::to_string(latitude).c_str(), std::to_string(longitude).c_str()};
+        const std::vector<std::string> owned = {
+            driver_id, online ? "true" : "false", std::to_string(latitude), std::to_string(longitude)};
+        std::vector<const char*> values;
+        for (const auto& value : owned) values.push_back(value.c_str());
+        (void)params;
+        PGresult* result = PQexecParams(connection_,
+            "UPDATE driver_profiles SET is_online=$2::boolean,current_latitude=$3::double precision,"
+            "current_longitude=$4::double precision,last_location_at=now() WHERE account_id=$1::uuid",
+            static_cast<int>(values.size()), nullptr, values.data(), nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not update driver availability");
+        }
+        const bool updated = std::string(PQcmdTuples(result)) == "1";
+        PQclear(result);
+        if (!updated) throw std::domain_error("driver_profile_missing");
+    }
+
+    json accept_ride(const std::string& ride_id, const std::string& driver_id) {
+        const auto command = [this](const char* sql) {
+            PGresult* result = PQexec(connection_, sql);
+            if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Database transaction command failed");
+            }
+            PQclear(result);
+        };
+        command("BEGIN");
+        try {
+            const char* driver_params[] = {driver_id.c_str()};
+            PGresult* driver = PQexecParams(connection_,
+                "SELECT account_id::text FROM driver_profiles WHERE account_id=$1::uuid "
+                "AND is_online=true AND last_location_at>now()-interval '5 minutes' FOR UPDATE",
+                1, nullptr, driver_params, nullptr, nullptr, 0);
+            if (driver == nullptr || PQresultStatus(driver) != PGRES_TUPLES_OK) {
+                if (driver != nullptr) PQclear(driver);
+                throw std::runtime_error("Could not lock driver profile");
+            }
+            const bool available = PQntuples(driver) == 1;
+            PQclear(driver);
+            if (!available) throw std::domain_error("driver_unavailable");
+
+            PGresult* active = PQexecParams(connection_,
+                "SELECT id::text FROM rides WHERE driver_id=$1::uuid "
+                "AND status IN ('assigned','driver_arriving','in_progress') LIMIT 1",
+                1, nullptr, driver_params, nullptr, nullptr, 0);
+            if (active == nullptr || PQresultStatus(active) != PGRES_TUPLES_OK) {
+                if (active != nullptr) PQclear(active);
+                throw std::runtime_error("Could not check active driver rides");
+            }
+            const bool has_active = PQntuples(active) > 0;
+            PQclear(active);
+            if (has_active) throw std::domain_error("driver_has_active_ride");
+
+            const char* ride_params[] = {ride_id.c_str()};
+            PGresult* ride = PQexecParams(connection_,
+                "SELECT status::text FROM rides WHERE id=$1::uuid FOR UPDATE",
+                1, nullptr, ride_params, nullptr, nullptr, 0);
+            if (ride == nullptr || PQresultStatus(ride) != PGRES_TUPLES_OK) {
+                if (ride != nullptr) PQclear(ride);
+                throw std::runtime_error("Could not lock ride");
+            }
+            if (PQntuples(ride) != 1) {
+                PQclear(ride);
+                throw std::domain_error("ride_not_found");
+            }
+            const std::string previous = PQgetvalue(ride, 0, 0);
+            PQclear(ride);
+            if (previous != "requested" && previous != "matching") {
+                throw std::domain_error("ride_not_available");
+            }
+
+            const char* update_params[] = {ride_id.c_str(), driver_id.c_str()};
+            PGresult* updated = PQexecParams(connection_,
+                "UPDATE rides SET driver_id=$2::uuid,status='assigned',assigned_at=now(),updated_at=now() "
+                "WHERE id=$1::uuid AND status IN ('requested','matching')",
+                2, nullptr, update_params, nullptr, nullptr, 0);
+            if (updated == nullptr || PQresultStatus(updated) != PGRES_COMMAND_OK ||
+                std::string(PQcmdTuples(updated)) != "1") {
+                if (updated != nullptr) PQclear(updated);
+                throw std::domain_error("ride_not_available");
+            }
+            PQclear(updated);
+            const char* event_params[] = {ride_id.c_str(), driver_id.c_str(), previous.c_str()};
+            PGresult* event = PQexecParams(connection_,
+                "INSERT INTO ride_events (ride_id,actor_id,previous_status,new_status,details) "
+                "VALUES ($1::uuid,$2::uuid,$3::ride_status,'assigned','{\"source\":\"driver_accept\"}'::jsonb)",
+                3, nullptr, event_params, nullptr, nullptr, 0);
+            if (event == nullptr || PQresultStatus(event) != PGRES_COMMAND_OK) {
+                if (event != nullptr) PQclear(event);
+                throw std::runtime_error("Could not record assignment event");
+            }
+            PQclear(event);
+            command("COMMIT");
+            return json{{"rideId", ride_id}, {"driverId", driver_id}, {"status", "assigned"}};
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
+    json advance_ride(const std::string& ride_id, const std::string& driver_id,
+                      const std::string& next_status) {
+        const auto command = [this](const char* sql) {
+            PGresult* result = PQexec(connection_, sql);
+            if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Database transaction command failed");
+            }
+            PQclear(result);
+        };
+        command("BEGIN");
+        try {
+            const char* params[] = {ride_id.c_str(), driver_id.c_str()};
+            PGresult* ride = PQexecParams(connection_,
+                "SELECT status::text FROM rides WHERE id=$1::uuid AND driver_id=$2::uuid FOR UPDATE",
+                2, nullptr, params, nullptr, nullptr, 0);
+            if (ride == nullptr || PQresultStatus(ride) != PGRES_TUPLES_OK) {
+                if (ride != nullptr) PQclear(ride);
+                throw std::runtime_error("Could not lock assigned ride");
+            }
+            if (PQntuples(ride) != 1) {
+                PQclear(ride);
+                throw std::domain_error("ride_not_found");
+            }
+            const std::string previous = PQgetvalue(ride, 0, 0);
+            PQclear(ride);
+            const bool valid = (previous == "assigned" && next_status == "driver_arriving") ||
+                (previous == "driver_arriving" && next_status == "in_progress") ||
+                (previous == "in_progress" && next_status == "completed");
+            if (!valid) throw std::domain_error("invalid_ride_transition");
+
+            const char* update_params[] = {ride_id.c_str(), next_status.c_str()};
+            PGresult* updated = PQexecParams(connection_,
+                "UPDATE rides SET status=$2::ride_status,updated_at=now(),"
+                "started_at=CASE WHEN $2='in_progress' THEN now() ELSE started_at END,"
+                "completed_at=CASE WHEN $2='completed' THEN now() ELSE completed_at END,"
+                "final_fare_paise=CASE WHEN $2='completed' THEN quoted_fare_paise ELSE final_fare_paise END "
+                "WHERE id=$1::uuid",
+                2, nullptr, update_params, nullptr, nullptr, 0);
+            if (updated == nullptr || PQresultStatus(updated) != PGRES_COMMAND_OK) {
+                if (updated != nullptr) PQclear(updated);
+                throw std::runtime_error("Could not advance ride status");
+            }
+            PQclear(updated);
+            const char* event_params[] = {ride_id.c_str(), driver_id.c_str(), previous.c_str(), next_status.c_str()};
+            PGresult* event = PQexecParams(connection_,
+                "INSERT INTO ride_events (ride_id,actor_id,previous_status,new_status,details) "
+                "VALUES ($1::uuid,$2::uuid,$3::ride_status,$4::ride_status,'{\"source\":\"driver_status\"}'::jsonb)",
+                4, nullptr, event_params, nullptr, nullptr, 0);
+            if (event == nullptr || PQresultStatus(event) != PGRES_COMMAND_OK) {
+                if (event != nullptr) PQclear(event);
+                throw std::runtime_error("Could not record ride status event");
+            }
+            PQclear(event);
+            command("COMMIT");
+            return json{{"rideId", ride_id}, {"status", next_status}};
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
     json create_ride(const std::string& passenger_id, const std::string& idempotency_key,
                      const std::string& quote_id) {
         const auto command = [this](const char* sql) {
