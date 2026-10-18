@@ -18,6 +18,7 @@ permissions:
 jobs:
   build-and-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16
@@ -93,6 +94,12 @@ jobs:
             fi
             sleep 1
           done
-          SAARTHI_TEST_BASE_URL=http://127.0.0.1:8080 bash -x backend/tests/http_smoke.sh
+          if ! SAARTHI_TEST_BASE_URL=http://127.0.0.1:8080 bash -x backend/tests/http_smoke.sh; then
+            echo "API server log:"
+            cat /tmp/saarthi-api.log
+            echo "Mock provider log:"
+            cat /tmp/saarthi-provider.log
+            exit 1
+          fi
       - name: Verify migration invariants
         run: psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
