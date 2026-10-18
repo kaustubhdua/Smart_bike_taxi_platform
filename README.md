@@ -26,11 +26,12 @@ This repository is being extended from its original C++17 academic simulation in
 | Route algorithm | Deterministic equal-distance predecessor selection, zero-weight parent-cycle guard, and overflow handling; disconnected/extreme-weight tests | GCC, Clang and ASan/UBSan passed on current feature head `b602515d6c7815126b34f4a0340e38e4c800d9d0` |
 | Ride lifecycle/dispatch | Cancellation releases drivers; tests cover cancellation/reassignment, deterministic driver ties and unreachable drivers | GCC, Clang and ASan/UBSan passed on current feature head |
 | Benchmarking | Deterministic 1,000-node / 1,000-query benchmark, CI CSV artifact, checked-in sample with environment notes | A real CI sample is recorded in [`benchmarks/results/ubuntu-latest-2026-10-18.csv`](benchmarks/results/ubuntu-latest-2026-10-18.csv); one run is not a general performance claim |
-| Web UI | React + TypeScript + Vite; Leaflet map; Nominatim geocoding + OSRM road geometry; location autocomplete | Typecheck and production build passed on current feature head `b602515d6c7815126b34f4a0340e38e4c800d9d0`; server fare quote still needs API |
+| Web UI | React + TypeScript + Vite; lazy-loaded Leaflet map; Nominatim geocoding + OSRM road geometry; pickup/drop autocomplete; quote expiry validation | Typecheck/build, high-severity npm audit, gzip budgets, desktop/mobile Playwright E2E and axe audit passed on `8cdd5429593347b8c7e167da7d7a9c0e6a5c32b5`; server fare quote still needs API |
 | API contract | OpenAPI quote request/response schemas and documented failure cases at `backend/openapi.yaml` | Contract only; handlers not implemented |
 | PostgreSQL | Initial schema at `backend/migrations/001_initial_schema.sql`, including active-driver uniqueness guard | Migration drafted; not applied to a live DB |
 | Authentication, persisted booking, driver/admin workflows, realtime | Not implemented | Planned; do not claim these are live |
-| Reproducible installs | `web/package-lock.json` not yet generated; CI still uses `npm install` | Release blocker; generate a genuine lockfile in a network-enabled checkout and switch to `npm ci` |\n| Deployment and screenshots | No live full-stack deployment verified | Planned |
+| Reproducible installs | `web/package-lock.json` not yet generated; CI still uses `npm install` | Release blocker; generate a genuine lockfile in a network-enabled checkout and switch to `npm ci` |
+| Deployment and screenshots | No live full-stack deployment verified | Planned |
 
 ### Frontend development
 
