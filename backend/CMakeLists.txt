@@ -19,6 +19,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(rideforge_api PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+add_executable(rideforge_admin_bootstrap src/bootstrap_admin.cpp)
+target_include_directories(rideforge_admin_bootstrap PRIVATE ${Boost_INCLUDE_DIRS})
+target_link_libraries(rideforge_admin_bootstrap PRIVATE PostgreSQL::PostgreSQL OpenSSL::Crypto nlohmann_json::nlohmann_json)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(rideforge_admin_bootstrap PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 add_executable(rideforge_security_tests tests/security_test.cpp)
 target_link_libraries(rideforge_security_tests PRIVATE OpenSSL::Crypto nlohmann_json::nlohmann_json)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
