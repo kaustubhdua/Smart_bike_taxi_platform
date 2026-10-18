@@ -10,6 +10,14 @@ test "$status" = "200"
 grep -q '"status":"ok"' "$tmp_dir/health.json"
 grep -q '"database":"connected"' "$tmp_dir/health.json"
 
+# Request parser must reject oversized bodies before buffering/dispatching them to handlers.
+python3 -c 'print("{\"padding\":\"" + "x" * 20000 + "\"}")' > "$tmp_dir/oversized.json"
+status="$(curl --silent --show-error --output "$tmp_dir/oversized-response.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --data-binary @"$tmp_dir/oversized.json" \
+  "$base_url/api/v1/routes/quote")"
+test "$status" = "413"
+grep -q '"error":"request_too_large"' "$tmp_dir/oversized-response.json"
+
 status="$(curl --silent --show-error --output "$tmp_dir/invalid.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' --data '{"pickup":{"label":"A"},"destination":{"label":"B"}}' \
   "$base_url/api/v1/routes/quote")"
