@@ -428,4 +428,15 @@ for round in $(seq 1 4); do
   done
 done
 
-echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, and five concurrent same-driver assignment races"
+# The outbox worker must publish durable ride events and not dead-letter healthy events.
+published_events=0
+for attempt in $(seq 1 20); do
+  published_events="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_event_outbox WHERE published_at IS NOT NULL")"
+  if [ "$published_events" -gt 0 ]; then break; fi
+  sleep 0.25
+done
+test "$published_events" -gt 0
+dead_lettered_events="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_event_outbox WHERE dead_lettered_at IS NOT NULL")"
+test "$dead_lettered_events" = "0"
+
+echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, concurrent assignment races, and outbox publication"
