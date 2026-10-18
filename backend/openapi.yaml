@@ -83,12 +83,33 @@ paths:
   /rides/{rideId}:
     get:
       summary: Read a ride authorized to the authenticated user
+      description: Includes driverLocation only for assigned, arriving or in-progress rides when the caller is a passenger or assigned driver and the reported location is newer than two minutes.
       parameters:
         - $ref: "#/components/parameters/RideId"
       responses:
-        "200": { description: Ride details }
+        "200": { description: Ride details, optionally including a fresh authorized driverLocation }
         "403": { description: Forbidden }
         "404": { description: Not found }
+  /rides/{rideId}/events:
+    get:
+      summary: Subscribe to ride status using authenticated server-sent events
+      description: Replays persisted events after Last-Event-ID, then streams PostgreSQL notifications for up to 25 seconds. Clients reconnect with the last event ID and use GET /rides/{rideId} as the recovery source of truth.
+      parameters:
+        - $ref: "#/components/parameters/RideId"
+        - in: header
+          name: Last-Event-ID
+          required: false
+          schema: { type: string, pattern: "^[0-9]{1,20}$" }
+      responses:
+        "200":
+          description: Ride status event stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "400": { description: Invalid event cursor }
+        "401": { description: Unauthenticated }
+        "404": { description: Ride not visible to this account }
+        "503": { description: Event stream unavailable }
   /rides/{rideId}/cancel:
     post:
       summary: Cancel eligible ride and release driver atomically
