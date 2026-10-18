@@ -101,6 +101,50 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await expect(page.getByText(/Ride request cancelled/)).toBeVisible();
 });
 
+test("passenger ride status refreshes from persisted API state", async ({ page }) => {
+  await page.clock.install();
+  await mockRouting(page);
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
+      durationMinutes: 14, farePaise: 4750, currency: "INR",
+      expiresAt: new Date(Date.now() + 120_000).toISOString(),
+    }) });
+  });
+  await page.route("http://api.test/api/v1/auth/register", async route => {
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({
+      accessToken: "polling-passenger-token",
+      account: { email: "polling@example.test", displayName: "Polling Rider", role: "passenger" },
+    }) });
+  });
+  await page.route("http://api.test/api/v1/rides", async route => {
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({
+      rideId: "30000000-0000-4000-8000-000000000099", status: "requested",
+    }) });
+  });
+  let reads = 0;
+  await page.route("http://api.test/api/v1/rides/30000000-0000-4000-8000-000000000099", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer polling-passenger-token");
+    reads += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      rideId: "30000000-0000-4000-8000-000000000099", status: reads === 1 ? "requested" : "assigned",
+    }) });
+  });
+
+  await page.goto("/");
+  await expect(page.getByText("5.2 km · 14 min · Road route")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await page.getByLabel("Your name").fill("Polling Rider");
+  await page.locator('.auth-panel input[type="email"]').first().fill("polling@example.test");
+  await page.locator('.auth-panel input[type="password"]').first().fill("a-long-password-123");
+  await page.getByRole("button", { name: "Create passenger account" }).click();
+  await page.getByRole("button", { name: "Confirm ride request" }).click();
+  await expect(page.locator(".ride-confirmation")).toContainText("Status: requested");
+  await expect.poll(() => reads).toBeGreaterThan(0);
+  await page.clock.fastForward(5000);
+  await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
+});
+
 test("rejects expired or invalid quotes without showing a fare", async ({ page }) => {
   await mockRouting(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
@@ -203,8 +247,8 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await page.locator("#operations").getByLabel("Password").fill("driver-password");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await expect(page.getByRole("heading", { name: "Availability and rides" })).toBeVisible();
-  await page.getByLabel("Latitude").fill("28.53");
-  await page.getByLabel("Longitude").fill("77.35");
+  await page.context().grantPermissions(["geolocation"]);
+  await page.context().setGeolocation({ latitude: 28.53, longitude: 77.35 });
   await page.getByRole("button", { name: "Go online" }).click();
   await page.getByRole("button", { name: "Refresh ride queue" }).click();
   await expect(page.getByText("Pickup → Destination")).toBeVisible();
