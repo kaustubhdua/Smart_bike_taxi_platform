@@ -18,6 +18,7 @@ permissions:
 jobs:
   web:
     name: Typecheck and production build
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     defaults:
       run:
