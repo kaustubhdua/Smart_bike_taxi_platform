@@ -1,8 +1,8 @@
-# Saarthi security model and review checklist
+# RideForge security model and review checklist
 
 ## Scope
 
-Saarthi is a portfolio MVP, not an authorized commercial transport service. This document describes the implemented controls and the remaining gaps; it is not a certification or penetration-test report.
+RideForge is a portfolio MVP, not an authorized commercial transport service. This document describes the implemented controls and the remaining gaps; it is not a certification or penetration-test report.
 
 ## Assets
 
