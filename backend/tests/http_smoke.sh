@@ -53,11 +53,31 @@ status="$(curl --silent --show-error --output "$tmp_dir/bad-coordinates.json" --
   "$base_url/api/v1/routes/quote")"
 test "$status" = "422"
 
+status="$(curl --silent --show-error --output "$tmp_dir/provider-timeout.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"pickup":{"label":"Provider Timeout"},"destination":{"label":"Test Destination"}}' \
+  "$base_url/api/v1/routes/quote")"
+test "$status" = "503"
+
 status="$(curl --silent --show-error --output "$tmp_dir/invalid.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' --data '{"pickup":{"label":"A"},"destination":{"label":"B"}}' \
   "$base_url/api/v1/routes/quote")"
 test "$status" = "422"
 grep -q '"error"' "$tmp_dir/invalid.json"
+
+# Six prior quote requests plus the invalid-label request count toward the 30/minute limit.
+for attempt in $(seq 1 23); do
+  status="$(curl --silent --show-error --output "$tmp_dir/rate-limit-loop.json" --write-out '%{http_code}' \
+    --header 'Content-Type: application/json' \
+    --data '{"pickup":{"label":"Test Origin"},"destination":{"label":"Test Destination"}}' \
+    "$base_url/api/v1/routes/quote")"
+  test "$status" = "200"
+done
+status="$(curl --silent --show-error --output "$tmp_dir/rate-limited.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"pickup":{"label":"Test Origin"},"destination":{"label":"Test Destination"}}' \
+  "$base_url/api/v1/routes/quote")"
+test "$status" = "429"
 
 status="$(curl --silent --show-error --output "$tmp_dir/missing.json" --write-out '%{http_code}' "$base_url/api/v1/not-a-route")"
 test "$status" = "404"
