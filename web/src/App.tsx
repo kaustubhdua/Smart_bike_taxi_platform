@@ -103,6 +103,17 @@ export default function App() {
     setDriverLocation(null);
   }, [ride?.rideId]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setDriverLocation(current => {
+        if (!current) return current;
+        const timestamp = Date.parse(current.updatedAt);
+        return !Number.isFinite(timestamp) || Date.now() - timestamp > 120_000 ? null : current;
+      });
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // Use authenticated SSE for low-latency updates and keep REST polling as recovery.
   useEffect(() => {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
