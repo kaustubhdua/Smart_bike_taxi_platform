@@ -289,3 +289,68 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await expect(page.locator("#operations .driver-queue p")).toContainText("4");
   await expect(page.getByText("requested")).toBeVisible();
 });
+
+
+test("admin provisions a driver and explicitly approves or suspends dispatch eligibility", async ({ page }) => {
+  await mockRouting(page);
+  const drivers: Array<{
+    driverId: string; email: string; displayName: string; vehicleRegistration: string;
+    approved: boolean; online: boolean; createdAt: string;
+  }> = [];
+  await page.route("http://api.test/api/v1/auth/login", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      accessToken: "test-admin-token",
+      account: { email: "admin@example.test", role: "admin" },
+    }) });
+  });
+  await page.route("http://api.test/api/v1/admin/drivers**", async route => {
+    const request = route.request();
+    expect(request.headers()["authorization"]).toBe("Bearer test-admin-token");
+    if (request.method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ drivers }) });
+      return;
+    }
+    if (request.method() === "POST") {
+      const input = request.postDataJSON() as { email: string; displayName: string; vehicleRegistration: string };
+      const driver = {
+        driverId: "driver-test-0001",
+        email: input.email,
+        displayName: input.displayName,
+        vehicleRegistration: input.vehicleRegistration.toUpperCase(),
+        approved: false,
+        online: false,
+        createdAt: new Date().toISOString(),
+      };
+      drivers.push(driver);
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(driver) });
+      return;
+    }
+    if (request.method() === "PUT") {
+      const driver = drivers[0];
+      driver.approved = (request.postDataJSON() as { approved: boolean }).approved;
+      driver.online = false;
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        driverId: driver.driverId, approved: driver.approved, online: false,
+      }) });
+      return;
+    }
+    await route.fulfill({ status: 405, contentType: "application/json", body: JSON.stringify({ error: "method_not_allowed" }) });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Admin console" }).click();
+  await page.locator('.auth-panel input[type="email"]').first().fill("admin@example.test");
+  await page.locator('.auth-panel input[type="password"]').first().fill("a-long-admin-password-123");
+  await page.getByRole("button", { name: /Sign in securely/ }).click();
+  await expect(page.getByRole("heading", { name: "Operations and driver approval" })).toBeVisible();
+  await page.getByRole("button", { name: /Refresh drivers/ }).click();
+  await page.getByLabel("Driver name").fill("Demo Driver");
+  await page.getByLabel("Email", { exact: true }).last().fill("driver@example.test");
+  await page.getByLabel("Temporary password (12+ characters)").fill("a-long-driver-password-123");
+  await page.getByLabel("Vehicle registration").fill("HR-00-DEMO-01");
+  await page.getByRole("button", { name: /Create pending driver/ }).click();
+  await expect(page.getByText("Pending approval")).toBeVisible();
+  await page.getByRole("button", { name: "Approve" }).click();
+  await expect(page.getByText("Approved", { exact: false })).toBeVisible();
+  expect(drivers[0].approved).toBe(true);
+});
