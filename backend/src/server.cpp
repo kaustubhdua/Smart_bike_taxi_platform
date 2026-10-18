@@ -836,8 +836,13 @@ http::response<http::string_body> handle_booking(
         if (authorization.rfind("Bearer ", 0) != 0) {
             return response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
         }
-        const auto claims = saarthi_security::verify_access_token(
-            authorization.substr(7), env_or("SAARTHI_JWT_SECRET", ""));
+        saarthi_security::Claims claims;
+        try {
+            claims = saarthi_security::verify_access_token(
+                authorization.substr(7), env_or("SAARTHI_JWT_SECRET", ""));
+        } catch (const std::exception&) {
+            return response(http::status::unauthorized, {{"error", "invalid_access_token"}}, request);
+        }
         if (claims.role != "passenger") {
             return response(http::status::forbidden, {{"error", "passenger_role_required"}}, request);
         }
@@ -860,7 +865,7 @@ http::response<http::string_body> handle_booking(
         return response(http::status::conflict,
             {{"error", reason == "idempotency_conflict" ? "idempotency_conflict" : "quote_unavailable"}}, request);
     } catch (const std::invalid_argument& error) {
-        return response(http::status::unauthorized, {{"error", error.what()}}, request);
+        return response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
     } catch (const json::exception&) {
         return response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
     } catch (const std::exception&) {
