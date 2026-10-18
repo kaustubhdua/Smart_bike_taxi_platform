@@ -26,10 +26,10 @@ This repository is being extended from its original C++17 academic simulation in
 | Route algorithm | Deterministic equal-distance predecessor selection and overflow guard added on the feature branch | CI validation in progress |
 | Ride lifecycle | Assigned-ride cancellation releases the driver; tests cover cancellation/reassignment | CI validation in progress |
 | Benchmarking | Opt-in CSV benchmark target under `benchmarks/` | Added; measured results not yet collected |
-| Web UI | React + TypeScript + Vite responsive Saarthi booking interface | Added; still sample route/fare data |
+| Web UI | React + TypeScript + Vite; Leaflet map; Nominatim geocoding + OSRM road geometry | Interactive road route is implemented on this branch; server fare quote still needs API |
 | API contract | Initial OpenAPI file at `backend/openapi.yaml` | Contract only; handlers not implemented |
 | PostgreSQL | Initial schema at `backend/migrations/001_initial_schema.sql`, including active-driver uniqueness guard | Migration drafted; not applied to a live DB |
-| Authentication, live routing, realtime, admin | Not implemented | Planned |
+| Authentication, persisted booking, driver/admin workflows, realtime | Not implemented | Planned; do not claim these are live |
 | Deployment and screenshots | No live full-stack deployment verified | Planned |
 
 ### Frontend development
@@ -42,7 +42,7 @@ npm run typecheck
 npm run build
 ```
 
-The web CI workflow runs typechecking and a production build. The initial booking interface clearly marks route/fare values as illustrative and does not pretend to create a real ride.
+The web CI workflow runs typechecking and a production build. The web interface now requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. It does not invent a fare: fare appears only after a server quote response. Public demo routing endpoints are for evaluation only, and no booking is created.
 
 ### C++ tests and benchmark
 
@@ -60,7 +60,7 @@ The benchmark prints CSV timing data for route queries and custom-versus-standar
 
 ### Backend contract and schema
 
-See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). These files document intended behavior and database invariants, not a deployed/working HTTP service. The next backend milestone must implement the handlers, transaction boundaries, auth/authorization and integration tests before the frontend is connected to them.
+See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). These files document intended behavior and database invariants, not a deployed/working HTTP service. The UI calls the documented `POST /api/v1/routes/quote` path, but that handler is not implemented yet. The next backend milestone must implement the handlers, transaction boundaries, auth/authorization and integration tests before a quote can succeed or a ride can be booked.
 
 ### UI libraries and attribution
 
@@ -70,7 +70,7 @@ The design is original and may incorporate licensed open-source components selec
 
 Smart Bike Taxi Platform is an interactive terminal application that demonstrates how core DSA concepts can support a simplified ride-hailing workflow. It uses a small, illustrative Noida road network and lets users register riders and drivers, request and cancel rides, dispatch requests, estimate fares, and review ride history.
 
-> This is an academic simulation. It does not connect to real riders, drivers, maps, traffic, or payment services.
+> The C++ console application is an academic simulation. The separate web UI can request road geometry from public OpenStreetMap/OSRM demo services, but has no live ride dispatch, driver tracking, payment, or persistent web booking.
 
 ## Workflow
 
