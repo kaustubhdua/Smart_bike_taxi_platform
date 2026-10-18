@@ -1247,6 +1247,95 @@ void handle_request(tcp::socket socket) {
                 }
             }
         }
+    } else if (path == "/api/v1/admin/drivers" &&
+               (request.method() == http::verb::get || request.method() == http::verb::post)) {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "admin") {
+            result = response(http::status::forbidden, {{"error", "admin_role_required"}}, request);
+        } else {
+            try {
+                Database database(env_or("DATABASE_URL", ""));
+                if (request.method() == http::verb::get) {
+                    result = response(http::status::ok, database.list_drivers(), request);
+                } else {
+                    if (request.body().size() > 16384) {
+                        throw std::invalid_argument("request_too_large");
+                    }
+                    const auto body = json::parse(request.body());
+                    if (!body.is_object() || !body.contains("email") || !body["email"].is_string() ||
+                        !body.contains("displayName") || !body["displayName"].is_string() ||
+                        !body.contains("password") || !body["password"].is_string() ||
+                        !body.contains("vehicleRegistration") || !body["vehicleRegistration"].is_string()) {
+                        throw std::invalid_argument("email, displayName, password and vehicleRegistration are required");
+                    }
+                    std::string email = body["email"].get<std::string>();
+                    std::string name = body["displayName"].get<std::string>();
+                    std::string vehicle = body["vehicleRegistration"].get<std::string>();
+                    const std::string password = body["password"].get<std::string>();
+                    std::transform(email.begin(), email.end(), email.begin(),
+                        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+                    trim_in_place(email);
+                    trim_in_place(name);
+                    trim_in_place(vehicle);
+                    std::transform(vehicle.begin(), vehicle.end(), vehicle.begin(),
+                        [](unsigned char ch) { return static_cast<char>(std::toupper(ch)); });
+                    const auto at = email.find('@');
+                    if (email.empty() || email.size() > 254 || at == std::string::npos ||
+                        at == 0 || email.find('.', at) == std::string::npos ||
+                        name.empty() || name.size() > 120 || password.size() < 12 ||
+                        password.size() > 128 || vehicle.size() < 3 || vehicle.size() > 32) {
+                        throw std::invalid_argument("valid email, displayName, 12-128 character password and vehicle registration required");
+                    }
+                    const std::string hash = saarthi_security::password_hash(password);
+                    const std::string driver_id = database.create_driver(email, name, hash, vehicle, claims->subject);
+                    result = response(http::status::created, {
+                        {"driverId", driver_id}, {"email", email}, {"displayName", name},
+                        {"vehicleRegistration", vehicle}, {"approved", false}, {"online", false}
+                    }, request);
+                }
+            } catch (const std::domain_error& error) {
+                result = response(http::status::conflict, {{"error", error.what()}}, request);
+            } catch (const std::invalid_argument& error) {
+                result = response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
+            } catch (const json::exception&) {
+                result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "driver_management_unavailable"}}, request);
+            }
+        }
+    } else if (path.rfind("/api/v1/admin/drivers/", 0) == 0 &&
+               request.method() == http::verb::put &&
+               path.size() > std::string("/api/v1/admin/drivers/").size() + std::string("/approval").size() &&
+               path.substr(path.size() - std::string("/approval").size()) == "/approval") {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "admin") {
+            result = response(http::status::forbidden, {{"error", "admin_role_required"}}, request);
+        } else {
+            const std::string prefix = "/api/v1/admin/drivers/";
+            const std::string driver_id = path.substr(prefix.size(), path.size() - prefix.size() - std::string("/approval").size());
+            try {
+                if (request.body().size() > 4096) throw std::invalid_argument("request_too_large");
+                const auto body = json::parse(request.body());
+                if (!body.is_object() || !body.contains("approved") || !body["approved"].is_boolean()) {
+                    throw std::invalid_argument("approved boolean is required");
+                }
+                Database database(env_or("DATABASE_URL", ""));
+                result = response(http::status::ok,
+                    database.set_driver_approval(driver_id, claims->subject, body["approved"].get<bool>()), request);
+            } catch (const std::domain_error& error) {
+                result = response(http::status::not_found, {{"error", error.what()}}, request);
+            } catch (const std::invalid_argument& error) {
+                result = response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
+            } catch (const json::exception&) {
+                result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "driver_management_unavailable"}}, request);
+            }
+        }
     } else if (request.method() == http::verb::get && path == "/api/v1/admin/metrics") {
         const auto claims = bearer_claims(request);
         if (!claims) {
