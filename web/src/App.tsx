@@ -109,10 +109,16 @@ export default function App() {
     let lastKnownStatus = ride.status;
     const terminal = () => ["completed", "cancelled", "failed"].includes(lastKnownStatus);
     const streamAbort = new AbortController();
+    const statusRank: Record<string, number> = {
+      requested: 0, matching: 1, assigned: 2, driver_arriving: 3,
+      in_progress: 4, completed: 5, cancelled: 5, failed: 5,
+    };
 
     const applyStatus = (data: { rideId?: string; status?: string }) => {
       if (disposed || data.rideId !== ride.rideId || typeof data.status !== "string" ||
-          data.status === lastKnownStatus) return;
+          data.status === lastKnownStatus || terminal() ||
+          statusRank[data.status] === undefined || statusRank[lastKnownStatus] === undefined ||
+          statusRank[data.status] < statusRank[lastKnownStatus]) return;
       lastKnownStatus = data.status;
       setRide(current => {
         if (!current || current.rideId !== data.rideId) return current;
