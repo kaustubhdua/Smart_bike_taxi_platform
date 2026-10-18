@@ -192,14 +192,16 @@ export default function App() {
       setNotice("Your quote expired. Request a fresh quote before booking.");
       return;
     }
+    const key = bookingKey || ("saarthi-" + crypto.randomUUID());
+    setBookingKey(key);
     try {
-      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/rides`, {
+      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/rides`,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
           "Authorization": `Bearer ${account.token}`,
-          "Idempotency-Key": bookingKey || `saarthi-${crypto.randomUUID()}`,
+          "Idempotency-Key": key,
         },
         body: JSON.stringify({ quoteId: quote.quoteId }),
       });
