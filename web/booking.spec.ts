@@ -239,6 +239,6 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await page.getByRole("button", { name: "Sign in securely" }).click();
   await page.getByRole("button", { name: "Refresh metrics" }).click();
   await expect(page.getByText("Online drivers:")).toBeVisible();
-  await expect(page.getByText("4", { exact: true })).toBeVisible();
+  await expect(page.locator(".admin-metrics strong")).toContainText("4");
   await expect(page.getByText("requested")).toBeVisible();
 });
