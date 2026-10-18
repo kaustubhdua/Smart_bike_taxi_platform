@@ -1,6 +1,7 @@
 name: Container build and Compose validation
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
