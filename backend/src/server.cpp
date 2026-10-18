@@ -1099,12 +1099,14 @@ bool stream_ride_events(beast::tcp_stream& stream,
         send_json_error(http::status::service_unavailable, {{"error", "event_stream_unavailable"}});
         return true;
     }
-    Result listen(PQexec(connection, "LISTEN rideforge_ride_events"));
-    if (listen.get() == nullptr || PQresultStatus(listen.get()) != PGRES_COMMAND_OK) {
+    PGresult* listen = PQexec(connection, "LISTEN rideforge_ride_events");
+    if (listen == nullptr || PQresultStatus(listen) != PGRES_COMMAND_OK) {
+        if (listen != nullptr) PQclear(listen);
         PQfinish(connection);
         send_json_error(http::status::service_unavailable, {{"error", "event_stream_unavailable"}});
         return true;
     }
+    PQclear(listen);
 
     http::response<http::empty_body> header{http::status::ok, request.version()};
     header.set(http::field::server, "RideForge API");
@@ -1145,19 +1147,21 @@ bool stream_ride_events(beast::tcp_stream& stream,
     // Replay persisted events after LISTEN is active, avoiding a lost-event race.
     const std::string after = std::to_string(last_event_id);
     const char* values[] = {ride_id.c_str(), after.c_str()};
-    Result replay(PQexecParams(connection,
+    PGresult* replay = PQexecParams(connection,
         "SELECT id::text,new_status::text,created_at::text FROM ride_events "
         "WHERE ride_id=$1::uuid AND id>$2::bigint ORDER BY id LIMIT 100",
-        2, nullptr, values, nullptr, nullptr, 0));
-    if (replay.get() == nullptr || PQresultStatus(replay.get()) != PGRES_TUPLES_OK) {
+        2, nullptr, values, nullptr, nullptr, 0);
+    if (replay == nullptr || PQresultStatus(replay) != PGRES_TUPLES_OK) {
+        if (replay != nullptr) PQclear(replay);
         asio::write(stream, http::make_chunk_last(), ec);
         PQfinish(connection);
         return true;
     }
-    for (int i = 0; i < PQntuples(replay.get()) && !ec; ++i) {
-        const auto id = static_cast<std::uint64_t>(std::stoull(PQgetvalue(replay.get(), i, 0)));
-        if (!emit_event(id, PQgetvalue(replay.get(), i, 1), PQgetvalue(replay.get(), i, 2))) break;
+    for (int i = 0; i < PQntuples(replay) && !ec; ++i) {
+        const auto id = static_cast<std::uint64_t>(std::stoull(PQgetvalue(replay, i, 0)));
+        if (!emit_event(id, PQgetvalue(replay, i, 1), PQgetvalue(replay, i, 2))) break;
     }
+    PQclear(replay);
 
     const auto started = std::chrono::steady_clock::now();
     auto heartbeat = started;
@@ -1177,7 +1181,7 @@ bool stream_ride_events(beast::tcp_stream& stream,
                             const std::string frame = "id: " + std::to_string(event_id) +
                                 "\nevent: ride-status\ndata: " + payload.dump() + "\n\n";
                             last_event_id = event_id;
-                            if (!send_chunk(frame)) { PQfreemem(notification); break; }
+                            if (!send_chunk(frame)) break;
                         }
                     }
                 } catch (...) { /* Ignore malformed notification payloads. */ }
