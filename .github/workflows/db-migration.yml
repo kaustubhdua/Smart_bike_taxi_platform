@@ -1,6 +1,7 @@
 name: PostgreSQL migration smoke test
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
