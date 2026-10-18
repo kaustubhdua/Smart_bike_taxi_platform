@@ -191,6 +191,152 @@ public:
         return account;
     }
 
+    std::string create_driver(const std::string& email, const std::string& name,
+                              const std::string& hash, const std::string& vehicle_registration,
+                              const std::string& admin_id) {
+        auto command = [this](const char* sql) {
+            PGresult* result = PQexec(connection_, sql);
+            if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Database transaction command failed");
+            }
+            PQclear(result);
+        };
+        command("BEGIN");
+        try {
+            const char* account_params[] = {email.c_str(), name.c_str(), hash.c_str()};
+            PGresult* account = PQexecParams(connection_,
+                "INSERT INTO accounts (email,display_name,role,password_hash) "
+                "VALUES ($1,$2,'driver',$3) RETURNING id::text",
+                3, nullptr, account_params, nullptr, nullptr, 0);
+            if (account == nullptr || PQresultStatus(account) != PGRES_TUPLES_OK ||
+                PQntuples(account) != 1) {
+                const char* state = account == nullptr ? nullptr : PQresultErrorField(account, PG_DIAG_SQLSTATE);
+                const bool duplicate = state != nullptr && std::string(state) == "23505";
+                if (account != nullptr) PQclear(account);
+                if (duplicate) throw std::domain_error("email_or_vehicle_already_exists");
+                throw std::runtime_error("Could not create driver account");
+            }
+            const std::string driver_id = PQgetvalue(account, 0, 0);
+            PQclear(account);
+            const char* profile_params[] = {driver_id.c_str(), vehicle_registration.c_str()};
+            PGresult* profile = PQexecParams(connection_,
+                "INSERT INTO driver_profiles (account_id,vehicle_registration,is_approved,is_online) "
+                "VALUES ($1::uuid,$2,false,false)",
+                2, nullptr, profile_params, nullptr, nullptr, 0);
+            if (profile == nullptr || PQresultStatus(profile) != PGRES_COMMAND_OK) {
+                const char* state = profile == nullptr ? nullptr : PQresultErrorField(profile, PG_DIAG_SQLSTATE);
+                const bool duplicate = state != nullptr && std::string(state) == "23505";
+                if (profile != nullptr) PQclear(profile);
+                if (duplicate) throw std::domain_error("email_or_vehicle_already_exists");
+                throw std::runtime_error("Could not create driver profile");
+            }
+            PQclear(profile);
+            const char* audit_params[] = {admin_id.c_str(), driver_id.c_str()};
+            PGresult* audit = PQexecParams(connection_,
+                "INSERT INTO admin_audit_events (actor_id,action,target_type,target_id,details) "
+                "VALUES ($1::uuid,'driver.provisioned','driver',$2,'{\"approved\":false}'::jsonb)",
+                2, nullptr, audit_params, nullptr, nullptr, 0);
+            if (audit == nullptr || PQresultStatus(audit) != PGRES_COMMAND_OK) {
+                if (audit != nullptr) PQclear(audit);
+                throw std::runtime_error("Could not audit driver provisioning");
+            }
+            PQclear(audit);
+            command("COMMIT");
+            return driver_id;
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
+    json list_drivers() {
+        PGresult* result = PQexec(connection_,
+            "SELECT a.id::text,a.email,a.display_name,d.vehicle_registration,d.is_approved,"
+            "d.is_online,d.created_at::text FROM driver_profiles d "
+            "JOIN accounts a ON a.id=d.account_id ORDER BY d.created_at DESC LIMIT 100");
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not list drivers");
+        }
+        json drivers = json::array();
+        for (int i = 0; i < PQntuples(result); ++i) {
+            drivers.push_back({
+                {"driverId", PQgetvalue(result, i, 0)},
+                {"email", PQgetvalue(result, i, 1)},
+                {"displayName", PQgetvalue(result, i, 2)},
+                {"vehicleRegistration", PQgetvalue(result, i, 3)},
+                {"approved", std::string(PQgetvalue(result, i, 4)) == "t"},
+                {"online", std::string(PQgetvalue(result, i, 5)) == "t"},
+                {"createdAt", PQgetvalue(result, i, 6)}
+            });
+        }
+        PQclear(result);
+        return json{{"drivers", drivers}};
+    }
+
+    json set_driver_approval(const std::string& driver_id, const std::string& admin_id,
+                             bool approved) {
+        auto command = [this](const char* sql) {
+            PGresult* result = PQexec(connection_, sql);
+            if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Database transaction command failed");
+            }
+            PQclear(result);
+        };
+        command("BEGIN");
+        try {
+            const char* driver_params[] = {driver_id.c_str()};
+            PGresult* locked = PQexecParams(connection_,
+                "SELECT account_id::text FROM driver_profiles WHERE account_id=$1::uuid FOR UPDATE",
+                1, nullptr, driver_params, nullptr, nullptr, 0);
+            if (locked == nullptr || PQresultStatus(locked) != PGRES_TUPLES_OK) {
+                if (locked != nullptr) PQclear(locked);
+                throw std::runtime_error("Could not lock driver profile");
+            }
+            if (PQntuples(locked) != 1) {
+                PQclear(locked);
+                throw std::domain_error("driver_not_found");
+            }
+            PQclear(locked);
+            const std::string approved_value = approved ? "true" : "false";
+            const char* update_params[] = {driver_id.c_str(), approved_value.c_str(), admin_id.c_str()};
+            PGresult* updated = PQexecParams(connection_,
+                "UPDATE driver_profiles SET is_approved=$2::boolean,"
+                "approved_at=CASE WHEN $2::boolean THEN now() ELSE NULL END,"
+                "approved_by=CASE WHEN $2::boolean THEN $3::uuid ELSE NULL END,"
+                "is_online=CASE WHEN $2::boolean THEN is_online ELSE false END "
+                "WHERE account_id=$1::uuid",
+                3, nullptr, update_params, nullptr, nullptr, 0);
+            if (updated == nullptr || PQresultStatus(updated) != PGRES_COMMAND_OK ||
+                std::string(PQcmdTuples(updated)) != "1") {
+                if (updated != nullptr) PQclear(updated);
+                throw std::runtime_error("Could not update driver approval");
+            }
+            PQclear(updated);
+            const char* audit_params[] = {admin_id.c_str(), driver_id.c_str(), approved_value.c_str()};
+            PGresult* audit = PQexecParams(connection_,
+                "INSERT INTO admin_audit_events (actor_id,action,target_type,target_id,details) "
+                "VALUES ($1::uuid,CASE WHEN $3::boolean THEN 'driver.approved' ELSE 'driver.suspended' END,"
+                "'driver',$2,jsonb_build_object('approved',$3::boolean))",
+                3, nullptr, audit_params, nullptr, nullptr, 0);
+            if (audit == nullptr || PQresultStatus(audit) != PGRES_COMMAND_OK) {
+                if (audit != nullptr) PQclear(audit);
+                throw std::runtime_error("Could not audit driver approval");
+            }
+            PQclear(audit);
+            command("COMMIT");
+            return json{{"driverId", driver_id}, {"approved", approved},
+                        {"online", approved ? false : false}};
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
     json admin_metrics() {
         PGresult* result = PQexec(connection_,
             "SELECT status::text,count(*)::text FROM rides GROUP BY status ORDER BY status");
