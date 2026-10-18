@@ -19,7 +19,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 ## Known gaps — do not represent as complete
 
 - Driver provisioning, approval and suspension API/UI are implemented with an audit trail. Real-world identity/vehicle document verification remains outside this demo.
-- The ride-event outbox publisher is implemented with PostgreSQL NOTIFY, retry/backoff and dead-letter handling. Authenticated WebSocket/SSE delivery and client resync are not implemented; passenger status polling remains the recovery mechanism.
+- The ride-event outbox publisher is implemented with PostgreSQL NOTIFY, retry/backoff and dead-letter handling. The API exposes an authenticated SSE stream with persisted-event replay and the passenger UI consumes ride-status frames; REST polling remains the recovery path.
 - Dispatch queue filtering currently uses approval, online status and location freshness; it is not yet a full road-ETA ranking service or geographic matching engine.
 - Admin workspace currently exposes operational metrics, not full driver approval, incident, audit-search or suspension workflows.
 - No real payment processing, refund/reconciliation, real SMS delivery, production safety response or commercial fleet operations.
@@ -66,8 +66,9 @@ Acceptance: a newly created driver cannot go online until explicitly approved; s
 ## Phase 3 — realtime and dispatch
 
 - [x] Implement an outbox publisher with row leasing, bounded retries, redaction and dead-letter visibility.
-- [ ] Add WebSocket (or SSE if chosen deliberately) authenticated subscriptions scoped to passenger/driver ride ownership.
-- [ ] Use event sequence/version numbers, reconnect backoff and REST resynchronization.
+- [x] Add SSE authenticated subscriptions scoped to passenger ride ownership; driver/admin subscriptions remain future work.
+- [x] Use persisted event IDs, Last-Event-ID replay and reconnect backoff for passenger streams.
+- [ ] Add explicit browser resynchronization and load/reconnect stress tests beyond current smoke coverage.
 - [ ] Add fresh driver-location updates while online; stop sharing on offline/logout and enforce retention.
 - [ ] Rank eligible drivers by configured distance/ETA policy, with a provider adapter and timeout/failure behavior.
 - [ ] Test duplicate, delayed and out-of-order event delivery.
