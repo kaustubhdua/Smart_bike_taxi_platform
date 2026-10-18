@@ -47,9 +47,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
-      - name: Apply initial migration to a clean database
-        run: psql -v ON_ERROR_STOP=1 -f backend/migrations/001_initial_schema.sql
-      - name: Verify active-driver uniqueness and idempotency schema
-        run: psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
-      - name: Verify atomic migration version record
-        run: psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '001_initial_schema'" | grep -Fx '001_initial_schema'
+      - name: Apply all migrations
+        env:
+          SAARTHI_MIGRATIONS_DIR: backend/migrations
+        run: sh backend/scripts/migrate-if-needed.sh
+      - name: Verify migration runner is idempotent
+        env:
+          SAARTHI_MIGRATIONS_DIR: backend/migrations
+        run: sh backend/scripts/migrate-if-needed.sh
+      - name: Verify driver approval, uniqueness and outbox schema
+        run: |
+          psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '002_driver_approval_and_outbox'" | grep -Fx '002_driver_approval_and_outbox'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_trigger WHERE tgname = 'ride_event_notification_outbox' AND NOT tgisinternal" | grep -Fx '1'
