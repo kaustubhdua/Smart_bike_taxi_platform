@@ -131,6 +131,26 @@ status="$(curl --silent --show-error --output "$tmp_dir/accept.json" --write-out
 test "$status" = "200"
 grep -q '"status":"assigned"' "$tmp_dir/accept.json"
 
+for next_status in driver_arriving in_progress completed; do
+  status="$(curl --silent --show-error --output "$tmp_dir/status.json" --write-out '%{http_code}' \
+    --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $driver_token" \
+    --data "{\"status\":\"$next_status\"}" "$base_url/api/v1/driver/rides/$ride_id/status")"
+  test "$status" = "200"
+  grep -q "\"status\":\"$next_status\"" "$tmp_dir/status.json"
+done
+
+status="$(curl --silent --show-error --output "$tmp_dir/second-booking.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --header 'Idempotency-Key: smoke-booking-key-0002' \
+  --data '{"quoteId":"40000000-0000-4000-8000-000000000002"}' "$base_url/api/v1/rides")"
+test "$status" = "201"
+second_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/second-booking.json")"
+
+status="$(curl --silent --show-error --output "$tmp_dir/second-accept.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" --request POST \
+  "$base_url/api/v1/driver/rides/$second_ride_id/accept")"
+test "$status" = "200"
+
 status="$(curl --silent --show-error --output "$tmp_dir/history.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides")"
 test "$status" = "200"
@@ -139,10 +159,10 @@ grep -q "$ride_id" "$tmp_dir/history.json"
 status="$(curl --silent --show-error --output "$tmp_dir/detail.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$ride_id")"
 test "$status" = "200"
-grep -q '"status":"assigned"' "$tmp_dir/detail.json"
+grep -q '"status":"completed"' "$tmp_dir/detail.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/cancel.json" --write-out '%{http_code}' \
-  --header "Authorization: Bearer $token" --request POST "$base_url/api/v1/rides/$ride_id/cancel")"
+  --header "Authorization: Bearer $token" --request POST "$base_url/api/v1/rides/$second_ride_id/cancel")"
 test "$status" = "200"
 grep -q '"status":"cancelled"' "$tmp_dir/cancel.json"
 
