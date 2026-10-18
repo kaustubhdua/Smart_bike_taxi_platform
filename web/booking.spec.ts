@@ -74,6 +74,7 @@ test("route failures are honest and do not enable quote requests", async ({ page
 });
 
 test("booking page has no automated WCAG 2.2 AA violations", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await mockRouting(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /your next stop/i })).toBeVisible();
