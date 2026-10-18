@@ -60,7 +60,7 @@ jobs:
         run: ctest --test-dir build-backend --output-on-failure
       - name: Apply versioned database migration
         env:
-          SAARTHI_SCHEMA_FILE: backend/migrations/001_initial_schema.sql
+          SAARTHI_MIGRATIONS_DIR: backend/migrations
         run: sh backend/scripts/migrate-if-needed.sh
       - name: Verify migration runner idempotency
         env:
