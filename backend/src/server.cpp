@@ -70,7 +70,7 @@ HttpResult get_json(const std::string& url) {
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 6000L);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, env_or("SAARTHI_USER_AGENT", "SaarthiMobilityDemo/0.1 (configure SAARTHI_USER_AGENT)").c_str());
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, env_or("RIDEFORGE_USER_AGENT", "RideForgeMobilityDemo/0.1 (configure RIDEFORGE_USER_AGENT)").c_str());
     const CURLcode result = curl_easy_perform(curl);
     long status = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
@@ -97,7 +97,7 @@ std::string url_encode(const std::string& value) {
 
 Location geocode(const std::string& label) {
     const auto response = get_json(
-        env_or("SAARTHI_GEOCODING_URL", "https://nominatim.openstreetmap.org/search") +
+        env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search") +
         "?format=jsonv2&limit=1&q=" + url_encode(label));
     const auto parsed = json::parse(response.body);
     if (!parsed.is_array() || parsed.empty() || !parsed.at(0).is_object()) {
@@ -117,7 +117,7 @@ Location geocode(const std::string& label) {
 
 std::pair<int, int> route(const Location& pickup, const Location& destination) {
     const std::string url =
-        env_or("SAARTHI_ROUTING_URL", "https://router.project-osrm.org/route/v1/driving") + "/" +
+        env_or("RIDEFORGE_ROUTING_URL", "https://router.project-osrm.org/route/v1/driving") + "/" +
         std::to_string(pickup.longitude) + "," + std::to_string(pickup.latitude) + ";" +
         std::to_string(destination.longitude) + "," + std::to_string(destination.latitude) +
         "?overview=false&alternatives=false&steps=false";
@@ -880,14 +880,14 @@ std::atomic<unsigned> active_sessions{0};
 http::response<http::string_body> response(http::status status, const json& body,
                                            const http::request<http::string_body>& request) {
     http::response<http::string_body> result{status, request.version()};
-    result.set(http::field::server, "Saarthi API");
+    result.set(http::field::server, "RideForge API");
     result.set(http::field::content_type, "application/json; charset=utf-8");
     result.set(http::field::cache_control, "no-store");
     result.set("X-Content-Type-Options", "nosniff");
     result.set("Referrer-Policy", "no-referrer");
     const auto origin_view = request[http::field::origin];
     const std::string origin(origin_view.data(), origin_view.size());
-    const std::string allowed = env_or("SAARTHI_ALLOWED_ORIGIN", "http://localhost:5173");
+    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
     if (!origin.empty() && origin == allowed) {
         result.set(http::field::access_control_allow_origin, allowed);
         result.set(http::field::vary, "Origin");
@@ -946,10 +946,10 @@ http::response<http::string_body> handle_auth(
                 name.empty() || name.size() > 120 || password.size() < 12) {
                 throw std::invalid_argument("valid email, displayName, and 12-character password required");
             }
-            const std::string hash = saarthi_security::password_hash(password);
+            const std::string hash = rideforge_security::password_hash(password);
             const std::string id = database.create_passenger(email, name, hash);
-            const std::string token = saarthi_security::sign_access_token(
-                id, "passenger", env_or("SAARTHI_JWT_SECRET", ""));
+            const std::string token = rideforge_security::sign_access_token(
+                id, "passenger", env_or("RIDEFORGE_JWT_SECRET", ""));
             return response(http::status::created, {
                 {"accessToken", token}, {"tokenType", "Bearer"}, {"expiresIn", 900},
                 {"account", {{"id", id}, {"email", email}, {"displayName", name}, {"role", "passenger"}}}
@@ -957,11 +957,11 @@ http::response<http::string_body> handle_auth(
         }
         const auto account = database.find_account(email);
         if (!account || !account->active ||
-            !saarthi_security::verify_password(password, account->password_hash)) {
+            !rideforge_security::verify_password(password, account->password_hash)) {
             return response(http::status::unauthorized, {{"error", "invalid_credentials"}}, request);
         }
-        const std::string token = saarthi_security::sign_access_token(
-            account->id, account->role, env_or("SAARTHI_JWT_SECRET", ""));
+        const std::string token = rideforge_security::sign_access_token(
+            account->id, account->role, env_or("RIDEFORGE_JWT_SECRET", ""));
         return response(http::status::ok, {
             {"accessToken", token}, {"tokenType", "Bearer"}, {"expiresIn", 900},
             {"account", {{"id", account->id}, {"email", email}, {"role", account->role}}}
@@ -988,10 +988,10 @@ http::response<http::string_body> handle_booking(
         if (authorization.rfind("Bearer ", 0) != 0) {
             return response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
         }
-        saarthi_security::Claims claims;
+        rideforge_security::Claims claims;
         try {
-            claims = saarthi_security::verify_access_token(
-                authorization.substr(7), env_or("SAARTHI_JWT_SECRET", ""));
+            claims = rideforge_security::verify_access_token(
+                authorization.substr(7), env_or("RIDEFORGE_JWT_SECRET", ""));
         } catch (const std::exception&) {
             return response(http::status::unauthorized, {{"error", "invalid_access_token"}}, request);
         }
@@ -1025,14 +1025,14 @@ http::response<http::string_body> handle_booking(
     }
 }
 
-std::optional<saarthi_security::Claims> bearer_claims(
+std::optional<rideforge_security::Claims> bearer_claims(
     const http::request<http::string_body>& request) {
     const auto header = request[http::field::authorization];
     const std::string authorization(header.data(), header.size());
     if (authorization.rfind("Bearer ", 0) != 0) return std::nullopt;
     try {
-        return saarthi_security::verify_access_token(
-            authorization.substr(7), env_or("SAARTHI_JWT_SECRET", ""));
+        return rideforge_security::verify_access_token(
+            authorization.substr(7), env_or("RIDEFORGE_JWT_SECRET", ""));
     } catch (...) {
         return std::nullopt;
     }
@@ -1061,7 +1061,7 @@ void handle_request(tcp::socket socket) {
         const auto status = ec == http::error::body_limit
             ? http::status::payload_too_large : http::status::bad_request;
         http::response<http::string_body> rejected{status, 11};
-        rejected.set(http::field::server, "Saarthi API");
+        rejected.set(http::field::server, "RideForge API");
         rejected.set(http::field::content_type, "application/json; charset=utf-8");
         rejected.set(http::field::cache_control, "no-store");
         rejected.set("X-Content-Type-Options", "nosniff");
@@ -1288,7 +1288,7 @@ void handle_request(tcp::socket socket) {
                         password.size() > 128 || vehicle.size() < 3 || vehicle.size() > 32) {
                         throw std::invalid_argument("valid email, displayName, 12-128 character password and vehicle registration required");
                     }
-                    const std::string hash = saarthi_security::password_hash(password);
+                    const std::string hash = rideforge_security::password_hash(password);
                     const std::string driver_id = database.create_driver(email, name, hash, vehicle, claims->subject);
                     result = response(http::status::created, {
                         {"driverId", driver_id}, {"email", email}, {"displayName", name},
@@ -1423,11 +1423,11 @@ void handle_request(tcp::socket socket) {
 
 int main() {
     curl_global_init(CURL_GLOBAL_DEFAULT);
-    const auto address = asio::ip::make_address(env_or("SAARTHI_BIND_ADDRESS", "0.0.0.0"));
+    const auto address = asio::ip::make_address(env_or("RIDEFORGE_BIND_ADDRESS", "0.0.0.0"));
     const unsigned short port = static_cast<unsigned short>(std::stoul(env_or("PORT", "8080")));
     asio::io_context context{1};
     tcp::acceptor acceptor{context, {address, port}};
-    std::cout << "Saarthi API listening on " << address.to_string() << ':' << port << '\n';
+    std::cout << "RideForge API listening on " << address.to_string() << ':' << port << '\n';
     for (;;) {
         tcp::socket socket{context};
         acceptor.accept(socket);
