@@ -8,6 +8,8 @@ React + TypeScript + Vite passenger booking experience.
 npm install
 npm run typecheck
 npm run build
+npx playwright install chromium
+npm test
 npm run dev
 ```
 
