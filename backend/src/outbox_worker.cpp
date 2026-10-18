@@ -138,9 +138,9 @@ int main() {
                 if (!publish_one(connection)) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(poll_ms));
                 }
-            } catch (const std::exception& error) {
-                std::cerr << "{\"event\":\"outbox_publish_failed\",\"message\":\""
-                          << error.what() << "\"}\n";
+            } catch (const std::exception&) {
+                // Avoid writing raw database/provider exception text to logs.
+                std::cerr << "{\"event\":\"outbox_publish_failed\"}\n";
                 if (PQstatus(connection) != CONNECTION_OK) reconnect = true;
                 else std::this_thread::sleep_for(std::chrono::seconds(1));
             }
