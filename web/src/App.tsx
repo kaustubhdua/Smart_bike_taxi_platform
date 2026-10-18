@@ -1,0 +1,164 @@
+import { useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bike, Check, ChevronDown,
+  CircleHelp, Clock3, Compass, CreditCard, Crosshair, Gauge, LocateFixed,
+  MapPin, Menu, Navigation, Route, ShieldCheck, Sparkles, Wallet, X,
+} from "lucide-react";
+
+type Field = "pickup" | "destination";
+const locations = [
+  "JIIT Sector 128",
+  "Botanical Garden Metro",
+  "Sector 18 Market",
+  "Noida City Centre",
+  "Sector 62",
+];
+const demoRoutes: Record<string, { km: number; mins: number; path: string }> = {
+  "JIIT Sector 128|Botanical Garden Metro": { km: 8.4, mins: 19, path: "Via Noida Expressway" },
+  "JIIT Sector 128|Sector 18 Market": { km: 10.2, mins: 23, path: "Via Sector 18 Link Road" },
+  "JIIT Sector 128|Noida City Centre": { km: 12.6, mins: 27, path: "Via Amity Road" },
+  "JIIT Sector 128|Sector 62": { km: 18.1, mins: 36, path: "Via Dadri Road" },
+};
+const routeFor = (pickup: string, destination: string) => {
+  const direct = demoRoutes[pickup + "|" + destination];
+  const reverse = demoRoutes[destination + "|" + pickup];
+  return direct ?? reverse ?? { km: 6.8, mins: 17, path: "Illustrative sample route" };
+};
+
+export default function App() {
+  const reduceMotion = useReducedMotion();
+  const [pickup, setPickup] = useState(locations[0]);
+  const [destination, setDestination] = useState(locations[2]);
+  const [activeField, setActiveField] = useState<Field | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [mode, setMode] = useState<"ride" | "driver" | "insights">("ride");
+  const [apiState, setApiState] = useState<"idle" | "checking" | "offline">("idle");
+  const route = useMemo(() => routeFor(pickup, destination), [pickup, destination]);
+  const fare = Math.round(20 + route.km * 10);
+  const valid = pickup !== destination && Boolean(pickup && destination);
+
+  async function requestRide() {
+    setNotice("");
+    setApiState("checking");
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base) {
+      setApiState("offline");
+      setNotice("Booking is not connected yet. This preview does not create a fake ride. Configure VITE_API_BASE_URL after the API is ready.");
+      return;
+    }
+    try {
+      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/quotes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickup, destination }),
+      });
+      if (!response.ok) throw new Error("Quote service returned an error.");
+      const data = await response.json() as { quoteId?: string; fare?: number; distanceKm?: number };
+      setNotice(data.quoteId
+        ? `Quote received: ${data.distanceKm ?? route.km} km · ₹${data.fare ?? fare}. Ride creation will be enabled after the booking API contract is finalized.`
+        : "The API responded, but its quote format does not match the current UI contract.");
+      setApiState("idle");
+    } catch {
+      setApiState("offline");
+      setNotice("We could not reach the quote service. Check the API and try again.");
+    }
+  }
+
+  function scrollToBooking() {
+    document.getElementById("booking")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="top-strip"><span className="pulse-dot" /> <span>THE BETTER WAY TO GET THERE</span><span className="strip-divider" /> Built for the city, designed around you</div>
+      <header className="site-header">
+        <a className="brand" href="#top" aria-label="Saarthi home">
+          <span className="brand-mark"><Bike size={22} strokeWidth={2.3} /></span>
+          <span>saarthi<span className="brand-period">.</span><small>URBAN MOBILITY</small></span>
+        </a>
+        <nav className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
+          <button className={mode === "ride" ? "nav-link active" : "nav-link"} onClick={() => { setMode("ride"); setMenuOpen(false); }}>Book a ride</button>
+          <button className={mode === "driver" ? "nav-link active" : "nav-link"} onClick={() => { setMode("driver"); setMenuOpen(false); setNotice("Driver experience is in the next delivery milestone. No driver status is simulated here."); }}>Drive with us</button>
+          <button className={mode === "insights" ? "nav-link active" : "nav-link"} onClick={() => { setMode("insights"); setMenuOpen(false); setNotice("The DSA lab will expose measured route and driver-matching decisions once the API is connected."); }}>How it works</button>
+        </nav>
+        <div className="header-actions"><a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety first</a><button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button><button className="header-cta" onClick={scrollToBooking}>Get moving <ArrowUpRight size={16} /></button></div>
+      </header>
+
+      <main id="top">
+        <section className="hero">
+          <div className="hero-copy">
+            <motion.div className="eyebrow" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}><span className="eyebrow-icon"><Sparkles size={14} /></span> YOUR CITY, WITHOUT THE FRICTION</motion.div>
+            <motion.h1 initial={reduceMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.06 }}>Small ride.<br /><span>Big city energy.</span></motion.h1>
+            <p className="hero-description">Skip the gridlock, keep your day moving. A smarter bike ride starts with a clearer plan — no surprises, just the essentials.</p>
+            <div className="hero-proof"><div className="proof-icon"><Clock3 size={17} /></div><div><strong>Made for the in-between</strong><span>Quick hops, daily commutes, last-mile links.</span></div></div>
+            <div className="hero-proof"><div className="proof-icon"><Wallet size={17} /></div><div><strong>Know before you go</strong><span>Transparent estimates, with the math shown.</span></div></div>
+            <button className="hero-link" onClick={scrollToBooking}>Plan your ride <span className="round-arrow"><ArrowDown size={16} /></span></button>
+          </div>
+          <div className="hero-art" aria-label="Illustration of a city bike route" role="img">
+            <div className="art-sun" /><div className="art-orbit orbit-one" /><div className="art-orbit orbit-two" />
+            <div className="city-grid">
+              <div className="building building-a"><i /><i /><i /><i /></div><div className="building building-b"><i /><i /><i /><i /><i /><i /></div><div className="building building-c"><i /><i /><i /></div><div className="building building-d"><i /><i /><i /><i /></div><div className="building building-e"><i /><i /><i /><i /><i /></div>
+              <svg className="route-drawing" viewBox="0 0 560 420" role="presentation" aria-hidden="true"><path d="M62 312 C112 300 102 236 178 236 S244 314 310 274 S358 150 420 176 S452 242 502 142" fill="none" stroke="#fff" strokeWidth="17" strokeLinecap="round"/><path d="M62 312 C112 300 102 236 178 236 S244 314 310 274 S358 150 420 176 S452 242 502 142" fill="none" stroke="#335cff" strokeWidth="4" strokeDasharray="8 9" strokeLinecap="round"/><circle cx="62" cy="312" r="10" fill="#b9f65b" stroke="#17211d" strokeWidth="3"/><circle cx="502" cy="142" r="11" fill="#335cff" stroke="#fff" strokeWidth="4"/></svg>
+              <div className="map-label label-start"><span className="label-dot" /> YOUR START</div><div className="map-label label-end"><MapPin size={13} /> THE GOOD PART</div>
+              <motion.div className="bike-token" animate={reduceMotion ? {} : { y: [0, -5, 0], rotate: [0, -2, 0] }} transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut" }}><Bike size={35} strokeWidth={1.8} /></motion.div>
+              <div className="art-sticker"><span>LESS WAITING</span><strong>MORE LIVING<span>↗</span></strong></div>
+            </div>
+            <div className="art-caption"><span className="caption-mark"><Navigation size={15} /></span><span><strong>Take the scenic shortcut.</strong><small>Every minute has somewhere to be.</small></span><ArrowUpRight size={17} /></div>
+          </div>
+          <div className="hero-index"><span>01</span><i /> A NEW KIND OF CITY RIDE</div>
+        </section>
+
+        <section className="booking-section" id="booking">
+          <div className="section-intro"><span className="section-kicker">LET'S GET YOU THERE</span><h2>Your next stop<br className="mobile-break" /> is closer than you think.</h2><p>Two locations. One easy plan.</p></div>
+          <div className="booking-layout">
+            <div className="booking-card">
+              <div className="card-heading"><div><span className="card-eyebrow">RIDE PLANNER</span><h3>Where to?</h3></div><span className="demo-badge"><span /> PREVIEW</span></div>
+              <div className="location-fields">
+                <div className="location-rail"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
+                <div className="field-stack">
+                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><select value={pickup} onChange={e => { setPickup(e.target.value); setNotice(""); }} aria-label="Pickup point">{locations.map(item => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={15} className="select-chevron" /></div></label>
+                  <div className="field-separator" />
+                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><select value={destination} onChange={e => { setDestination(e.target.value); setNotice(""); }} aria-label="Drop-off point">{locations.map(item => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={15} className="select-chevron" /></div></label>
+                </div>
+                <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
+              </div>
+              <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{route.km.toFixed(1)} km <span className="bullet">·</span> {route.mins} min <span className="bullet">·</span> {route.path}</span></div><button className="text-action" onClick={() => setNotice("Route distances and times are illustrative sample values until a routing provider is connected.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
+              <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">₹{fare}<span> approx.</span></div></div><div className="fare-note"><Check size={14} /> No hidden add-ons<br /><small>₹20 base + ₹10/km demo formula</small></div></div>
+              <button className="book-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>{apiState === "checking" ? "Checking quote…" : "Check ride availability"} <ArrowRight size={18} /></button>
+              <div className="card-footnote"><ShieldCheck size={14} /> No ride is created in this preview. API connection required.</div>
+              <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
+            </div>
+            <div className="route-card">
+              <div className="route-card-top"><div><span className="card-eyebrow">THE SHORT VERSION</span><h3>Your route, at a glance.</h3></div><span className="compass-chip"><Compass size={16} /></span></div>
+              <div className="mini-map" role="img" aria-label={`Illustrative route from ${pickup} to ${destination}; ${route.km.toFixed(1)} kilometres`}>
+                <div className="map-block block-1" /><div className="map-block block-2" /><div className="map-block block-3" /><div className="map-block block-4" /><div className="map-block block-5" /><div className="map-block block-6" />
+                <svg viewBox="0 0 500 260" preserveAspectRatio="none" aria-hidden="true"><path d="M64 190 C115 178 100 130 178 132 S235 204 294 161 S349 70 402 95 S431 140 456 54" fill="none" stroke="#fff" strokeWidth="14" strokeLinecap="round"/><path d="M64 190 C115 178 100 130 178 132 S235 204 294 161 S349 70 402 95 S431 140 456 54" fill="none" stroke="#335cff" strokeWidth="4" strokeDasharray="7 7" strokeLinecap="round"/><circle cx="64" cy="190" r="8" fill="#b9f65b" stroke="#17211d" strokeWidth="3"/><circle cx="456" cy="54" r="9" fill="#335cff" stroke="#fff" strokeWidth="4"/></svg>
+                <span className="map-place start-place">{pickup}</span><span className="map-place end-place">{destination}</span><span className="map-watermark">SAMPLE ROUTE</span>
+                <button className="locate-button" onClick={() => setNotice("Location access is not requested in this preview. Pickup is selected manually.")} aria-label="About current location"><LocateFixed size={17} /></button>
+              </div>
+              <div className="route-stats"><div><span><Route size={15} /> DISTANCE</span><strong>{route.km.toFixed(1)} <small>km</small></strong></div><div><span><Clock3 size={15} /> EST. TIME</span><strong>{route.mins} <small>min</small></strong></div><div><span><Gauge size={15} /> ROUTE TYPE</span><strong>City <small>ride</small></strong></div></div>
+              <div className="route-disclaimer"><span className="disclaimer-dot" /> Illustrative preview — live maps and traffic data are not connected.</div>
+            </div>
+          </div>
+        </section>
+
+        <section className="value-section" id="safety"><div className="value-header"><div><span className="section-kicker">THE SAARTHI DIFFERENCE</span><h2>Less guesswork.<br />More go-time.</h2></div><p>Good mobility is not just getting there. It's knowing what's happening at every step.</p></div>
+          <div className="value-grid">
+            <article className="value-card"><div className="value-icon lime"><Wallet size={21} /></div><span className="value-number">01 / CLARITY</span><h3>Price, made plain.</h3><p>See the estimate and how it's calculated before you commit. No mystery math.</p><a href="#booking" onClick={e => { e.preventDefault(); scrollToBooking(); }}>Plan a ride <ArrowRight size={15} /></a></article>
+            <article className="value-card"><div className="value-icon blue"><ShieldCheck size={21} /></div><span className="value-number">02 / CONFIDENCE</span><h3>Safety isn't a footnote.</h3><p>Trip status, support and sharing belong in the experience — not buried in settings.</p><a href="#safety" onClick={e => { e.preventDefault(); setNotice("Safety workflows are planned for the operational milestone."); }}>Our approach <ArrowRight size={15} /></a></article>
+            <article className="value-card"><div className="value-icon peach"><Sparkles size={21} /></div><span className="value-number">03 / SMARTER SYSTEMS</span><h3>Smart, with receipts.</h3><p>Our DSA lab will show why a route or driver ranks first — backed by measurable results.</p><a href="#lab" onClick={e => { e.preventDefault(); document.getElementById("lab")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); }}>Meet the engine <ArrowRight size={15} /></a></article>
+          </div>
+        </section>
+
+        <section className="lab-section" id="lab"><div className="lab-orb"><div className="orb-ring ring-a" /><div className="orb-ring ring-b" /><div className="orb-core"><Bike size={30} /></div><span className="orb-node node-a" /><span className="orb-node node-b" /><span className="orb-node node-c" /></div><div className="lab-copy"><span className="section-kicker">UNDER THE HOOD</span><h2>Not just a pretty route.<br /><em>A smarter one.</em></h2><p>Behind the ride is a C++ routing and dispatch engine. We’re building the tools to inspect the path, understand driver selection, and benchmark every decision instead of calling it “AI” and hoping nobody asks.</p><div className="lab-pills"><span><Route size={14} /> Dijkstra routing</span><span><Gauge size={14} /> Benchmarks</span><span><Sparkles size={14} /> Explainable matching</span></div><button className="outline-button" onClick={() => { setMode("insights"); setNotice("DSA explorer is planned: this UI foundation will connect to measured backend results, not fabricated metrics."); document.getElementById("booking")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); }}>Explore the engine <ArrowUpRight size={16} /></button></div></section>
+
+        <section className="closing-cta"><div><span className="section-kicker">YOUR CITY IS CALLING</span><h2>Make the next move<br />a little lighter.</h2></div><button onClick={scrollToBooking}>Plan your first route <ArrowRight size={17} /></button><span className="cta-decoration">↗</span></section>
+      </main>
+
+      <footer className="site-footer"><a className="brand footer-brand" href="#top"><span className="brand-mark"><Bike size={20} /></span><span>saarthi<span className="brand-period">.</span><small>URBAN MOBILITY</small></span></a><span className="footer-note">A portfolio project in progress. No live rides or payments.</span><div className="footer-links"><a href="#booking">Ride planner</a><a href="#safety">Safety</a><a href="#lab">DSA lab</a><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={13} /></a></div><span className="copyright">© 2026 SAARTHI LABS</span></footer>
+      <div className="mobile-bottom-bar"><span><small>ESTIMATED FARE</small><strong>₹{fare}</strong></span><button onClick={scrollToBooking}>Plan a ride <ArrowRight size={16} /></button></div>
+    </div>
+  );
+}
