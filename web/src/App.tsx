@@ -41,8 +41,6 @@ export default function App() {
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
-  const [driverLatitude, setDriverLatitude] = useState("28.53");
-  const [driverLongitude, setDriverLongitude] = useState("77.35");
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [driverQueue, setDriverQueue] = useState<Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number }>>([]);
   const [driverRide, setDriverRide] = useState<{ rideId: string; status: string } | null>(null);
@@ -269,16 +267,7 @@ export default function App() {
   async function toggleDriverAvailability() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!base || !account || account.role !== "driver") return;
-    const latitude = Number(driverLatitude);
-    const longitude = Number(driverLongitude);
-    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
-        !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-      setNotice("Enter valid latitude and longitude coordinates.");
-      return;
-    }
-    const coords = { latitude, longitude };
-    try {
-      const online = !driverOnline;
+    const sendAvailability = async (coords: { latitude: number; longitude: number }, online: boolean) => {
       const response = await fetch(apiUrl(base, "/api/v1/driver/availability"), {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + account.token },
@@ -290,9 +279,25 @@ export default function App() {
       setDriverLocation(coords);
       setNotice(online ? "You are online and can accept ride requests." : "You are now offline.");
       if (online) await refreshDriverQueue();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not update availability.");
+    };
+    if (driverOnline) {
+      if (!driverLocation) {
+        setNotice("Your last location is unavailable. Allow location access before going online.");
+        return;
+      }
+      try { await sendAvailability(driverLocation, false); }
+      catch (error) { setNotice(error instanceof Error ? error.message : "Could not update availability."); }
+      return;
     }
+    if (!navigator.geolocation) {
+      setNotice("This browser does not support location access.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(async position => {
+      const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+      try { await sendAvailability(coords, true); }
+      catch (error) { setNotice(error instanceof Error ? error.message : "Could not update availability."); }
+    }, () => setNotice("Allow location access to go online as a driver."), { enableHighAccuracy: true, timeout: 10000 });
   }
 
   async function acceptDriverRide(rideId: string) {
