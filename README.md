@@ -76,6 +76,10 @@ curl http://localhost:8080/api/v1/health
 
 Compose applies the initial schema to the local PostgreSQL volume before starting the API. Use a strong local password and do not reuse development values in a public deployment. The quote endpoint depends on public Nominatim/OSRM demo services; configure a real provider/contact identifier before use and do not treat these endpoints as production infrastructure.
 
+### Container deployment
+
+See [the local deployment guide](docs/local-deployment.md) for the web/API/PostgreSQL Compose stack, health checks, and operational limits.
+
 ### UI libraries and attribution
 
 The design is original and may incorporate licensed open-source components selectively. Review each upstream package's license and retain its notices before copying or vendoring code. Reference libraries include [React Bits](https://github.com/DavidHDev/react-bits), [Magic UI](https://github.com/magicuidesign/magicui), [Radix UI](https://www.radix-ui.com/), [Motion](https://motion.dev/) and [Lucide](https://lucide.dev/). No third-party proprietary ride-hailing source or branding is copied.
