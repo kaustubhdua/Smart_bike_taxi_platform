@@ -37,7 +37,7 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState("");
   const [authName, setAuthName] = useState("");
   const [authPassword, setAuthPassword] = useState("");
-  const [account, setAccount] = useState<{ token: string; email: string; displayName?: string } | null>(null);
+  const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
@@ -168,7 +168,7 @@ export default function App() {
       });
       const data = await response.json() as {
         accessToken?: string;
-        account?: { email?: string; displayName?: string };
+        account?: { email?: string; displayName?: string; role?: string };
         error?: string;
       };
       if (!response.ok || !data.accessToken || !data.account?.email) {
@@ -176,7 +176,7 @@ export default function App() {
           : response.status === 401 ? "Email or password is incorrect."
           : data.error || `Authentication failed (HTTP ${response.status}).`);
       }
-      setAccount({ token: data.accessToken, email: data.account.email, displayName: data.account.displayName });
+      setAccount({ token: data.accessToken, email: data.account.email, displayName: data.account.displayName, role: data.account.role ?? "passenger" });
       setAuthPassword("");
       setNotice(`Signed in as ${data.account.email}. Your access token stays in memory for this session.`);
     } catch (error) {
