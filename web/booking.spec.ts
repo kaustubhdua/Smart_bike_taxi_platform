@@ -42,7 +42,7 @@ test("calculates road route and shows a fare only after a valid server quote", a
   await expect(page.locator(".fare-amount")).toContainText("—");
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".fare-amount")).toContainText("₹47.50");
-  await expect(page.getByRole("status")).toContainText("This checks the quote only");
+  await expect(page.locator(".inline-notice")).toContainText("This checks the quote only");
 });
 
 test("rejects expired or invalid quotes without showing a fare", async ({ page }) => {
@@ -59,7 +59,7 @@ test("rejects expired or invalid quotes without showing a fare", async ({ page }
   await page.goto("/");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
-  await expect(page.getByRole("status")).toContainText(/invalid or expired quote/i);
+  await expect(page.locator(".inline-notice")).toContainText(/invalid or expired quote/i);
   await expect(page.locator(".fare-amount")).toContainText("—");
 });
 
@@ -89,7 +89,7 @@ test("quote rate limits are surfaced without pretending a booking succeeded", as
   await page.goto("/");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
-  await expect(page.getByRole("status")).toContainText(/too many quote requests/i);
+  await expect(page.locator(".inline-notice")).toContainText(/too many quote requests/i);
   await expect(page.locator(".fare-amount")).toContainText("—");
 });
 
