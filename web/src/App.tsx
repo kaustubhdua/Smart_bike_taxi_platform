@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { calculateRoute } from "./lib/routing";
 import RouteMap from "./components/RouteMap";
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bike, Check, ChevronDown,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bike, Check,
   CircleHelp, Clock3, Compass, Crosshair, Gauge, LocateFixed,
   MapPin, Menu, Navigation, Route, ShieldCheck, Sparkles, Wallet, X,
 } from "lucide-react";
