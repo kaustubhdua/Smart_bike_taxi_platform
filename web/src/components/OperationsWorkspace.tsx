@@ -10,6 +10,7 @@ type RideRequest = {
   distanceMeters?: number;
 };
 type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number };
+type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
 
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
@@ -24,6 +25,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [activeRide, setActiveRide] = useState<{ rideId: string; status: string } | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [driverEmail, setDriverEmail] = useState("");
   const [driverName, setDriverName] = useState("");
   const [driverPassword, setDriverPassword] = useState("");
@@ -172,6 +174,17 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  async function refreshAudit() {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/admin/audit?limit=50");
+      if (!Array.isArray(data.events)) throw new Error("The API returned an invalid audit history.");
+      setAuditEvents(data.events as AuditEvent[]);
+      setError("Administrative audit history refreshed from PostgreSQL.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Audit history unavailable."); }
+    finally { setBusy(false); }
+  }
+
   async function refreshDrivers() {
     setBusy(true);
     try {
@@ -249,12 +262,18 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
             </>
           ) : (
             <>
-              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); }}>Sign out</button></div>
+              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); }}>Sign out</button></div>
               <div className="button-row">
                 <button className="book-button" onClick={refreshMetrics} disabled={busy}>Refresh metrics <ArrowRight size={18} /></button>
                 <button className="outline-button" onClick={refreshDrivers} disabled={busy}><RefreshCw size={15} /> Refresh drivers</button>
+                <button className="outline-button" onClick={refreshAudit} disabled={busy}><ShieldCheck size={15} /> Refresh audit history</button>
               </div>
               {metrics && <div className="driver-queue"><h3>PostgreSQL-backed counts</h3><p>Online drivers: <strong>{metrics.onlineDrivers}</strong></p>{Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}</div>}
+              <div className="driver-queue"><h3>Privileged action audit ({auditEvents.length})</h3>
+                {auditEvents.length === 0 ? <p>Refresh audit history to inspect driver provisioning, approval and suspension events.</p> : auditEvents.map(event => <div className="ride-confirmation" key={event.id}>
+                  <div><strong>{event.action.replaceAll(".", " ")}</strong><span>{event.actorEmail} · {event.targetType} · {event.targetId}</span><small>{new Date(event.createdAt).toLocaleString()} · {JSON.stringify(event.details)}</small></div>
+                </div>)}
+              </div>
               <form className="auth-panel" onSubmit={provisionDriver}>
                 <div className="card-heading"><div><span className="card-eyebrow">TRUSTED ONBOARDING</span><h3>Provision a driver</h3></div><ShieldCheck size={20} /></div>
                 <p className="auth-caption">New accounts start unapproved and cannot go online until you explicitly approve them. Provisioning is not identity or document verification.</p>
