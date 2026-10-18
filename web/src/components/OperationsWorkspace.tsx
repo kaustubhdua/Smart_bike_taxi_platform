@@ -49,10 +49,10 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
 
   async function request(path: string, init: RequestInit = {}) {
     if (!apiBase || !token) throw new Error("Sign in to continue.");
-    const response = await fetch(apiBase + path, {
-      ...init,
-      headers: { Accept: "application/json", Authorization: "Bearer " + token, ...(init.headers || {}) },
-    });
+    const headers = new Headers(init.headers);
+    headers.set("Accept", "application/json");
+    headers.set("Authorization", "Bearer " + token);
+    const response = await fetch(apiBase + path, { ...init, headers });
     const data = await response.json() as Record<string, unknown>;
     if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Request failed (HTTP " + response.status + ").");
     return data;
