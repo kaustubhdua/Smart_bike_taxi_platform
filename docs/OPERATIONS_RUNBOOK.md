@@ -65,8 +65,8 @@ After the API container is healthy, open an interactive shell in the API contain
 ```sh
 docker compose exec api sh
 read -r -s ADMIN_PASSWORD
-printf '\\n'
-printf '%s\\n' "$ADMIN_PASSWORD" | rideforge_admin_bootstrap admin@example.test "Local Demo Admin"
+printf '\n'
+printf '%s\n' "$ADMIN_PASSWORD" | rideforge_admin_bootstrap admin@example.test "Local Demo Admin"
 unset ADMIN_PASSWORD
 exit
 ```
