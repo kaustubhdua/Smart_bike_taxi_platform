@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bike, Check, ChevronDown,
-  CircleHelp, Clock3, Compass, CreditCard, Crosshair, Gauge, LocateFixed,
+  CircleHelp, Clock3, Compass, Crosshair, Gauge, LocateFixed,
   MapPin, Menu, Navigation, Route, ShieldCheck, Sparkles, Wallet, X,
 } from "lucide-react";
 
