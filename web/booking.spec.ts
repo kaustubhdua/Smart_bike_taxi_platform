@@ -199,9 +199,9 @@ test("driver workspace uses protected API routes for availability and ride lifec
   const openDriverNav = page.getByRole("button", { name: "Open navigation" });
   if (await openDriverNav.isVisible()) await openDriverNav.click();
   await page.getByRole("button", { name: "Drive with us" }).click();
-  await page.getByLabel("Email").fill("driver@example.test");
-  await page.getByLabel("Password").fill("driver-password");
-  await page.getByRole("button", { name: "Sign in securely" }).click();
+  await page.locator("#operations").getByLabel("Email").fill("driver@example.test");
+  await page.locator("#operations").getByLabel("Password").fill("driver-password");
+  await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await expect(page.getByRole("heading", { name: "Availability and rides" })).toBeVisible();
   await page.getByLabel("Latitude").fill("28.53");
   await page.getByLabel("Longitude").fill("77.35");
@@ -234,9 +234,9 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
   if (await openAdminNav.isVisible()) await openAdminNav.click();
   await page.getByRole("button", { name: "Admin console" }).click();
-  await page.getByLabel("Email").fill("admin@example.test");
-  await page.getByLabel("Password").fill("admin-password");
-  await page.getByRole("button", { name: "Sign in securely" }).click();
+  await page.locator("#operations").getByLabel("Email").fill("admin@example.test");
+  await page.locator("#operations").getByLabel("Password").fill("admin-password");
+  await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await page.getByRole("button", { name: "Refresh metrics" }).click();
   await expect(page.getByText("Online drivers:")).toBeVisible();
   await expect(page.locator(".admin-metrics strong")).toContainText("4");
