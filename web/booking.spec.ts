@@ -303,6 +303,14 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
       account: { email: "admin@example.test", role: "admin" },
     }) });
   });
+  await page.route("http://api.test/api/v1/admin/audit?limit=50", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-admin-token");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ events: [{
+      id: "audit-1", actorEmail: "admin@example.test", action: "driver.approved",
+      targetType: "driver", targetId: "driver-test-0001", details: { approved: true },
+      createdAt: new Date().toISOString(),
+    }] }) });
+  });
   await page.route("http://api.test/api/v1/admin/drivers**", async route => {
     const request = route.request();
     expect(request.headers()["authorization"]).toBe("Bearer test-admin-token");
@@ -353,6 +361,9 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Approved", { exact: false })).toBeVisible();
   expect(drivers[0].approved).toBe(true);
+  await page.getByRole("button", { name: /Refresh audit history/ }).click();
+  await expect(page.getByText("driver approved", { exact: true })).toBeVisible();
+  await expect(page.getByText("admin@example.test · driver · driver-test-0001")).toBeVisible();
 });
 
 
