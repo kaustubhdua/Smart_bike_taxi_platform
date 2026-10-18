@@ -34,3 +34,23 @@
 #operations .outline-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px}
 #operations .card-heading .text-action{flex:none}
 @media(max-width:560px){#operations .ride-confirmation{flex-wrap:wrap}#operations .ride-confirmation .text-action{margin-left:40px}}
+
+.driver-panel{display:grid;gap:13px;margin-top:16px;padding:16px;border:1px solid #d8e3dc;border-radius:16px;background:#f6faf7}
+.driver-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.driver-panel h3{margin:0;color:#1f3a2b;font-size:16px}
+.driver-panel p{margin:4px 0 0;color:#64746a;font-size:11px;line-height:1.5}
+.driver-online,.driver-queue-item>button{border:1px solid #cbd8cf;border-radius:10px;padding:9px 12px;background:#fff;color:#234631;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.driver-online.online{background:#d9f2df;border-color:#a6d8b3}
+.driver-queue{display:grid;gap:9px}
+.driver-queue-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e0e8e2;border-radius:12px;background:#fff}
+.driver-queue-item>div,.driver-active-ride{display:grid;gap:5px;min-width:0}
+.driver-queue-item strong{color:#253b2c;font-size:12px;overflow-wrap:anywhere}
+.driver-queue-item span,.driver-queue-item small,.driver-active-ride span{color:#68786e;font-size:11px;overflow-wrap:anywhere}
+.driver-queue-item>button:disabled{opacity:.5;cursor:not-allowed}
+.driver-active-ride{padding:12px;border:1px solid #dce8df;border-radius:12px;background:#fff}
+.driver-active-ride>strong{color:#284333;font-size:13px}
+.admin-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.admin-metrics>strong{grid-column:1/-1;padding:12px;border-radius:10px;background:#e8f0eb;color:#284333;font-size:13px}
+.admin-metrics>span{display:flex;justify-content:space-between;gap:8px;padding:10px;border-radius:9px;background:#fff;color:#65736a;font-size:11px;text-transform:capitalize}
+.admin-metrics b{color:#243b2c}
+@media(max-width:520px){.driver-panel{padding:12px}.driver-panel-head{align-items:flex-start;flex-direction:column}.driver-queue-item{align-items:flex-start}.driver-queue-item>button{flex:none}}
