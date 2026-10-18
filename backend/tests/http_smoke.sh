@@ -91,6 +91,14 @@ test "$register_status" = "201"
 token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/register.json")"
 test -n "$token"
 
+# Passenger credentials must not grant access to the admin driver-management surface.
+status="$(curl --silent --show-error --output "$tmp_dir/admin-forbidden.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/admin/drivers")"
+test "$status" = "403"
+status="$(curl --silent --show-error --output "$tmp_dir/admin-unauthenticated.json" --write-out '%{http_code}' \
+  "$base_url/api/v1/admin/drivers")"
+test "$status" = "401"
+
 # Admin-only driver provisioning starts unapproved and requires an audited approval action.
 admin_id="$(psql -v ON_ERROR_STOP=1 -tAqc "INSERT INTO accounts (email,display_name,role,password_hash) SELECT 'smoke-admin@example.test','CI Admin','admin',password_hash FROM accounts WHERE email='smoke-passenger@example.test' RETURNING id")"
 test -n "$admin_id"
