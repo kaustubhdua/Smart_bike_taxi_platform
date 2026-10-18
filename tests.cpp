@@ -36,6 +36,21 @@ void testGraph() {
               route.path.back() == "C",
           "Dijkstra route reconstruction");
     check(!graph.shortestPath("A", "missing").reachable, "unknown destination");
+    const auto sameLocation = graph.shortestPath("A", "A");
+    check(sameLocation.reachable && sameLocation.distance == 0.0 &&
+              sameLocation.path.size() == 1 && sameLocation.path.front() == "A",
+          "same-location route is a zero-distance singleton");
+    Graph tied;
+    check(tied.addLocation("S") && tied.addLocation("Z") &&
+              tied.addLocation("A") && tied.addLocation("T"),
+          "create equal-route graph");
+    check(tied.addRoad("S", "Z", 1.0) && tied.addRoad("Z", "T", 1.0) &&
+              tied.addRoad("S", "A", 1.0) && tied.addRoad("A", "T", 1.0),
+          "create equal-cost alternatives");
+    const auto stableTie = tied.shortestPath("S", "T");
+    check(stableTie.reachable && stableTie.path.size() == 3 &&
+              stableTie.path[1] == "A",
+          "equal-distance route uses deterministic lexical predecessor");
     check(!graph.addRoad("A", "missing", 1.0), "unknown road endpoint");
     check(!graph.addRoad("A", "C", -1.0), "negative road rejected");
     check(!graph.addRoad("A", "C", std::numeric_limits<double>::infinity()),
@@ -194,17 +209,31 @@ void testRideDispatchService() {
     check(drivers.find("NEAR")->location == "A" &&
               !drivers.find("NEAR")->available,
           "assigned driver remains busy at pickup location");
-    check(!ride_service::completeRide(history, drivers, 10),
+    check(!ride_service::completeRide(history, drivers, 11),
           "cannot complete before ride starts");
-    check(ride_service::startRide(history, 10), "assigned ride starts");
-    check(!ride_service::startRide(history, 10), "ride cannot start twice");
-    check(ride_service::completeRide(history, drivers, 10),
+    check(!ride_service::cancelRide(history, drivers, 999),
+          "cannot cancel a missing ride");
+    check(history.front().status == "Cancelled" &&
+              drivers.find("NEAR")->available,
+          "cancellation records state and releases driver");
+    check(!ride_service::startRide(history, 11),
+          "cancelled ride cannot start");
+
+    std::queue<RideRequest> secondRequest;
+    secondRequest.push(RideRequest{5, "R1", "A", "C"});
+    const auto secondDispatch = ride_service::dispatchNext(
+        riders, drivers, driverIds, city, secondRequest, history, nextRideId);
+    check(secondDispatch.status == ride_service::DispatchStatus::Dispatched,
+          "released driver can be assigned to a new ride");
+    check(ride_service::startRide(history, 11), "assigned ride starts");
+    check(!ride_service::startRide(history, 11), "ride cannot start twice");
+    check(ride_service::completeRide(history, drivers, 11),
           "in-progress ride completes");
-    check(history.front().status == "Completed", "completed state recorded");
+    check(history.back().status == "Completed", "completed state recorded");
     check(drivers.find("NEAR")->location == "C" &&
               drivers.find("NEAR")->available,
           "completion moves and releases driver");
-    check(!ride_service::completeRide(history, drivers, 10),
+    check(!ride_service::completeRide(history, drivers, 11),
           "completed ride cannot complete twice");
     check(drivers.find("FAR")->location == "C", "unselected driver unchanged");
 
