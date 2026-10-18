@@ -5,8 +5,6 @@ services:
       POSTGRES_DB: saarthi
       POSTGRES_USER: saarthi
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
     volumes:
       - saarthi-data:/var/lib/postgresql/data
     healthcheck:
@@ -46,6 +44,25 @@ services:
       SAARTHI_JWT_SECRET: ${SAARTHI_JWT_SECRET}
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "5173:8080"
     restart: unless-stopped
 
 volumes:
