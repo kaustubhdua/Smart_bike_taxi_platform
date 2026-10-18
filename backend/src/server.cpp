@@ -1211,6 +1211,7 @@ bool stream_ride_events(beast::tcp_stream& stream,
     header.set(http::field::server, "RideForge API");
     header.set(http::field::content_type, "text/event-stream; charset=utf-8");
     header.set(http::field::cache_control, "no-cache, no-transform");
+    header.set("X-Accel-Buffering", "no");
     header.set(http::field::connection, "keep-alive");
     header.set("X-Content-Type-Options", "nosniff");
     header.set("X-Accel-Buffering", "no");
