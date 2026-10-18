@@ -954,6 +954,40 @@ void handle_request(tcp::socket socket) {
                 result = response(http::status::service_unavailable, {{"error", "history_unavailable"}}, request);
             }
         }
+    } else if (path.rfind("/api/v1/rides/", 0) == 0 &&
+               (request.method() == http::verb::get ||
+                (request.method() == http::verb::post && path.size() > 7 &&
+                 path.substr(path.size() - 7) == "/cancel"))) {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else {
+            const bool cancelling = request.method() == http::verb::post;
+            const std::string prefix = "/api/v1/rides/";
+            const std::string ride_id = path.substr(prefix.size(),
+                path.size() - prefix.size() - (cancelling ? 7 : 0));
+            try {
+                Database database(env_or("DATABASE_URL", ""));
+                if (cancelling) {
+                    if (claims->role != "passenger") {
+                        result = response(http::status::forbidden, {{"error", "passenger_role_required"}}, request);
+                    } else {
+                        result = response(http::status::ok, database.cancel_ride(ride_id, claims->subject), request);
+                    }
+                } else {
+                    const auto ride = database.get_ride(ride_id, claims->subject, claims->role);
+                    result = ride ? response(http::status::ok, *ride, request)
+                                  : response(http::status::not_found, {{"error", "ride_not_found"}}, request);
+                }
+            } catch (const std::domain_error& error) {
+                const std::string reason = error.what();
+                result = reason == "ride_not_found"
+                    ? response(http::status::not_found, {{"error", reason}}, request)
+                    : response(http::status::conflict, {{"error", reason}}, request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "ride_unavailable"}}, request);
+            }
+        }
     } else {
         result = response(http::status::not_found, {{"error", "not_found"}}, request);
     }
