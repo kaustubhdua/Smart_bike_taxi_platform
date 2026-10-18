@@ -214,7 +214,7 @@ test "$status" = "409"
 
 driver_id="$(psql -v ON_ERROR_STOP=1 -tAqc "INSERT INTO accounts (email,display_name,role,password_hash) SELECT 'smoke-driver@example.test','CI Driver','driver',password_hash FROM accounts WHERE email='smoke-passenger@example.test' RETURNING id")"
 test -n "$driver_id"
-psql -v ON_ERROR_STOP=1 -c "INSERT INTO driver_profiles (account_id,vehicle_registration,is_online) VALUES ('$driver_id','CI-DRIVER-001',false)" >/dev/null
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO driver_profiles (account_id,vehicle_registration,is_online,is_approved) VALUES ('$driver_id','CI-DRIVER-001',false,true)" >/dev/null
 
 status="$(curl --silent --show-error --output "$tmp_dir/driver-login.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' \
