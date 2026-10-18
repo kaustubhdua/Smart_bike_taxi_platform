@@ -1,4 +1,4 @@
-# Saarthi — deep improvement research and engineering plan
+# RideForge — deep improvement research and engineering plan
 
 Last reviewed: 2026-10-18  
 Scope: current feature branch, not a claim of commercial or production readiness.
