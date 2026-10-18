@@ -7,8 +7,8 @@ VALUES
   ('10000000-0000-4000-8000-000000000002', 'passenger-two@example.test', 'Passenger Two', 'passenger', 'test-hash'),
   ('20000000-0000-4000-8000-000000000001', 'driver@example.test', 'Driver', 'driver', 'test-hash');
 
-INSERT INTO driver_profiles (account_id, vehicle_registration, is_online)
-VALUES ('20000000-0000-4000-8000-000000000001', 'TEST-DRIVER-001', true);
+INSERT INTO driver_profiles (account_id, vehicle_registration, is_online, is_approved)
+VALUES ('20000000-0000-4000-8000-000000000001', 'TEST-DRIVER-001', true, true);
 
 INSERT INTO rides (
   id, passenger_id, driver_id, status, pickup_label, pickup_latitude, pickup_longitude,
