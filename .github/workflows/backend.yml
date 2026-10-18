@@ -41,6 +41,7 @@ jobs:
       PGPASSWORD: saarthi_test_password
       SAARTHI_ALLOWED_ORIGIN: http://localhost:5173
       SAARTHI_USER_AGENT: SaarthiGithubActionsSmoke/0.1 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)
+      SAARTHI_JWT_SECRET: not-a-production-secret-please-override-32chars
       PORT: 8080
     steps:
       - uses: actions/checkout@v4
@@ -56,6 +57,8 @@ jobs:
         run: ctest --test-dir build-backend --output-on-failure
       - name: Apply database schema
         run: psql -v ON_ERROR_STOP=1 -f backend/migrations/001_initial_schema.sql
+      - name: Seed deterministic quote fixtures
+        run: psql -v ON_ERROR_STOP=1 -f backend/tests/seed_quotes.sql
       - name: Start API and verify HTTP behavior
         shell: bash
         run: |
