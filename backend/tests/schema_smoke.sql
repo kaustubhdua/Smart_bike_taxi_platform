@@ -5,10 +5,26 @@ INSERT INTO accounts (id, email, display_name, role, password_hash)
 VALUES
   ('10000000-0000-4000-8000-000000000001', 'passenger-one@example.test', 'Passenger One', 'passenger', 'test-hash'),
   ('10000000-0000-4000-8000-000000000002', 'passenger-two@example.test', 'Passenger Two', 'passenger', 'test-hash'),
-  ('20000000-0000-4000-8000-000000000001', 'driver@example.test', 'Driver', 'driver', 'test-hash');
+  ('20000000-0000-4000-8000-000000000001', 'driver@example.test', 'Driver', 'driver', 'test-hash'),
+  ('20000000-0000-4000-8000-000000000002', 'pending-driver@example.test', 'Pending Driver', 'driver', 'test-hash');
 
 INSERT INTO driver_profiles (account_id, vehicle_registration, is_online, is_approved)
 VALUES ('20000000-0000-4000-8000-000000000001', 'TEST-DRIVER-001', true, true);
+
+-- Profiles default to unapproved so account creation cannot silently enable dispatch.
+INSERT INTO driver_profiles (account_id, vehicle_registration)
+VALUES ('20000000-0000-4000-8000-000000000002', 'TEST-DRIVER-002');
+
+DO $
+BEGIN
+  IF (SELECT is_approved FROM driver_profiles
+      WHERE account_id = '20000000-0000-4000-8000-000000000002') THEN
+    RAISE EXCEPTION 'New driver profiles must start unapproved';
+  END IF;
+  IF to_regclass('public.admin_audit_events') IS NULL THEN
+    RAISE EXCEPTION 'Expected administrator audit event table';
+  END IF;
+END $;
 
 INSERT INTO rides (
   id, passenger_id, driver_id, status, pickup_label, pickup_latitude, pickup_longitude,
