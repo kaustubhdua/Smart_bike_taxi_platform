@@ -127,7 +127,7 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
     expect(route.request().headers()["authorization"]).toBe("Bearer polling-passenger-token");
     reads += 1;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-      rideId: "30000000-0000-4000-8000-000000000099", status: reads === 1 ? "requested" : "assigned",
+      rideId: "30000000-0000-4000-8000-000000000099", status: reads === 1 ? "requested" : reads === 2 ? "assigned" : "in_progress",
     }) });
   });
 
@@ -143,6 +143,9 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await expect.poll(() => reads).toBeGreaterThan(0);
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
+  await page.clock.fastForward(5000);
+  await expect(page.locator(".ride-confirmation")).toContainText("Status: in_progress");
+  await expect(page.getByRole("button", { name: "Cancel request" })).toHaveCount(0);
 });
 
 test("rejects expired or invalid quotes without showing a fare", async ({ page }) => {
