@@ -109,6 +109,29 @@ status="$(curl --silent --show-error --output "$tmp_dir/invalid-token.json" --wr
   "$base_url/api/v1/rides")"
 test "$status" = "401"
 
+# Passenger reads and cancellation are scoped to the authenticated owner, not the UUID.
+status="$(curl --silent --show-error --output "$tmp_dir/other-register.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"email":"smoke-other-passenger@example.test","displayName":"Other Passenger","password":"a-long-other-password-456"}' \
+  "$base_url/api/v1/auth/register")"
+test "$status" = "201"
+other_token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/other-register.json")"
+status="$(curl --silent --show-error --output "$tmp_dir/other-booking.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --header "Authorization: Bearer $other_token" \
+  --header 'Idempotency-Key: smoke-other-booking-0001' \
+  --data '{"quoteId":"40000000-0000-4000-8000-000000000014"}' "$base_url/api/v1/rides")"
+test "$status" = "201"
+other_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/other-booking.json")"
+status="$(curl --silent --show-error --output "$tmp_dir/other-ride-forbidden.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$other_ride_id")"
+test "$status" = "404"
+status="$(curl --silent --show-error --output "$tmp_dir/other-cancel-forbidden.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" --request POST "$base_url/api/v1/rides/$other_ride_id/cancel")"
+test "$status" = "404"
+status="$(curl --silent --show-error --output "$tmp_dir/other-cancel.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $other_token" --request POST "$base_url/api/v1/rides/$other_ride_id/cancel")"
+test "$status" = "200"
+
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-forbidden.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/driver/rides")"
 test "$status" = "403"
