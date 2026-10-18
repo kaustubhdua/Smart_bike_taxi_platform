@@ -870,7 +870,7 @@ void handle_request(tcp::socket socket) {
         result = handle_auth(request, path, client_ip(socket));
     } else if (request.method() == http::verb::options) {
         result = response(http::status::no_content, json::object(), request);
-        result.set(http::field::access_control_allow_methods, "GET, POST, OPTIONS");
+        result.set(http::field::access_control_allow_methods, "GET, POST, PUT, OPTIONS");
         result.set(http::field::access_control_allow_headers, "Content-Type, Authorization, Idempotency-Key");
         result.set(http::field::access_control_max_age, "600");
         result.body().clear();
