@@ -14,9 +14,12 @@ psql_db() {
 migration_table="$(psql_db -tAc "SELECT to_regclass('public.schema_migrations')")"
 accounts_table="$(psql_db -tAc "SELECT to_regclass('public.accounts')")"
 
-if [ "$migration_table" != "schema_migrations" ] && [ "$accounts_table" = "accounts" ]; then
-  echo "Existing unversioned schema detected; refusing unsafe automatic migration. Back up the database and baseline schema_migrations deliberately." >&2
-  exit 1
+if [ "$accounts_table" = "accounts" ]; then
+  if [ "$migration_table" != "schema_migrations" ] ||
+     ! psql_db -tAc "SELECT 1 FROM schema_migrations WHERE version = '001_initial_schema'" | grep -Fqx 1; then
+    echo "Existing schema is missing the recorded initial migration; refusing unsafe automatic migration. Back up the database and baseline schema_migrations deliberately." >&2
+    exit 1
+  fi
 fi
 
 if [ -n "$schema_file" ]; then
