@@ -880,6 +880,7 @@ std::optional<saarthi_security::Claims> bearer_claims(
 }
 
 #include "driver_routes.inc"
+#include "driver_status.inc"
 
 void handle_request(tcp::socket socket) {
     beast::flat_buffer buffer;
@@ -1079,6 +1080,10 @@ void handle_request(tcp::socket socket) {
                path.rfind("/api/v1/driver/rides/", 0) == 0 &&
                path.size() > 7 && path.substr(path.size() - 7) == "/accept") {
         result = handle_driver_accept(request, path);
+    } else if (request.method() == http::verb::put &&
+               path.rfind("/api/v1/driver/rides/", 0) == 0 &&
+               path.size() > 7 && path.substr(path.size() - 7) == "/status") {
+        result = handle_driver_status(request, path);
     } else if (request.method() == http::verb::get && path == "/api/v1/rides") {
         const auto claims = bearer_claims(request);
         if (!claims) {
