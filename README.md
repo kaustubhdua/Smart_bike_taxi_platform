@@ -18,6 +18,8 @@ Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local 
 
 ## Full-stack roadmap status
 
+See [`docs/DEEP_IMPROVEMENT_RESEARCH.md`](docs/DEEP_IMPROVEMENT_RESEARCH.md) for the research-backed priority order, security/reliability recommendations, acceptance criteria, and release gates. The implementation status below is not a production-readiness claim.
+
 This repository is being extended from its original C++17 academic simulation into **Saarthi**, an original bike-taxi booking product. The C++ API now exposes PostgreSQL-backed quotes, passenger authentication and persisted booking, cancellation, history, driver lifecycle, and admin metrics endpoints. This is still an incremental portfolio build—not a live commercial ride service.
 
 | Area | Current evidence | Status |
