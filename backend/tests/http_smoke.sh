@@ -130,6 +130,13 @@ status="$(curl --silent --show-error --output "$tmp_dir/admin-drivers.json" --wr
 test "$status" = "200"
 grep -q "$provisioned_id" "$tmp_dir/admin-drivers.json"
 
+status="$(curl --silent --show-error --output "$tmp_dir/admin-suspend.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
+  --data '{"approved":false}' "$base_url/api/v1/admin/drivers/$provisioned_id/approval")"
+test "$status" = "200"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM driver_profiles WHERE account_id='$provisioned_id' AND is_approved=false AND is_online=false")" = "1"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM admin_audit_events WHERE actor_id='$admin_id' AND target_id='$provisioned_id' AND action IN ('driver.provisioned','driver.approved','driver.suspended')")" = "3"
+
 # Valid credentials with malformed booking input are client errors, not auth failures.
 status="$(curl --silent --show-error --output "$tmp_dir/short-idempotency.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
