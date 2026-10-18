@@ -14,6 +14,7 @@ The native C++17 HTTP service now implements:
 - Driver queue visibility is restricted to approved drivers who are online with a location updated in the last five minutes. Acceptance rechecks eligibility inside the database transaction.
 - `POST /api/v1/driver/rides/{rideId}/accept` and `PUT /api/v1/driver/rides/{rideId}/status`: transactional driver acceptance, conflict-safe assignment, lifecycle transitions, and event records.
 - `GET /api/v1/admin/metrics`: role-checked database-backed operational counts.
+- `GET /api/v1/admin/audit?limit=50`: admin-only recent privileged-action audit history; `limit` is bounded to 1–100.
 - `GET/POST /api/v1/admin/drivers`: list provisioned driver profiles and create driver accounts that default to unapproved; creation and approval are audited.
 - `PUT /api/v1/admin/drivers/{driverId}/approval`: explicitly approve or suspend a driver; suspension forces the driver offline and is audited.
 
