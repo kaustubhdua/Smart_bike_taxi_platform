@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 const routeFixture = {
@@ -70,4 +71,12 @@ test("route failures are honest and do not enable quote requests", async ({ page
   await expect(page.locator('.quote-details').getByText(/couldn't find/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
   await expect(page.locator(".fare-amount")).toContainText("—");
+});
+
+test("booking page has no automated WCAG 2.2 AA violations", async ({ page }) => {
+  await mockRouting(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /your next stop/i })).toBeVisible();
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(results.violations, JSON.stringify(results.violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.map(n => n.target) }), null, 2)).toBe([]);
 });
