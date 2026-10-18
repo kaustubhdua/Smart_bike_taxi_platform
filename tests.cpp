@@ -209,15 +209,19 @@ void testRideDispatchService() {
     check(drivers.find("NEAR")->location == "A" &&
               !drivers.find("NEAR")->available,
           "assigned driver remains busy at pickup location");
-    check(!ride_service::completeRide(history, drivers, 11),
+    check(!ride_service::completeRide(history, drivers, 10),
           "cannot complete before ride starts");
     check(!ride_service::cancelRide(history, drivers, 999),
           "cannot cancel a missing ride");
+    check(ride_service::cancelRide(history, drivers, 10),
+          "assigned ride cancellation is allowed");
     check(history.front().status == "Cancelled" &&
               drivers.find("NEAR")->available,
           "cancellation records state and releases driver");
-    check(!ride_service::startRide(history, 11),
+    check(!ride_service::startRide(history, 10),
           "cancelled ride cannot start");
+    check(!ride_service::cancelRide(history, drivers, 10),
+          "cancelled ride cannot be cancelled twice");
 
     std::queue<RideRequest> secondRequest;
     secondRequest.push(RideRequest{5, "R1", "A", "C"});
@@ -225,6 +229,8 @@ void testRideDispatchService() {
         riders, drivers, driverIds, city, secondRequest, history, nextRideId);
     check(secondDispatch.status == ride_service::DispatchStatus::Dispatched,
           "released driver can be assigned to a new ride");
+    check(secondDispatch.ride.rideId == 11 && nextRideId == 12,
+          "next ride receives the next unique ID");
     check(ride_service::startRide(history, 11), "assigned ride starts");
     check(!ride_service::startRide(history, 11), "ride cannot start twice");
     check(ride_service::completeRide(history, drivers, 11),
@@ -235,6 +241,8 @@ void testRideDispatchService() {
           "completion moves and releases driver");
     check(!ride_service::completeRide(history, drivers, 11),
           "completed ride cannot complete twice");
+    check(!ride_service::cancelRide(history, drivers, 11),
+          "completed ride cannot be cancelled");
     check(drivers.find("FAR")->location == "C", "unselected driver unchanged");
 
     HashTable<Driver> unavailableDrivers;
@@ -262,7 +270,7 @@ void testRideDispatchService() {
         riders, drivers, driverIds, city, invalid, history, nextRideId);
     check(badRequest.status == ride_service::DispatchStatus::InvalidRequest,
           "unknown rider request rejected");
-    check(invalid.size() == 1 && nextRideId == 11,
+    check(invalid.size() == 1 && nextRideId == 12,
           "invalid request remains queued without consuming ID");
 
     std::queue<RideRequest> zeroLength;
@@ -271,10 +279,9 @@ void testRideDispatchService() {
         riders, drivers, driverIds, city, zeroLength, history, nextRideId);
     check(sameLocation.status == ride_service::DispatchStatus::InvalidRequest,
           "identical pickup and destination rejected");
-    check(zeroLength.size() == 1 && nextRideId == 11,
+    check(zeroLength.size() == 1 && nextRideId == 12,
           "zero-length request remains queued without consuming ride ID");
 }
-
 }  // namespace
 
 int main() {
