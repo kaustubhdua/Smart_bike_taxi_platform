@@ -1,4 +1,4 @@
-# Saarthi API
+# RideForge API
 
 ## Implemented surface
 
@@ -23,7 +23,7 @@ cmake -S backend -B build-backend -DCMAKE_BUILD_TYPE=Release
 cmake --build build-backend --parallel
 ```
 
-Configure `DATABASE_URL`, `PORT`, `SAARTHI_ALLOWED_ORIGIN`, and `SAARTHI_USER_AGENT` in the deployment environment. `SAARTHI_GEOCODING_URL` and `SAARTHI_ROUTING_URL` can point to compatible providers; their defaults target Nominatim and OSRM. Keep the base URLs free of trailing slashes. CI injects deterministic local mock providers so quote behavior is tested without network calls. Never commit credentials. The service defaults to port 8080 and a development origin of `http://localhost:5173`. Set a real contact identifier in the user agent before using public Nominatim services. Public Nominatim/OSRM endpoints are evaluation services, not a production SLA; production should use a contracted provider or self-hosted services.
+Configure `DATABASE_URL`, `PORT`, `RIDEFORGE_ALLOWED_ORIGIN`, and `RIDEFORGE_USER_AGENT` in the deployment environment. `RIDEFORGE_GEOCODING_URL` and `RIDEFORGE_ROUTING_URL` can point to compatible providers; their defaults target Nominatim and OSRM. Keep the base URLs free of trailing slashes. CI injects deterministic local mock providers so quote behavior is tested without network calls. Never commit credentials. The service defaults to port 8080 and a development origin of `http://localhost:5173`. Set a real contact identifier in the user agent before using public Nominatim services. Public Nominatim/OSRM endpoints are evaluation services, not a production SLA; production should use a contracted provider or self-hosted services.
 
 The current demo fare is ₹20 base + ₹11/km, rounded up to a whole paise. This is a portfolio demonstration tariff, not a commercial tariff. Quote requests are limited in-process to 30 requests per minute and auth requests to 10 per minute per direct client IP; these are not distributed limiters. The CORS origin is configurable. Do not trust client-provided distance or price.
 
@@ -47,6 +47,6 @@ The API is an incremental backend foundation, **not a complete ride-hailing serv
 
 ## Migration and verification
 
-Apply every ordered `migrations/*.sql` file to a dedicated PostgreSQL database with `sh backend/scripts/migrate-if-needed.sh` and `SAARTHI_MIGRATIONS_DIR=backend/migrations`. Migration versions are recorded in `schema_migrations` in the same transaction as each migration. Compose skips applied versions and fails closed when it finds an existing unversioned schema rather than guessing. PostgreSQL CI checks clean migration, repeatability, driver approval and outbox invariants. API CI builds with warnings as errors and tests HTTP body limits, authentication/booking status codes, successful persisted quotes, malformed geocoder output, missing locations, unreachable routes, provider failure handling, booking idempotency and concurrent driver assignment using deterministic local mock providers. These are contract/smoke tests, not production load or provider SLA verification.
+Apply every ordered `migrations/*.sql` file to a dedicated PostgreSQL database with `sh backend/scripts/migrate-if-needed.sh` and `RIDEFORGE_MIGRATIONS_DIR=backend/migrations`. Migration versions are recorded in `schema_migrations` in the same transaction as each migration. Compose skips applied versions and fails closed when it finds an existing unversioned schema rather than guessing. PostgreSQL CI checks clean migration, repeatability, driver approval and outbox invariants. API CI builds with warnings as errors and tests HTTP body limits, authentication/booking status codes, successful persisted quotes, malformed geocoder output, missing locations, unreachable routes, provider failure handling, booking idempotency and concurrent driver assignment using deterministic local mock providers. These are contract/smoke tests, not production load or provider SLA verification.
 
 Run the smoke test against a running API with `bash backend/tests/http_smoke.sh`. Production still needs backup/restore validation, least-privilege database roles, bounded connection pooling, a durable outbox publisher, and security/load testing.
