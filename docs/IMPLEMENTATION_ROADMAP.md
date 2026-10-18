@@ -20,7 +20,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 
 - Driver provisioning, approval and suspension API/UI are implemented with an audit trail. Real-world identity/vehicle document verification remains outside this demo.
 - The ride-event outbox publisher is implemented with PostgreSQL NOTIFY, retry/backoff and dead-letter handling. The API exposes an authenticated SSE stream with persisted-event replay; passenger and driver workspaces consume ride-status frames and REST polling remains the recovery path. Ride detail exposes a fresh driver location only to authorized ride participants during an active ride; the passenger map displays that marker and hides it when the location is stale/offline or the ride becomes terminal.
-- Dispatch queue filtering currently uses approval, online status and location freshness; it is not yet a full road-ETA ranking service or geographic matching engine.
+- Dispatch queue filters approved, online drivers with a fresh location and a 20 km great-circle pickup radius; it is not yet ranked by road ETA, and the radius is a demo policy rather than a configurable operating rule.
 - Admin workspace exposes operational metrics, driver provisioning/approval/suspension, and recent privileged-action audit history. Incident response and audit search/filtering remain future work.
 - No real payment processing, refund/reconciliation, real SMS delivery, production safety response or commercial fleet operations.
 - No live production deployment, production provider contract, tested production backup/restore, or legal authorization for commercial rides is claimed.
@@ -57,7 +57,7 @@ Acceptance: adversarial integration tests pass and no client can read or mutate 
 - [x] Add an admin-only driver provisioning/approval/suspension API and corresponding UI.
 - [x] Record approval actor/time and audit driver provisioning, approval and suspension.
 - [ ] Add driver profile/vehicle fields and a documented demo verification policy.
-- [ ] Reject stale or out-of-area offers at both queue and acceptance time.
+- [x] Reject stale or out-of-area offers at both queue and acceptance time (20 km great-circle demo radius).
 - [ ] Add a driver trip history/earnings ledger that is derived from persisted rides.
 - [ ] Add admin ride search, failed dispatch inspection and incident records.
 
