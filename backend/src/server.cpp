@@ -481,6 +481,49 @@ http::response<http::string_body> handle_auth(
     }
 }
 
+http::response<http::string_body> handle_booking(
+    const http::request<http::string_body>& request) {
+    if (request.body().size() > 16384) {
+        return response(http::status::payload_too_large, {{"error", "request_too_large"}}, request);
+    }
+    try {
+        const auto authorization_view = request[http::field::authorization];
+        const std::string authorization(authorization_view.data(), authorization_view.size());
+        if (authorization.rfind("Bearer ", 0) != 0) {
+            return response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        }
+        const auto claims = saarthi_security::verify_access_token(
+            authorization.substr(7), env_or("SAARTHI_JWT_SECRET", ""));
+        if (claims.role != "passenger") {
+            return response(http::status::forbidden, {{"error", "passenger_role_required"}}, request);
+        }
+        const auto key_view = request["Idempotency-Key"];
+        const std::string key(key_view.data(), key_view.size());
+        if (key.size() < 8 || key.size() > 160) {
+            throw std::invalid_argument("Idempotency-Key must be between 8 and 160 characters");
+        }
+        const auto body = json::parse(request.body());
+        if (!body.is_object() || !body.contains("quoteId") || !body["quoteId"].is_string()) {
+            throw std::invalid_argument("quoteId is required");
+        }
+        const std::string quote_id = body["quoteId"].get<std::string>();
+        Database database(env_or("DATABASE_URL", ""));
+        const json ride = database.create_ride(claims.subject, key, quote_id);
+        const auto status = ride.value("replayed", false) ? http::status::ok : http::status::created;
+        return response(status, ride, request);
+    } catch (const std::domain_error& error) {
+        const std::string reason = error.what();
+        return response(http::status::conflict,
+            {{"error", reason == "idempotency_conflict" ? "idempotency_conflict" : "quote_unavailable"}}, request);
+    } catch (const std::invalid_argument& error) {
+        return response(http::status::unauthorized, {{"error", error.what()}}, request);
+    } catch (const json::exception&) {
+        return response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+    } catch (const std::exception&) {
+        return response(http::status::service_unavailable, {{"error", "booking_unavailable"}}, request);
+    }
+}
+
 void handle_request(tcp::socket socket) {
     beast::flat_buffer buffer;
     http::request<http::string_body> request;
@@ -509,6 +552,8 @@ void handle_request(tcp::socket socket) {
             result = response(http::status::service_unavailable,
                               {{"status", "degraded"}, {"database", "unavailable"}}, request);
         }
+    } else if (request.method() == http::verb::post && path == "/api/v1/rides") {
+        result = handle_booking(request);
     } else if (request.method() == http::verb::post && path == "/api/v1/routes/quote") {
         if (!quote_limiter.allow(client_ip(socket))) {
             result = response(http::status::too_many_requests, {{"error", "rate_limited"}}, request);
