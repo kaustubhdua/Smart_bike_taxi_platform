@@ -457,6 +457,7 @@ export default function App() {
                   <div className="driver-panel-head">
                     <div><h3 id="driver-console-title">Driver console</h3><p>Availability and ride actions use the API.</p></div>
                     <button className={driverOnline ? "driver-online online" : "driver-online"} onClick={toggleDriverAvailability}>{driverOnline ? "Go offline" : "Go online"}</button>
+                    <button className="text-action" onClick={() => { setAccount(null); setDriverQueue([]); setDriverRide(null); setDriverOnline(false); }}>Sign out</button>
                   </div>
                   <button className="text-action" onClick={refreshDriverQueue}>Refresh ride queue</button>
                   {driverRide ? (
@@ -482,6 +483,7 @@ export default function App() {
                   <div className="driver-panel-head">
                     <div><h3 id="admin-console-title">Admin overview</h3><p>Operational counts from PostgreSQL.</p></div>
                     <button className="driver-online" onClick={loadAdminMetrics}>Refresh metrics</button>
+                    <button className="text-action" onClick={() => { setAccount(null); setAdminMetrics(null); }}>Sign out</button>
                   </div>
                   {adminMetrics && <div className="admin-metrics">
                     <strong>{adminMetrics.onlineDrivers} online drivers</strong>
