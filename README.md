@@ -2,14 +2,14 @@
 
 # 🏍️ RideForge — Smart Bike Taxi Platform
 
-**A modular C++17 ride-booking simulation built around data structures and algorithms.**
+**A C++17-powered bike-taxi platform with a real API, PostgreSQL bookings, and driver/admin workspaces.**
 
 Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local persistence
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
 ![CI](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/cpp.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
-![Project](https://img.shields.io/badge/status-academic%20simulation-orange)
+![Project](https://img.shields.io/badge/status-portfolio%20MVP%20in%20progress-blue)
 
 </div>
 
@@ -65,7 +65,7 @@ The benchmark prints CSV timing data for route queries and custom-versus-standar
 
 ### Backend contract and schema
 
-See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service supports database-backed quotes, passenger registration/login, signed access tokens, idempotent booking transactions, ride history/detail reads, cancellation, driver queue/availability/acceptance/lifecycle-transition endpoints and admin metrics. Backend CI covers API compilation, auth/booking smoke behavior, and clean PostgreSQL migrations. Real-world identity/vehicle verification, broader concurrency/authorization tests, an outbox publisher with push-based real-time delivery, and production deployment remain release gates. Track the remaining work in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
+See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml), [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql), and [driver approval/outbox migration](backend/migrations/002_driver_approval_and_outbox.sql). The native service supports database-backed quotes, passenger registration/login, signed access tokens, idempotent booking transactions, ride history/detail reads, cancellation, driver queue/availability/acceptance/lifecycle-transition endpoints, audited admin driver provisioning/approval/suspension, and admin metrics. Use the one-time [admin bootstrap utility](backend/src/bootstrap_admin.cpp) and [operations runbook](docs/OPERATIONS_RUNBOOK.md) to create the first local administrator. Backend CI covers API compilation, auth/booking smoke behavior, and clean PostgreSQL migrations. Real-world identity/vehicle verification, broader concurrency/authorization tests, an outbox publisher with push-based real-time delivery, and production deployment remain release gates. Track the remaining work in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
 
 See also the [implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md), [security model and release checklist](docs/SECURITY_MODEL.md), and [operations runbook](docs/OPERATIONS_RUNBOOK.md). These documents separate implemented behavior from release blockers and do not claim commercial readiness.
 
