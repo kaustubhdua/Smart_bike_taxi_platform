@@ -53,11 +53,19 @@ export async function calculateRoute(
   // Nominatim's public service policy asks clients to stay at or below 1 request/sec.
   const start = await geocode(pickup, signal);
   await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(resolve, 1100);
-    signal.addEventListener("abort", () => {
+    if (signal.aborted) {
+      reject(new DOMException("Route lookup cancelled.", "AbortError"));
+      return;
+    }
+    const onAbort = () => {
       clearTimeout(timer);
       reject(new DOMException("Route lookup cancelled.", "AbortError"));
-    }, { once: true });
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, 1100);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
   const end = await geocode(destination, signal);
   const routeUrl = `${routingBase}/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson&steps=false`;
