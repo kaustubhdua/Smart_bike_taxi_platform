@@ -94,7 +94,7 @@ export default function App() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!base) {
       setApiState("offline");
-      setNotice("Booking is not connected yet. This preview does not create a fake ride. Configure VITE_API_BASE_URL after the API is ready.");
+      setNotice("Saarthi API is not configured. Set VITE_API_BASE_URL to request quotes and create ride bookings.");
       return;
     }
     try {
