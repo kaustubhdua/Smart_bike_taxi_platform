@@ -38,7 +38,7 @@ void require_command(PGconn* connection, const char* sql) {
 bool publish_one(PGconn* connection) {
     std::string outbox_id, event_id, ride_id, status, created_at;
     int attempts = 0;
-    command(connection, "BEGIN");
+    require_command(connection, "BEGIN");
     try {
         Result event(PQexec(connection,
             "SELECT o.id::text,o.ride_event_id::text,o.ride_id::text,e.new_status::text,e.created_at::text "
@@ -49,7 +49,7 @@ bool publish_one(PGconn* connection) {
         if (event.get() == nullptr || PQresultStatus(event.get()) != PGRES_TUPLES_OK)
             throw std::runtime_error("outbox_select_failed");
         if (PQntuples(event.get()) == 0) {
-            command(connection, "COMMIT");
+            require_command(connection, "COMMIT");
             return false;
         }
         outbox_id = PQgetvalue(event.get(), 0, 0);
@@ -64,14 +64,14 @@ bool publish_one(PGconn* connection) {
         if (claimed.get() == nullptr || PQresultStatus(claimed.get()) != PGRES_TUPLES_OK ||
             PQntuples(claimed.get()) != 1) throw std::runtime_error("outbox_claim_failed");
         attempts = std::stoi(PQgetvalue(claimed.get(), 0, 0));
-        command(connection, "COMMIT");
+        require_command(connection, "COMMIT");
     } catch (...) {
         Result rollback(PQexec(connection, "ROLLBACK"));
         throw;
     }
 
     try {
-        command(connection, "BEGIN");
+        require_command(connection, "BEGIN");
         const std::string payload = json{{"eventId", event_id}, {"rideId", ride_id},
             {"status", status}, {"createdAt", created_at}}.dump();
         const char* values[] = {payload.c_str()};
@@ -87,9 +87,9 @@ bool publish_one(PGconn* connection) {
         if (marked.get() == nullptr || PQresultStatus(marked.get()) != PGRES_COMMAND_OK ||
             std::string(PQcmdTuples(marked.get())) != "1")
             throw std::runtime_error("outbox_mark_failed");
-        command(connection, "COMMIT");
-        std::cout << "{\\"event\\":\\"ride_event_published\\",\\"eventId\\":" << event_id
-                  << ",\\"attempt\\":" << attempts << "}\\n";
+        require_command(connection, "COMMIT");
+        std::cout << "{\"event\":\"ride_event_published\",\"eventId\":" << event_id
+                  << ",\"attempt\":" << attempts << "}\n";
         return true;
     } catch (...) {
         Result rollback(PQexec(connection, "ROLLBACK"));
@@ -104,9 +104,9 @@ bool publish_one(PGconn* connection) {
             1, nullptr, values, nullptr, nullptr, 0));
         if (failed.get() == nullptr || PQresultStatus(failed.get()) != PGRES_COMMAND_OK)
             throw std::runtime_error("outbox_retry_schedule_failed");
-        std::cerr << "{\\"event\\":\\"ride_event_delivery_failed\\",\\"eventId\\":" << event_id
-                  << ",\\"attempt\\":" << attempts
-                  << ",\\"deadLettered\\":" << (attempts >= 10 ? "true" : "false") << "}\\n";
+        std::cerr << "{\"event\":\"ride_event_delivery_failed\",\"eventId\":" << event_id
+                  << ",\"attempt\":" << attempts
+                  << ",\"deadLettered\":" << (attempts >= 10 ? "true" : "false") << "}\n";
         return true;
     }
 }
