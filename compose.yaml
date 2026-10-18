@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: saarthi
+      POSTGRES_USER: saarthi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - saarthi-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saarthi -d saarthi"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: postgres:16
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backend/migrations/001_initial_schema.sql:/schema.sql:ro
+    command: ["sh", "-c", "psql -v ON_ERROR_STOP=1 -h db -U saarthi -d saarthi -f /schema.sql"]
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: 8080
+      SAARTHI_BIND_ADDRESS: 0.0.0.0
+      SAARTHI_ALLOWED_ORIGIN: http://localhost:5173
+      SAARTHI_USER_AGENT: ${SAARTHI_USER_AGENT}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  saarthi-data:
