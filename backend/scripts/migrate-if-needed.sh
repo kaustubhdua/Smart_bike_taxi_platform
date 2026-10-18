@@ -1,7 +1,6 @@
 #!/bin/sh
 set -eu
 
-psql_base="psql -h db -U saarthi -d saarthi"
 migration_table="$(psql -tAc "SELECT to_regclass('public.schema_migrations')" -h db -U saarthi -d saarthi)"
 
 if [ "$migration_table" = "schema_migrations" ]; then
