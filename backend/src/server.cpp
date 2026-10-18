@@ -97,8 +97,8 @@ std::string url_encode(const std::string& value) {
 
 Location geocode(const std::string& label) {
     const auto response = get_json(
-        std::string("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=") +
-        url_encode(label));
+        env_or("SAARTHI_GEOCODING_URL", "https://nominatim.openstreetmap.org/search") +
+        "?format=jsonv2&limit=1&q=" + url_encode(label));
     const auto parsed = json::parse(response.body);
     if (!parsed.is_array() || parsed.empty() || !parsed.at(0).is_object()) {
         throw std::invalid_argument("Location could not be found");
@@ -117,7 +117,7 @@ Location geocode(const std::string& label) {
 
 std::pair<int, int> route(const Location& pickup, const Location& destination) {
     const std::string url =
-        "https://router.project-osrm.org/route/v1/driving/" +
+        env_or("SAARTHI_ROUTING_URL", "https://router.project-osrm.org/route/v1/driving") + "/" +
         std::to_string(pickup.longitude) + "," + std::to_string(pickup.latitude) + ";" +
         std::to_string(destination.longitude) + "," + std::to_string(destination.latitude) +
         "?overview=false&alternatives=false&steps=false";
