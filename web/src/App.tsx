@@ -142,6 +142,74 @@ export default function App() {
     }
   }
 
+  async function authenticate() {
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base) {
+      setNotice("Configure VITE_API_BASE_URL to connect to the Saarthi API.");
+      return;
+    }
+    try {
+      const payload = authMode === "register"
+        ? { email: authEmail, displayName: authName, password: authPassword }
+        : { email: authEmail, password: authPassword };
+      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/auth/${authMode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json() as {
+        accessToken?: string;
+        account?: { email?: string; displayName?: string };
+        error?: string;
+      };
+      if (!response.ok || !data.accessToken || !data.account?.email) {
+        throw new Error(response.status === 409 ? "An account already exists for this email. Sign in instead."
+          : response.status === 401 ? "Email or password is incorrect."
+          : data.error || `Authentication failed (HTTP ${response.status}).`);
+      }
+      setAccount({ token: data.accessToken, email: data.account.email, displayName: data.account.displayName });
+      setAuthPassword("");
+      setNotice(`Signed in as ${data.account.email}. Your access token stays in memory for this session.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not connect to the authentication service.");
+    }
+  }
+
+  async function createBooking() {
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base || !quote || !account) {
+      setNotice("Get a valid quote and sign in before confirming a ride.");
+      return;
+    }
+    if (!quote.expiresAt || Date.parse(quote.expiresAt) <= Date.now()) {
+      setQuote(null);
+      setNotice("Your quote expired. Request a fresh quote before booking.");
+      return;
+    }
+    try {
+      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/rides`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": `Bearer ${account.token}`,
+          "Idempotency-Key": `saarthi-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ quoteId: quote.quoteId }),
+      });
+      const data = await response.json() as { rideId?: string; status?: string; error?: string };
+      if (!response.ok || !data.rideId || !data.status) {
+        throw new Error(response.status === 409 ? "This quote expired or was already used. Request a new quote."
+          : response.status === 401 ? "Your session is invalid. Sign in again."
+          : data.error || `Booking failed (HTTP ${response.status}).`);
+      }
+      setRide({ rideId: data.rideId, status: data.status });
+      setNotice(`Ride request created. Reference: ${data.rideId}. Status: ${data.status}.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not create the ride request.");
+    }
+  }
+
   function scrollToBooking() {
     document.getElementById("booking")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }
