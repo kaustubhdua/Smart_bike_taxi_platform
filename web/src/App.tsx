@@ -27,7 +27,7 @@ export default function App() {
   const [destination, setDestination] = useState(locations[2]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
-  const [mode, setMode] = useState<"ride" | "driver" | "insights">("ride");
+  const [mode, setMode] = useState<"ride" | "driver" | "admin" | "insights">("ride");
   const [apiState, setApiState] = useState<"idle" | "checking" | "offline">("idle");
   const [route, setRoute] = useState<{ km: number; mins: number; path: string; geometry: Array<[number, number]>; provider: string } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -359,7 +359,8 @@ export default function App() {
         <nav className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
           <button className={mode === "ride" ? "nav-link active" : "nav-link"} onClick={() => { setMode("ride"); setMenuOpen(false); }}>Book a ride</button>
           <button className={mode === "driver" ? "nav-link active" : "nav-link"} onClick={() => { setMode("driver"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Drive with us</button>
-          <button className={mode === "insights" ? "nav-link active" : "nav-link"} onClick={() => { setMode("insights"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>How it works</button>
+          <button className={mode === "admin" ? "nav-link active" : "nav-link"} onClick={() => { setMode("admin"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Admin console</button>
+          <button className={mode === "insights" ? "nav-link active" : "nav-link"} onClick={() => { setMode("insights"); setMenuOpen(false); setNotice(""); document.getElementById("lab")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); }}>How it works</button>
         </nav>
         <div className="header-actions"><a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety first</a><button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button><button className="header-cta" onClick={scrollToBooking}>Get moving <ArrowUpRight size={16} /></button></div>
       </header>
@@ -388,7 +389,7 @@ export default function App() {
           <div className="hero-index"><span>01</span><i /> A NEW KIND OF CITY RIDE</div>
         </section>
 
-        {mode !== "ride" && <OperationsWorkspace mode={mode} />}
+        {(mode === "driver" || mode === "admin") && <OperationsWorkspace mode={mode} />}
 
         <section className="booking-section" id="booking">
           <div className="section-intro"><span className="section-kicker">LET'S GET YOU THERE</span><h2>Your next stop<br className="mobile-break" /> is closer than you think.</h2><p>Two locations. One easy plan.</p></div>
