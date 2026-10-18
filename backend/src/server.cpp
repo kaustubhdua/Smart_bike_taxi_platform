@@ -190,6 +190,142 @@ public:
         return account;
     }
 
+    json create_ride(const std::string& passenger_id, const std::string& idempotency_key,
+                     const std::string& quote_id) {
+        const auto command = [this](const char* sql) {
+            PGresult* result = PQexec(connection_, sql);
+            if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Database transaction command failed");
+            }
+            PQclear(result);
+        };
+        command("BEGIN");
+        try {
+            const char* idem_params[] = {passenger_id.c_str(), idempotency_key.c_str(), quote_id.c_str()};
+            PGresult* idem = PQexecParams(connection_,
+                "INSERT INTO booking_idempotency (passenger_id,idempotency_key,request_fingerprint) "
+                "VALUES ($1::uuid,$2,$3) ON CONFLICT DO NOTHING RETURNING passenger_id::text",
+                3, nullptr, idem_params, nullptr, nullptr, 0);
+            if (idem == nullptr || PQresultStatus(idem) != PGRES_TUPLES_OK) {
+                if (idem != nullptr) PQclear(idem);
+                throw std::runtime_error("Could not reserve idempotency key");
+            }
+            const bool reserved = PQntuples(idem) == 1;
+            PQclear(idem);
+            if (!reserved) {
+                PGresult* existing = PQexecParams(connection_,
+                    "SELECT request_fingerprint,ride_id::text FROM booking_idempotency "
+                    "WHERE passenger_id=$1::uuid AND idempotency_key=$2",
+                    2, nullptr, idem_params, nullptr, nullptr, 0);
+                if (existing == nullptr || PQresultStatus(existing) != PGRES_TUPLES_OK ||
+                    PQntuples(existing) != 1) {
+                    if (existing != nullptr) PQclear(existing);
+                    throw std::runtime_error("Could not read idempotency record");
+                }
+                const std::string fingerprint = PQgetvalue(existing, 0, 0);
+                const bool has_ride = !PQgetisnull(existing, 0, 1);
+                const std::string existing_ride = has_ride ? PQgetvalue(existing, 0, 1) : "";
+                PQclear(existing);
+                if (fingerprint != quote_id) throw std::domain_error("idempotency_conflict");
+                if (!has_ride) throw std::runtime_error("Incomplete idempotency record");
+                PGresult* ride = PQexecParams(connection_,
+                    "SELECT id::text,status::text,quoted_fare_paise FROM rides WHERE id=$1::uuid",
+                    1, nullptr, &idem_params[2], nullptr, nullptr, 0);
+                if (ride == nullptr || PQresultStatus(ride) != PGRES_TUPLES_OK || PQntuples(ride) != 1) {
+                    if (ride != nullptr) PQclear(ride);
+                    throw std::runtime_error("Could not read existing ride");
+                }
+                json result{{"rideId", PQgetvalue(ride, 0, 0)},
+                            {"status", PQgetvalue(ride, 0, 1)},
+                            {"farePaise", std::stoi(PQgetvalue(ride, 0, 2))},
+                            {"currency", "INR"}, {"replayed", true}};
+                PQclear(ride);
+                command("COMMIT");
+                return result;
+            }
+
+            const char* quote_params[] = {quote_id.c_str()};
+            PGresult* quote = PQexecParams(connection_,
+                "SELECT pickup_label,pickup_latitude::text,pickup_longitude::text,"
+                "destination_label,destination_latitude::text,destination_longitude::text,"
+                "route_distance_m::text,fare_paise::text FROM route_quotes "
+                "WHERE id=$1::uuid AND consumed_at IS NULL AND expires_at>now() FOR UPDATE",
+                1, nullptr, quote_params, nullptr, nullptr, 0);
+            if (quote == nullptr || PQresultStatus(quote) != PGRES_TUPLES_OK) {
+                if (quote != nullptr) PQclear(quote);
+                throw std::runtime_error("Could not lock route quote");
+            }
+            if (PQntuples(quote) != 1) {
+                PQclear(quote);
+                throw std::domain_error("quote_expired_or_consumed");
+            }
+            const std::vector<std::string> values = {
+                passenger_id, PQgetvalue(quote, 0, 0), PQgetvalue(quote, 0, 1),
+                PQgetvalue(quote, 0, 2), PQgetvalue(quote, 0, 3), PQgetvalue(quote, 0, 4),
+                PQgetvalue(quote, 0, 5), PQgetvalue(quote, 0, 6), PQgetvalue(quote, 0, 7),
+                idempotency_key
+            };
+            PQclear(quote);
+            std::vector<const char*> params;
+            for (const auto& value : values) params.push_back(value.c_str());
+            PGresult* inserted = PQexecParams(connection_,
+                "INSERT INTO rides (passenger_id,status,pickup_label,pickup_latitude,pickup_longitude,"
+                "destination_label,destination_latitude,destination_longitude,route_distance_m,"
+                "quoted_fare_paise,idempotency_key) VALUES ($1::uuid,'requested',$2,$3::double precision,"
+                "$4::double precision,$5,$6::double precision,$7::double precision,$8::integer,"
+                "$9::integer,$10) RETURNING id::text",
+                static_cast<int>(params.size()), nullptr, params.data(), nullptr, nullptr, 0);
+            if (inserted == nullptr || PQresultStatus(inserted) != PGRES_TUPLES_OK ||
+                PQntuples(inserted) != 1) {
+                if (inserted != nullptr) PQclear(inserted);
+                throw std::runtime_error("Could not create ride");
+            }
+            const std::string ride_id = PQgetvalue(inserted, 0, 0);
+            PQclear(inserted);
+
+            const char* event_params[] = {ride_id.c_str(), passenger_id.c_str()};
+            PGresult* event = PQexecParams(connection_,
+                "INSERT INTO ride_events (ride_id,actor_id,new_status,details) "
+                "VALUES ($1::uuid,$2::uuid,'requested','{\"source\":\"api\"}'::jsonb)",
+                2, nullptr, event_params, nullptr, nullptr, 0);
+            if (event == nullptr || PQresultStatus(event) != PGRES_COMMAND_OK) {
+                if (event != nullptr) PQclear(event);
+                throw std::runtime_error("Could not record ride event");
+            }
+            PQclear(event);
+
+            const char* consume_params[] = {quote_id.c_str()};
+            PGresult* consumed = PQexecParams(connection_,
+                "UPDATE route_quotes SET consumed_at=now() WHERE id=$1::uuid AND consumed_at IS NULL",
+                1, nullptr, consume_params, nullptr, nullptr, 0);
+            if (consumed == nullptr || PQresultStatus(consumed) != PGRES_COMMAND_OK ||
+                std::string(PQcmdTuples(consumed)) != "1") {
+                if (consumed != nullptr) PQclear(consumed);
+                throw std::domain_error("quote_expired_or_consumed");
+            }
+            PQclear(consumed);
+
+            const char* link_params[] = {passenger_id.c_str(), idempotency_key.c_str(), ride_id.c_str()};
+            PGresult* linked = PQexecParams(connection_,
+                "UPDATE booking_idempotency SET ride_id=$3::uuid "
+                "WHERE passenger_id=$1::uuid AND idempotency_key=$2",
+                3, nullptr, link_params, nullptr, nullptr, 0);
+            if (linked == nullptr || PQresultStatus(linked) != PGRES_COMMAND_OK) {
+                if (linked != nullptr) PQclear(linked);
+                throw std::runtime_error("Could not finalize idempotency record");
+            }
+            PQclear(linked);
+            command("COMMIT");
+            return json{{"rideId", ride_id}, {"status", "requested"},
+                        {"farePaise", std::stoi(values[8])}, {"currency", "INR"}, {"replayed", false}};
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
     std::string save_quote(const Location& pickup, const Location& destination,
                            int distance_m, int duration_seconds, int fare_paise) {
         // Keep parameter strings alive for the complete PQexecParams call.
