@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowRight, Check, RefreshCw, ShieldCheck } from "lucide-react";
 
-type WorkspaceMode = "driver" | "insights";
+type WorkspaceMode = "driver" | "admin";
 type RideRequest = {
   rideId: string;
   pickup: string;
