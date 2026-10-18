@@ -842,6 +842,19 @@ http::response<http::string_body> handle_booking(
     }
 }
 
+std::optional<saarthi_security::Claims> bearer_claims(
+    const http::request<http::string_body>& request) {
+    const auto header = request[http::field::authorization];
+    const std::string authorization(header.data(), header.size());
+    if (authorization.rfind("Bearer ", 0) != 0) return std::nullopt;
+    try {
+        return saarthi_security::verify_access_token(
+            authorization.substr(7), env_or("SAARTHI_JWT_SECRET", ""));
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
 void handle_request(tcp::socket socket) {
     beast::flat_buffer buffer;
     http::request<http::string_body> request;
@@ -925,6 +938,20 @@ void handle_request(tcp::socket socket) {
                 std::cerr << "Quote request failed: " << error.what() << '\n';
                 result = response(http::status::service_unavailable,
                                   {{"error", "quote_service_unavailable"}}, request);
+            }
+        }
+    } else if (request.method() == http::verb::get && path == "/api/v1/rides") {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "passenger") {
+            result = response(http::status::forbidden, {{"error", "passenger_role_required"}}, request);
+        } else {
+            try {
+                Database database(env_or("DATABASE_URL", ""));
+                result = response(http::status::ok, database.list_rides(claims->subject), request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "history_unavailable"}}, request);
             }
         }
     } else {
