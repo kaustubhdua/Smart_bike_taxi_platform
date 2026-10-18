@@ -59,9 +59,20 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
       accessToken: "test-access-token", account: { email: "rider@example.test", displayName: "Test Rider" },
     }) });
   });
+  let bookingAttempts = 0;
+  let firstIdempotencyKey = "";
   await page.route("http://api.test/api/v1/rides", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer test-access-token");
-    expect(route.request().headers()["idempotency-key"]).toContain("saarthi-");
+    const key = route.request().headers()["idempotency-key"] ?? "";
+    expect(key).toContain("saarthi-");
+    if (bookingAttempts === 0) {
+      firstIdempotencyKey = key;
+      bookingAttempts += 1;
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "booking_unavailable" }) });
+      return;
+    }
+    expect(key).toBe(firstIdempotencyKey);
+    bookingAttempts += 1;
     await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({
       rideId: "30000000-0000-4000-8000-000000000001", status: "requested",
     }) });
@@ -82,6 +93,8 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.getByLabel("Password").fill("a-long-password-123");
   await page.getByRole("button", { name: "Create passenger account" }).click();
   await expect(page.locator('.auth-session')).toBeVisible();
+  await page.getByRole("button", { name: "Confirm ride request" }).click();
+  await expect(page.locator(".inline-notice")).toContainText(/booking failed/i);
   await page.getByRole("button", { name: "Confirm ride request" }).click();
   await expect(page.locator(".ride-confirmation")).toBeVisible();
   await page.getByRole("button", { name: "Cancel request" }).click();
