@@ -20,6 +20,25 @@ INSERT INTO rides (
   'assigned', 'Pickup', 28.53, 77.35, 'Dropoff', 28.54, 77.36, 4500, 'test-key-0001'
 );
 
+-- Ride state events and durable notification-outbox rows must be atomic.
+INSERT INTO ride_events (ride_id, actor_id, previous_status, new_status, details)
+VALUES (
+  '30000000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000001',
+  'requested', 'assigned', '{"source":"schema-smoke"}'::jsonb
+);
+
+DO $
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM ride_event_outbox
+    WHERE ride_id = '30000000-0000-4000-8000-000000000001'
+      AND published_at IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Expected ride event to create a durable notification outbox row';
+  END IF;
+END $;
+
 DO $$
 BEGIN
   BEGIN
