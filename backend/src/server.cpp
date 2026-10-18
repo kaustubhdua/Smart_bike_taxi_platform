@@ -190,6 +190,121 @@ public:
         return account;
     }
 
+    std::optional<json> get_ride(const std::string& ride_id, const std::string& actor_id,
+                                  const std::string& role) {
+        const char* params[] = {ride_id.c_str(), actor_id.c_str()};
+        const char* sql = role == "admin"
+            ? "SELECT id::text,status::text,passenger_id::text,driver_id::text,pickup_label,"
+              "destination_label,route_distance_m,quoted_fare_paise,final_fare_paise,"
+              "created_at::text,updated_at::text FROM rides WHERE id=$1::uuid"
+            : "SELECT id::text,status::text,passenger_id::text,driver_id::text,pickup_label,"
+              "destination_label,route_distance_m,quoted_fare_paise,final_fare_paise,"
+              "created_at::text,updated_at::text FROM rides WHERE id=$1::uuid "
+              "AND (passenger_id=$2::uuid OR driver_id=$2::uuid)";
+        PGresult* result = PQexecParams(connection_, sql, role == "admin" ? 1 : 2,
+                                        nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not read ride");
+        }
+        if (PQntuples(result) == 0) {
+            PQclear(result);
+            return std::nullopt;
+        }
+        json ride{{"rideId", PQgetvalue(result, 0, 0)}, {"status", PQgetvalue(result, 0, 1)},
+                  {"passengerId", PQgetvalue(result, 0, 2)},
+                  {"pickup", PQgetvalue(result, 0, 4)},
+                  {"destination", PQgetvalue(result, 0, 5)},
+                  {"farePaise", std::stoi(PQgetvalue(result, 0, 7))},
+                  {"currency", "INR"}, {"createdAt", PQgetvalue(result, 0, 9)},
+                  {"updatedAt", PQgetvalue(result, 0, 10)}};
+        if (!PQgetisnull(result, 0, 3)) ride["driverId"] = PQgetvalue(result, 0, 3);
+        if (!PQgetisnull(result, 0, 6)) ride["distanceMeters"] = std::stoi(PQgetvalue(result, 0, 6));
+        if (!PQgetisnull(result, 0, 8)) ride["finalFarePaise"] = std::stoi(PQgetvalue(result, 0, 8));
+        PQclear(result);
+        return ride;
+    }
+
+    json list_rides(const std::string& passenger_id) {
+        const char* params[] = {passenger_id.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "SELECT id::text,status::text,pickup_label,destination_label,quoted_fare_paise,created_at::text "
+            "FROM rides WHERE passenger_id=$1::uuid ORDER BY created_at DESC LIMIT 50",
+            1, nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not list rides");
+        }
+        json rides = json::array();
+        for (int i = 0; i < PQntuples(result); ++i) {
+            rides.push_back({{"rideId", PQgetvalue(result, i, 0)},
+                {"status", PQgetvalue(result, i, 1)}, {"pickup", PQgetvalue(result, i, 2)},
+                {"destination", PQgetvalue(result, i, 3)},
+                {"farePaise", std::stoi(PQgetvalue(result, i, 4))},
+                {"currency", "INR"}, {"createdAt", PQgetvalue(result, i, 5)}});
+        }
+        PQclear(result);
+        return json{{"rides", rides}};
+    }
+
+    json cancel_ride(const std::string& ride_id, const std::string& passenger_id) {
+        const auto command = [this](const char* sql) {
+            PGresult* result = PQexec(connection_, sql);
+            if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Database transaction command failed");
+            }
+            PQclear(result);
+        };
+        command("BEGIN");
+        try {
+            const char* params[] = {ride_id.c_str(), passenger_id.c_str()};
+            PGresult* locked = PQexecParams(connection_,
+                "SELECT status::text,driver_id::text FROM rides WHERE id=$1::uuid "
+                "AND passenger_id=$2::uuid FOR UPDATE",
+                2, nullptr, params, nullptr, nullptr, 0);
+            if (locked == nullptr || PQresultStatus(locked) != PGRES_TUPLES_OK) {
+                if (locked != nullptr) PQclear(locked);
+                throw std::runtime_error("Could not lock ride");
+            }
+            if (PQntuples(locked) != 1) {
+                PQclear(locked);
+                throw std::domain_error("ride_not_found");
+            }
+            const std::string previous = PQgetvalue(locked, 0, 0);
+            PQclear(locked);
+            if (previous != "requested" && previous != "matching" &&
+                previous != "assigned" && previous != "driver_arriving") {
+                throw std::domain_error("ride_not_cancellable");
+            }
+            PGresult* updated = PQexecParams(connection_,
+                "UPDATE rides SET status='cancelled',driver_id=NULL,cancelled_at=now(),updated_at=now() "
+                "WHERE id=$1::uuid AND passenger_id=$2::uuid",
+                2, nullptr, params, nullptr, nullptr, 0);
+            if (updated == nullptr || PQresultStatus(updated) != PGRES_COMMAND_OK) {
+                if (updated != nullptr) PQclear(updated);
+                throw std::runtime_error("Could not cancel ride");
+            }
+            PQclear(updated);
+            const char* event_params[] = {ride_id.c_str(), passenger_id.c_str(), previous.c_str()};
+            PGresult* event = PQexecParams(connection_,
+                "INSERT INTO ride_events (ride_id,actor_id,previous_status,new_status,details) "
+                "VALUES ($1::uuid,$2::uuid,$3::ride_status,'cancelled','{\"source\":\"passenger\"}'::jsonb)",
+                3, nullptr, event_params, nullptr, nullptr, 0);
+            if (event == nullptr || PQresultStatus(event) != PGRES_COMMAND_OK) {
+                if (event != nullptr) PQclear(event);
+                throw std::runtime_error("Could not record cancellation event");
+            }
+            PQclear(event);
+            command("COMMIT");
+            return json{{"rideId", ride_id}, {"status", "cancelled"}};
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
     json create_ride(const std::string& passenger_id, const std::string& idempotency_key,
                      const std::string& quote_id) {
         const auto command = [this](const char* sql) {
