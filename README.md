@@ -42,7 +42,7 @@ npm run typecheck
 npm run build
 ```
 
-The web CI workflow runs typechecking and a production build. The web interface now requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. It does not invent a fare: fare appears only after a server quote response. Public demo routing endpoints are for evaluation only, and no booking is created.
+The web CI workflow runs typechecking and a production build. The web interface now requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. It does not invent a fare: fare appears only after a server quote response. Public demo routing endpoints are for evaluation only, and no booking is created. Browser E2E, accessibility, lockfile-backed installs and deployment verification remain tracked in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
 
 ### C++ tests and benchmark
 
