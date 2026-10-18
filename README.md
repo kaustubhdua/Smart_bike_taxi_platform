@@ -18,7 +18,7 @@ Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local 
 
 ## Full-stack roadmap status
 
-This repository is being extended from its original C++17 academic simulation into **Saarthi**, an original bike-taxi booking product. This is an incremental build: the UI is not yet connected to a live booking API, and the project must not be represented as a live ride service.
+This repository is being extended from its original C++17 academic simulation into **Saarthi**, an original bike-taxi booking product. The C++ API now exposes a PostgreSQL-backed route quote endpoint, but the product is still an incremental portfolio build—not a live ride service.
 
 | Area | Current evidence | Status |
 |---|---|---|
@@ -27,9 +27,9 @@ This repository is being extended from its original C++17 academic simulation in
 | Ride lifecycle/dispatch | Cancellation releases drivers; tests cover cancellation/reassignment, deterministic driver ties and unreachable drivers | GCC, Clang and ASan/UBSan passed on current feature head |
 | Benchmarking | Deterministic 1,000-node / 1,000-query benchmark, CI CSV artifact, checked-in sample with environment notes | A real CI sample is recorded in [`benchmarks/results/ubuntu-latest-2026-10-18.csv`](benchmarks/results/ubuntu-latest-2026-10-18.csv); one run is not a general performance claim |
 | Web UI | React + TypeScript + Vite; lazy-loaded Leaflet map; Nominatim geocoding + OSRM road geometry; pickup/drop autocomplete; quote expiry validation | Typecheck/build, high-severity npm audit, gzip budgets, desktop/mobile Playwright E2E and axe audit passed on `8cdd5429593347b8c7e167da7d7a9c0e6a5c32b5`; server fare quote still needs API |
-| API contract | OpenAPI quote request/response schemas and documented failure cases at `backend/openapi.yaml` | Contract only; handlers not implemented |
-| PostgreSQL | Initial schema at `backend/migrations/001_initial_schema.sql`, including active-driver uniqueness guard | Migration drafted; not applied to a live DB |
-| Authentication, persisted booking, driver/admin workflows, realtime | Not implemented | Planned; do not claim these are live |
+| API service | C++17 HTTP server at `backend/src/server.cpp`; `GET /api/v1/health`; `POST /api/v1/routes/quote` geocodes, routes, calculates a server fare, and persists an expiring quote | Implemented incrementally; requires PostgreSQL and external routing providers; CI smoke tests do not call external providers |
+| PostgreSQL | Initial schema includes accounts, driver profiles, rides, route quotes, event history, idempotency and active-driver uniqueness guard | CI applies migration to PostgreSQL 16; no production DB or migration runner configured |
+| Authentication, ride creation/cancellation/history, driver/admin workflows, realtime | Not implemented | Release blockers; do not claim these are live |
 | Reproducible installs | `web/package-lock.json` not yet generated; CI still uses `npm install` | Release blocker; generate a genuine lockfile in a network-enabled checkout and switch to `npm ci` |
 | Deployment and screenshots | No live full-stack deployment verified | Planned |
 
@@ -43,7 +43,7 @@ npm run typecheck
 npm run build
 ```
 
-The web CI workflow runs typechecking and a production build. The web interface now requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. It does not invent a fare: fare appears only after a server quote response. Public demo routing endpoints are for evaluation only, and no booking is created. Browser E2E, accessibility, lockfile-backed installs and deployment verification remain tracked in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
+The web CI workflow runs typechecking and a production build. The web interface requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. Fare appears only after a server quote response; the C++ API calculates and persists a five-minute demo quote in PostgreSQL. Public demo routing endpoints are for evaluation only, and a quote still does not create a ride. Browser E2E, accessibility, lockfile-backed installs and deployment verification remain tracked in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
 
 ### C++ tests and benchmark
 
@@ -61,7 +61,7 @@ The benchmark prints CSV timing data for route queries and custom-versus-standar
 
 ### Backend contract and schema
 
-See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). These files document intended behavior and database invariants, not a deployed/working HTTP service. The UI calls the documented `POST /api/v1/routes/quote` path, but that handler is not implemented yet. Track the P0 implementation and release gates in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2); the handlers, transaction boundaries, auth/authorization and integration tests must pass before a quote can succeed or a ride can be booked.
+See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service and database quote persistence are implemented at `backend/src/server.cpp`; the backend CI compiles the server and smoke-tests health/validation against PostgreSQL. The remaining P0 work is auth/authorization, idempotent booking transactions, concurrency-safe dispatch, lifecycle transitions and driver/admin operations. Track the remaining release gates in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
 
 ### UI libraries and attribution
 
