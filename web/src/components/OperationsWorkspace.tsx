@@ -158,6 +158,91 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  useEffect(() => {
+    if (mode !== "driver" || !token || !apiBase || !activeRide ||
+        ["completed", "cancelled", "failed"].includes(activeRide.status)) return;
+    let disposed = false;
+    let lastEventId = 0;
+    let currentStatus = activeRide.status;
+    const abort = new AbortController();
+    const terminal = () => ["completed", "cancelled", "failed"].includes(currentStatus);
+    const statusRank: Record<string, number> = {
+      requested: 0, matching: 1, assigned: 2, driver_arriving: 3,
+      in_progress: 4, completed: 5, cancelled: 5, failed: 5,
+    };
+    const applyStatus = (data: { rideId?: string; status?: string }) => {
+      if (disposed || data.rideId !== activeRide.rideId || typeof data.status !== "string" ||
+          statusRank[data.status] === undefined || statusRank[currentStatus] === undefined ||
+          statusRank[data.status] < statusRank[currentStatus]) return;
+      currentStatus = data.status;
+      setActiveRide(current => current?.rideId === data.rideId
+        ? { rideId: current.rideId, status: data.status! } : current);
+    };
+    const refresh = async () => {
+      try {
+        const data = await request("/api/v1/rides/" + encodeURIComponent(activeRide.rideId));
+        if (typeof data.rideId === "string" && typeof data.status === "string") applyStatus(data as { rideId: string; status: string });
+      } catch { /* Keep last known state until REST recovery succeeds. */ }
+    };
+    const pause = (milliseconds: number) => new Promise<void>(resolve => window.setTimeout(resolve, milliseconds));
+    const connect = async () => {
+      while (!disposed && !terminal()) {
+        try {
+          const headers: Record<string, string> = { Accept: "text/event-stream", Authorization: "Bearer " + token };
+          if (lastEventId > 0) headers["Last-Event-ID"] = String(lastEventId);
+          const response = await fetch(apiBase + "/api/v1/rides/" + encodeURIComponent(activeRide.rideId) + "/events", {
+            headers, signal: abort.signal,
+          });
+          if (!response.ok || !response.body) throw new Error("Ride event stream unavailable");
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          while (!disposed && !terminal()) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            buffer += decoder.decode(chunk.value, { stream: true }).replace(/\r\n/g, "\n");
+            let boundary = buffer.indexOf("\n\n");
+            while (boundary >= 0) {
+              const frame = buffer.slice(0, boundary);
+              buffer = buffer.slice(boundary + 2);
+              let id = 0;
+              const dataLines: string[] = [];
+              for (const line of frame.split("\n")) {
+                if (line.startsWith("id:")) {
+                  const parsed = Number(line.slice(3).trim());
+                  if (Number.isSafeInteger(parsed) && parsed >= 0) id = parsed;
+                } else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+              }
+              if (id > lastEventId) lastEventId = id;
+              if (dataLines.length) {
+                try { applyStatus(JSON.parse(dataLines.join("\n")) as { rideId?: string; status?: string }); }
+                catch { /* Ignore malformed frames; REST polling recovers the state. */ }
+              }
+              boundary = buffer.indexOf("\n\n");
+            }
+          }
+          if (!disposed && !terminal()) await pause(250);
+        } catch {
+          if (disposed || abort.signal.aborted || terminal()) break;
+          await pause(1500);
+        }
+      }
+    };
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 5000);
+    const resync = () => { if (document.visibilityState === "visible") void refresh(); };
+    document.addEventListener("visibilitychange", resync);
+    window.addEventListener("focus", resync);
+    void refresh();
+    void connect();
+    return () => {
+      disposed = true;
+      abort.abort();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resync);
+      window.removeEventListener("focus", resync);
+    };
+  }, [mode, token, apiBase, activeRide?.rideId]);
+
   async function rideAction(rideId: string, action: "accept" | "driver_arriving" | "in_progress" | "completed") {
     setBusy(true);
     try {
