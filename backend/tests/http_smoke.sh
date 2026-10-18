@@ -356,6 +356,11 @@ status="$(curl --silent --show-error --output "$tmp_dir/accept.json" --write-out
 test "$status" = "200"
 grep -q '"status":"assigned"' "$tmp_dir/accept.json"
 
+status="$(curl --silent --show-error --output "$tmp_dir/assigned-detail.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$ride_id")"
+test "$status" = "200"
+python3 -c 'import json,sys; r=json.load(sys.stdin); p=r["driverLocation"]; assert abs(p["latitude"]-28.53)<0.001 and abs(p["longitude"]-77.35)<0.001' < "$tmp_dir/assigned-detail.json"
+
 for next_status in driver_arriving in_progress completed; do
   status="$(curl --silent --show-error --output "$tmp_dir/status.json" --write-out '%{http_code}' \
     --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $driver_token" \
