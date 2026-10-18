@@ -196,6 +196,8 @@ test("driver workspace uses protected API routes for availability and ride lifec
   });
 
   await page.goto("/");
+  const openDriverNav = page.getByRole("button", { name: "Open navigation" });
+  if (await openDriverNav.isVisible()) await openDriverNav.click();
   await page.getByRole("button", { name: "Drive with us" }).click();
   await page.getByLabel("Email").fill("driver@example.test");
   await page.getByLabel("Password").fill("driver-password");
@@ -229,6 +231,8 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
     }) });
   });
   await page.goto("/");
+  const openAdminNav = page.getByRole("button", { name: "Open navigation" });
+  if (await openAdminNav.isVisible()) await openAdminNav.click();
   await page.getByRole("button", { name: "How it works" }).click();
   await page.getByLabel("Email").fill("admin@example.test");
   await page.getByLabel("Password").fill("admin-password");
