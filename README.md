@@ -63,6 +63,17 @@ The benchmark prints CSV timing data for route queries and custom-versus-standar
 
 See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service and database quote persistence are implemented at `backend/src/server.cpp`; the backend CI compiles the server and smoke-tests health/validation against PostgreSQL. The remaining P0 work is auth/authorization, idempotent booking transactions, concurrency-safe dispatch, lifecycle transitions and driver/admin operations. Track the remaining release gates in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
 
+### Run the API and PostgreSQL locally
+
+With Docker Compose installed, set `POSTGRES_PASSWORD`, `DATABASE_URL` (for the Compose network, host is `db`), and `SAARTHI_USER_AGENT` in your shell, then run:
+
+```bash
+docker compose up --build
+curl http://localhost:8080/api/v1/health
+```
+
+Compose applies the initial schema to the local PostgreSQL volume before starting the API. Use a strong local password and do not reuse development values in a public deployment. The quote endpoint depends on public Nominatim/OSRM demo services; configure a real provider/contact identifier before use and do not treat these endpoints as production infrastructure.
+
 ### UI libraries and attribution
 
 The design is original and may incorporate licensed open-source components selectively. Review each upstream package's license and retain its notices before copying or vendoring code. Reference libraries include [React Bits](https://github.com/DavidHDev/react-bits), [Magic UI](https://github.com/magicuidesign/magicui), [Radix UI](https://www.radix-ui.com/), [Motion](https://motion.dev/) and [Lucide](https://lucide.dev/). No third-party proprietary ride-hailing source or branding is copied.
