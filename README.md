@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏍️ Smart Bike Taxi Platform
+# 🏍️ RideForge — Smart Bike Taxi Platform
 
 **A modular C++17 ride-booking simulation built around data structures and algorithms.**
 
@@ -20,7 +20,7 @@ Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local 
 
 See [`docs/DEEP_IMPROVEMENT_RESEARCH.md`](docs/DEEP_IMPROVEMENT_RESEARCH.md) for the research-backed priority order, security/reliability recommendations, acceptance criteria, and release gates. The implementation status below is not a production-readiness claim.
 
-This repository is being extended from its original C++17 academic simulation into **Saarthi**, an original bike-taxi booking product. The C++ API now exposes PostgreSQL-backed quotes, passenger authentication and persisted booking, cancellation, history, driver lifecycle, audited admin driver provisioning/approval/suspension, and admin metrics endpoints. This is still an incremental portfolio build—not a live commercial ride service.
+This repository is being extended from its original C++17 academic simulation into **RideForge**, an original bike-taxi booking product. The C++ API now exposes PostgreSQL-backed quotes, passenger authentication and persisted booking, cancellation, history, driver lifecycle, audited admin driver provisioning/approval/suspension, and admin metrics endpoints. This is still an incremental portfolio build—not a live commercial ride service.
 
 | Area | Current evidence | Status |
 |---|---|---|
@@ -69,7 +69,7 @@ See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.y
 
 ### Run the API and PostgreSQL locally
 
-With Docker Compose installed, copy `.env.example` to `.env`, replace the local database password in both `POSTGRES_PASSWORD` and `DATABASE_URL`, set a contact-bearing `SAARTHI_USER_AGENT`, and generate a random `SAARTHI_JWT_SECRET` of at least 32 characters. Optional provider URL overrides are documented in the template. Then run:
+With Docker Compose installed, copy `.env.example` to `.env`, replace the local database password in both `POSTGRES_PASSWORD` and `DATABASE_URL`, set a contact-bearing `RIDEFORGE_USER_AGENT`, and generate a random `RIDEFORGE_JWT_SECRET` of at least 32 characters. Optional provider URL overrides are documented in the template. Then run:
 
 ```bash
 docker compose up --build
