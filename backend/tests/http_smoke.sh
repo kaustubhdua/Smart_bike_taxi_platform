@@ -332,6 +332,14 @@ status="$(curl --silent --show-error --output "$tmp_dir/unapproved-online.json" 
   "$base_url/api/v1/driver/availability")"
 test "$status" = "403"
 
+# Create a far-away request; an online driver should not see its pickup/drop-off data.
+status="$(curl --silent --show-error --output "$tmp_dir/far-booking.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --header "Authorization: Bearer $other_token" \
+  --header 'Idempotency-Key: smoke-far-ride-0001' \
+  --data '{"quoteId":"40000000-0000-4000-8000-000000000015"}' "$base_url/api/v1/rides")"
+test "$status" = "201"
+far_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/far-booking.json")"
+
 # Offline drivers must not receive pickup/drop-off data from the dispatch queue.
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-offline.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
@@ -348,7 +356,10 @@ test "$status" = "200"
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-online.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
 test "$status" = "200"
-python3 -c 'import json,sys; assert any(r["rideId"] == sys.argv[1] for r in json.load(sys.stdin)["rides"])' "$ride_id" < "$tmp_dir/driver-queue-online.json"
+python3 -c 'import json,sys; ids={r["rideId"] for r in json.load(sys.stdin)["rides"]}; assert sys.argv[1] in ids and sys.argv[2] not in ids' "$ride_id" "$far_ride_id" < "$tmp_dir/driver-queue-online.json"
+status="$(curl --silent --show-error --output "$tmp_dir/far-cancel.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $other_token" --request POST "$base_url/api/v1/rides/$far_ride_id/cancel")"
+test "$status" = "200"
 
 status="$(curl --silent --show-error --output "$tmp_dir/accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
