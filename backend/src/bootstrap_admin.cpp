@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
     }
 
     try {
-        const std::string hash = saarthi_security::password_hash(password);
+        const std::string hash = rideforge_security::password_hash(password);
         std::fill(password.begin(), password.end(), '\0');
         PGconn* connection = PQconnectdb(database_url);
         if (connection == nullptr || PQstatus(connection) != CONNECTION_OK) {
