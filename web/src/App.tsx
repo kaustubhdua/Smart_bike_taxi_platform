@@ -41,8 +41,7 @@ export default function App() {
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
-  const [driverLatitude, setDriverLatitude] = useState("28.53");
-  const [driverLongitude, setDriverLongitude] = useState("77.35");
+  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [driverQueue, setDriverQueue] = useState<Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number }>>([]);
   const [driverRide, setDriverRide] = useState<{ rideId: string; status: string } | null>(null);
   const [adminMetrics, setAdminMetrics] = useState<{ onlineDrivers: number; ridesByStatus: Record<string, number> } | null>(null);
@@ -98,6 +97,55 @@ export default function App() {
     if (account?.role === "driver") void refreshDriverQueue();
     if (account?.role === "admin") void loadAdminMetrics();
   }, [account?.role]);
+
+  // Poll persisted passenger ride state while visible, then resync immediately on return.
+  useEffect(() => {
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base || !account || account.role !== "passenger" || !ride ||
+        ["completed", "cancelled", "failed"].includes(ride.status)) return;
+    let inFlight = false;
+    let disposed = false;
+    const refreshRide = async () => {
+      if (disposed || inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        const response = await fetch(apiUrl(base, "/api/v1/rides/" + encodeURIComponent(ride.rideId)), {
+          headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) return;
+        const data = await response.json() as { rideId?: string; status?: string };
+        if (!disposed && data.rideId === ride.rideId && typeof data.status === "string" && data.status !== ride.status) {
+          setRide(current => current?.rideId === data.rideId ? { ...current, status: data.status! } : current);
+          setNotice("Ride status updated to " + data.status + ".");
+        }
+      } catch {
+        // Transient network errors do not erase the last persisted status; retry on the next poll.
+      } finally {
+        inFlight = false;
+      }
+    };
+    const timer = window.setInterval(() => { void refreshRide(); }, 5000);
+    const resync = () => { if (document.visibilityState === "visible") void refreshRide(); };
+    document.addEventListener("visibilitychange", resync);
+    window.addEventListener("focus", resync);
+    void refreshRide();
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resync);
+      window.removeEventListener("focus", resync);
+    };
+  }, [account?.token, account?.role, ride?.rideId, ride?.status]);
+
+  // Keep the driver's queue fresh without polling in a hidden tab or while offline.
+  useEffect(() => {
+    if (account?.role !== "driver" || !driverOnline) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshDriverQueue();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [account?.token, account?.role, driverOnline]);
 
   async function requestRide() {
     setNotice("");
@@ -268,28 +316,40 @@ export default function App() {
   async function toggleDriverAvailability() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!base || !account || account.role !== "driver") return;
-    const latitude = Number(driverLatitude);
-    const longitude = Number(driverLongitude);
-    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
-        !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-      setNotice("Enter valid latitude and longitude coordinates.");
-      return;
-    }
-    try {
-      const online = !driverOnline;
+    const sendAvailability = async (coords: { latitude: number; longitude: number }, online: boolean) => {
       const response = await fetch(apiUrl(base, "/api/v1/driver/availability"), {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + account.token },
-        body: JSON.stringify({ online, latitude, longitude }),
+        body: JSON.stringify({ online, ...coords }),
+        signal: AbortSignal.timeout(8000),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Could not update availability.");
       setDriverOnline(online);
+      setDriverLocation(coords);
       setNotice(online ? "You are online and can accept ride requests." : "You are now offline.");
       if (online) await refreshDriverQueue();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not update availability.");
+    };
+    if (driverOnline) {
+      if (!driverLocation) {
+        setNotice("Your last location is unavailable. Allow location access before going offline.");
+        return;
+      }
+      try { await sendAvailability(driverLocation, false); }
+      catch (error) { setNotice(error instanceof Error ? error.message : "Could not update availability."); }
+      return;
     }
+    if (!navigator.geolocation) {
+      setNotice("This browser does not support location access.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(async position => {
+      const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+      try { await sendAvailability(coords, true); }
+      catch (error) { setNotice(error instanceof Error ? error.message : "Could not update availability."); }
+    }, () => setNotice("Allow location access to go online as a driver."), {
+      enableHighAccuracy: true, timeout: 10000, maximumAge: 15000,
+    });
   }
 
   async function acceptDriverRide(rideId: string) {
@@ -437,7 +497,7 @@ export default function App() {
               {ride && (
                 <div className="ride-confirmation" role="status">
                   <span className="confirmation-icon"><Check size={17} /></span>
-                  <div><strong>Ride request created</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status}. Driver matching is not live yet.</small></div>
+                  <div><strong>Ride request created</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status}. Updates refresh while this page is visible.</small></div>
                   {ride.status !== "cancelled" && ride.status !== "completed" && account && (
                     <button className="text-action" onClick={cancelRide}>Cancel request</button>
                   )}
@@ -451,8 +511,7 @@ export default function App() {
                     <button className={driverOnline ? "driver-online online" : "driver-online"} onClick={toggleDriverAvailability}>{driverOnline ? "Go offline" : "Go online"}</button>
                     <button className="text-action" onClick={() => { setAccount(null); setDriverQueue([]); setDriverRide(null); setDriverOnline(false); }}>Sign out</button>
                   </div>
-                  <label className="auth-field"><span>Latitude</span><input aria-label="Latitude" inputMode="decimal" value={driverLatitude} onChange={event => setDriverLatitude(event.target.value)} /></label>
-                  <label className="auth-field"><span>Longitude</span><input aria-label="Longitude" inputMode="decimal" value={driverLongitude} onChange={event => setDriverLongitude(event.target.value)} /></label>
+                  <p className="auth-caption">Going online uses your device location. Allow location access when prompted.</p>
                   <button className="text-action" onClick={refreshDriverQueue}>Refresh ride queue</button>
                   {driverRide ? (
                     <div className="driver-active-ride">
@@ -485,7 +544,7 @@ export default function App() {
                   </div>}
                 </section>
               )}
-              <div className="card-footnote"><ShieldCheck size={14} /> Quotes and ride requests are saved by the API. Driver matching and live tracking are not live yet.</div>
+              <div className="card-footnote"><ShieldCheck size={14} /> Quotes and rides persist through the API. Status refreshes while visible; live GPS tracking and push updates are not implemented.</div>
               <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
             </div>
             <div className="route-card">
