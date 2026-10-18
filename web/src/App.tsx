@@ -130,7 +130,7 @@ export default function App() {
         return { rideId: current.rideId, status: data.status! };
       });
       setNotice("Ride status updated to " + data.status + ".");
-      if (terminal()) streamAbort.abort();
+      if (terminal()) { setDriverLocation(null); streamAbort.abort(); }
     };
 
     const refreshRide = async () => {
