@@ -883,6 +883,7 @@ std::optional<saarthi_security::Claims> bearer_claims(
 
 #include "driver_routes.inc"
 #include "driver_status.inc"
+#include "driver_queue.inc"
 
 void handle_request(tcp::socket socket) {
     beast::flat_buffer buffer;
@@ -1078,6 +1079,8 @@ void handle_request(tcp::socket socket) {
                 result = response(http::status::service_unavailable, {{"error", "metrics_unavailable"}}, request);
             }
         }
+    } else if (request.method() == http::verb::get && path == "/api/v1/driver/rides") {
+        result = handle_driver_queue(request);
     } else if (request.method() == http::verb::post &&
                path.rfind("/api/v1/driver/rides/", 0) == 0 &&
                path.size() > 7 && path.substr(path.size() - 7) == "/accept") {
