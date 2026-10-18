@@ -191,6 +191,12 @@ status="$(curl --silent --show-error --output "$tmp_dir/other-booking.json" --wr
   --data '{"quoteId":"40000000-0000-4000-8000-000000000014"}' "$base_url/api/v1/rides")"
 test "$status" = "201"
 other_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/other-booking.json")"
+status="$(curl --silent --show-error --output "$tmp_dir/events-unauthenticated.json" --write-out '%{http_code}' \
+  "$base_url/api/v1/rides/$other_ride_id/events")"
+test "$status" = "401"
+status="$(curl --silent --show-error --output "$tmp_dir/events-admin-forbidden.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $admin_token" "$base_url/api/v1/rides/$other_ride_id/events")"
+test "$status" = "404"
 status="$(curl --silent --show-error --output "$tmp_dir/other-ride-forbidden.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$other_ride_id")"
 test "$status" = "404"
