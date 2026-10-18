@@ -10,7 +10,7 @@ RUN cmake -S . -B /build -DCMAKE_BUILD_TYPE=Release && cmake --build /build --pa
 FROM ubuntu:24.04 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates libcurl4 libpq5 libssl3 \
+    ca-certificates curl libcurl4 libpq5 libssl3 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --create-home saarthi
 COPY --from=build /build/saarthi_api /usr/local/bin/saarthi_api
