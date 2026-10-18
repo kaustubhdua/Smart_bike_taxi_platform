@@ -196,7 +196,7 @@ export default function App() {
     const key = bookingKey || ("saarthi-" + crypto.randomUUID());
     setBookingKey(key);
     try {
-      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/rides`,
+      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/rides`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
