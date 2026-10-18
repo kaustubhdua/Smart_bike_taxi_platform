@@ -302,4 +302,57 @@ if ! { test "$status_a" = "200" && test "$status_b" = "409"; } &&
   exit 1
 fi
 
-echo "PASS: health, validation, auth, persisted booking, history, detail, cancellation, and concurrent driver assignment, idempotent replay/conflict, and expired quote rejection"
+# Release both requests and repeat the same-driver race four more times with fresh quotes.
+for ride_to_cancel in "$third_ride_id" "$fourth_ride_id"; do
+  status="$(curl --silent --show-error --output "$tmp_dir/race-cleanup.json" --write-out '%{http_code}' \
+    --header "Authorization: Bearer $token" --request POST \
+    "$base_url/api/v1/rides/$ride_to_cancel/cancel")"
+  test "$status" = "200"
+done
+
+for round in $(seq 1 4); do
+  quote_index_a=$((4 + round * 2))
+  quote_index_b=$((quote_index_a + 1))
+  quote_a="$(printf '40000000-0000-4000-8000-%012d' "$quote_index_a")"
+  quote_b="$(printf '40000000-0000-4000-8000-%012d' "$quote_index_b")"
+  key_a="smoke-race-$round-a-0001"
+  key_b="smoke-race-$round-b-0001"
+
+  status="$(curl --silent --show-error --output "$tmp_dir/race-a-booking.json" --write-out '%{http_code}' \
+    --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+    --header "Idempotency-Key: $key_a" --data "{\"quoteId\":\"$quote_a\"}" "$base_url/api/v1/rides")"
+  test "$status" = "201"
+  race_a_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/race-a-booking.json")"
+
+  status="$(curl --silent --show-error --output "$tmp_dir/race-b-booking.json" --write-out '%{http_code}' \
+    --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+    --header "Idempotency-Key: $key_b" --data "{\"quoteId\":\"$quote_b\"}" "$base_url/api/v1/rides")"
+  test "$status" = "201"
+  race_b_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/race-b-booking.json")"
+
+  curl --silent --show-error --output "$tmp_dir/race-a.json" --write-out '%{http_code}' \
+    --header "Authorization: Bearer $driver_token" --request POST \
+    "$base_url/api/v1/driver/rides/$race_a_id/accept" > "$tmp_dir/race-a.status" &
+  pid_a=$!
+  curl --silent --show-error --output "$tmp_dir/race-b.json" --write-out '%{http_code}' \
+    --header "Authorization: Bearer $driver_token" --request POST \
+    "$base_url/api/v1/driver/rides/$race_b_id/accept" > "$tmp_dir/race-b.status" &
+  pid_b=$!
+  wait "$pid_a"
+  wait "$pid_b"
+  status_a="$(cat "$tmp_dir/race-a.status")"
+  status_b="$(cat "$tmp_dir/race-b.status")"
+  if ! { test "$status_a" = "200" && test "$status_b" = "409"; } &&
+     ! { test "$status_a" = "409" && test "$status_b" = "200"; }; then
+    echo "Race round $round expected exactly one winner, got $status_a and $status_b"
+    exit 1
+  fi
+  for ride_to_cancel in "$race_a_id" "$race_b_id"; do
+    status="$(curl --silent --show-error --output "$tmp_dir/race-cleanup.json" --write-out '%{http_code}' \
+      --header "Authorization: Bearer $token" --request POST \
+      "$base_url/api/v1/rides/$ride_to_cancel/cancel")"
+    test "$status" = "200"
+  done
+done
+
+echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, and five concurrent same-driver assignment races"
