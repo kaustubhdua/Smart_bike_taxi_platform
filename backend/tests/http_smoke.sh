@@ -339,6 +339,12 @@ status="$(curl --silent --show-error --output "$tmp_dir/far-booking.json" --writ
   --data '{"quoteId":"40000000-0000-4000-8000-000000000015"}' "$base_url/api/v1/rides")"
 test "$status" = "201"
 far_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/far-booking.json")"
+status="$(curl --silent --show-error --output "$tmp_dir/busy-booking.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --header "Authorization: Bearer $other_token" \
+  --header 'Idempotency-Key: smoke-busy-ride-0001' \
+  --data '{"quoteId":"40000000-0000-4000-8000-000000000016"}' "$base_url/api/v1/rides")"
+test "$status" = "201"
+busy_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/busy-booking.json")"
 
 # Offline drivers must not receive pickup/drop-off data from the dispatch queue.
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-offline.json" --write-out '%{http_code}' \
@@ -356,7 +362,7 @@ test "$status" = "200"
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-online.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
 test "$status" = "200"
-python3 -c 'import json,sys; ids={r["rideId"] for r in json.load(sys.stdin)["rides"]}; assert sys.argv[1] in ids and sys.argv[2] not in ids' "$ride_id" "$far_ride_id" < "$tmp_dir/driver-queue-online.json"
+python3 -c 'import json,sys; ids={r["rideId"] for r in json.load(sys.stdin)["rides"]}; assert sys.argv[1] in ids and sys.argv[2] in ids and sys.argv[3] not in ids' "$ride_id" "$busy_ride_id" "$far_ride_id" < "$tmp_dir/driver-queue-online.json"
 status="$(curl --silent --show-error --output "$tmp_dir/far-accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST "$base_url/api/v1/driver/rides/$far_ride_id/accept")"
 test "$status" = "409"
@@ -370,6 +376,13 @@ status="$(curl --silent --show-error --output "$tmp_dir/accept.json" --write-out
   "$base_url/api/v1/driver/rides/$ride_id/accept")"
 test "$status" = "200"
 grep -q '"status":"assigned"' "$tmp_dir/accept.json"
+status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-busy.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
+test "$status" = "200"
+python3 -c 'import json,sys; assert all(r["rideId"] != sys.argv[1] for r in json.load(sys.stdin)["rides"])' "$busy_ride_id" < "$tmp_dir/driver-queue-busy.json"
+status="$(curl --silent --show-error --output "$tmp_dir/busy-cancel.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $other_token" --request POST "$base_url/api/v1/rides/$busy_ride_id/cancel")"
+test "$status" = "200"
 
 status="$(curl --silent --show-error --output "$tmp_dir/assigned-detail.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$ride_id")"
