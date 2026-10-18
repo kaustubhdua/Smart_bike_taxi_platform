@@ -501,7 +501,7 @@ export default function App() {
                 <div className="ride-confirmation" role="status">
                   <span className="confirmation-icon"><Check size={17} /></span>
                   <div><strong>Ride request created</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status}. Updates refresh while this page is visible.</small></div>
-                  {ride.status !== "cancelled" && ride.status !== "completed" && account && (
+                  {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && (
                     <button className="text-action" onClick={cancelRide}>Cancel request</button>
                   )}
                   <button className="text-action" onClick={() => { setRide(null); setQuote(null); setNotice("Ride request saved. You can request a new quote for another trip."); }}>New ride</button>
