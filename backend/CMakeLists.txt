@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.20)
+project(SaarthiApi LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_package(Boost 1.74 REQUIRED)
+find_package(CURL REQUIRED)
+find_package(PostgreSQL REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(nlohmann_json 3.10 REQUIRED)
+find_package(Threads REQUIRED)
+
+add_executable(saarthi_api src/server.cpp)
+target_include_directories(saarthi_api PRIVATE ${Boost_INCLUDE_DIRS})
+target_link_libraries(saarthi_api PRIVATE Boost::headers CURL::libcurl PostgreSQL::PostgreSQL OpenSSL::Crypto nlohmann_json::nlohmann_json Threads::Threads)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(saarthi_api PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
