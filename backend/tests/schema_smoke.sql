@@ -60,6 +60,11 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Missing persisted route quote table';
   END IF;
-END $$;
+  IF NOT EXISTS (
+    SELECT 1 FROM schema_migrations WHERE version = '001_initial_schema'
+  ) THEN
+    RAISE EXCEPTION 'Initial schema migration was not recorded atomically';
+  END IF;
+END $;
 
 ROLLBACK;
