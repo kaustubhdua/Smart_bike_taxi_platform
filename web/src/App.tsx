@@ -101,7 +101,8 @@ export default function App() {
   // Use authenticated SSE for low-latency updates and keep REST polling as recovery.
   useEffect(() => {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || account.role !== "passenger" || !ride) return;
+    if (!base || !account || account.role !== "passenger" || !ride ||
+        ["completed", "cancelled", "failed"].includes(ride.status)) return;
     let inFlight = false;
     let disposed = false;
     let lastEventId = 0;
