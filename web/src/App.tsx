@@ -35,7 +35,6 @@ export default function App() {
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
-  const [bookingKey, setBookingKey] = useState("");
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup !== destination && Boolean(pickup && destination) && Boolean(route) && !routeLoading;
 
