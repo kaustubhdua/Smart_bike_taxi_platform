@@ -99,6 +99,29 @@ status="$(curl --silent --show-error --output "$tmp_dir/expired.json" --write-ou
   "$base_url/api/v1/rides")"
 test "$status" = "409"
 
+driver_id="$(psql -v ON_ERROR_STOP=1 -tAqc "INSERT INTO accounts (email,display_name,role,password_hash) SELECT 'smoke-driver@example.test','CI Driver','driver',password_hash FROM accounts WHERE email='smoke-passenger@example.test' RETURNING id")"
+test -n "$driver_id"
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO driver_profiles (account_id,vehicle_registration,is_online) VALUES ('$driver_id','CI-DRIVER-001',false)" >/dev/null
+
+status="$(curl --silent --show-error --output "$tmp_dir/driver-login.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"email":"smoke-driver@example.test","password":"a-long-ci-password-123"}' \
+  "$base_url/api/v1/auth/login")"
+test "$status" = "200"
+driver_token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/driver-login.json")"
+
+status="$(curl --silent --show-error --output "$tmp_dir/driver-online.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $driver_token" \
+  --data '{"online":true,"latitude":28.53,"longitude":77.35}' \
+  "$base_url/api/v1/driver/availability")"
+test "$status" = "200"
+
+status="$(curl --silent --show-error --output "$tmp_dir/accept.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" --request POST \
+  "$base_url/api/v1/driver/rides/$ride_id/accept")"
+test "$status" = "200"
+grep -q '"status":"assigned"' "$tmp_dir/accept.json"
+
 status="$(curl --silent --show-error --output "$tmp_dir/history.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides")"
 test "$status" = "200"
@@ -107,7 +130,7 @@ grep -q "$ride_id" "$tmp_dir/history.json"
 status="$(curl --silent --show-error --output "$tmp_dir/detail.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$ride_id")"
 test "$status" = "200"
-grep -q '"status":"requested"' "$tmp_dir/detail.json"
+grep -q '"status":"assigned"' "$tmp_dir/detail.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/cancel.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" --request POST "$base_url/api/v1/rides/$ride_id/cancel")"
