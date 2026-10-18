@@ -43,7 +43,7 @@ npm run typecheck
 npm run build
 ```
 
-The web CI workflow runs typechecking and a production build. The web interface requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. Fare appears only after a server quote response; the C++ API calculates and persists a five-minute demo quote in PostgreSQL. Public demo routing endpoints are for evaluation only, and a quote still does not create a ride. Browser E2E, accessibility, lockfile-backed installs and deployment verification remain tracked in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
+The web CI workflow runs typechecking and a production build. The web interface requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. The API calculates and persists a five-minute demo quote in PostgreSQL; the UI now supports passenger registration/sign-in, ride confirmation, and cancellation through API calls. Public demo routing endpoints are for evaluation only, and driver matching/live tracking are not live yet. Browser E2E, accessibility, lockfile-backed installs and deployment verification remain tracked in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
 
 ### C++ tests and benchmark
 
@@ -61,7 +61,7 @@ The benchmark prints CSV timing data for route queries and custom-versus-standar
 
 ### Backend contract and schema
 
-See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service and database quote persistence are implemented at `backend/src/server.cpp`; the backend CI compiles the server and smoke-tests health/validation against PostgreSQL. The remaining P0 work is auth/authorization, idempotent booking transactions, concurrency-safe dispatch, lifecycle transitions and driver/admin operations. Track the remaining release gates in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
+See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service now supports database-backed quotes, passenger registration/login, signed access tokens, idempotent booking transactions, ride history/detail reads, cancellation, driver availability updates and admin metrics. Backend CI covers authentication and transactional booking behavior. Driver acceptance and status-transition data methods exist, but their HTTP routes and end-to-end driver experience still need completion; real-time delivery and deployment also remain release gates. Track the remaining work in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
 
 ### Run the API and PostgreSQL locally
 
