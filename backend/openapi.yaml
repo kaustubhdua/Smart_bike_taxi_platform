@@ -77,7 +77,7 @@ paths:
           schema: { type: string, minLength: 8, maxLength: 160 }
       responses:
         "201": { description: Ride persisted }
-        "409": { description: Idempotency conflict or no eligible driver }
+        "409": { description: Quote unavailable or idempotency key reused with a different quote }
         "401": { description: Unauthenticated }
         "422": { description: Invalid request }
   /rides/{rideId}:
