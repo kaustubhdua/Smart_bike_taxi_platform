@@ -28,6 +28,12 @@ export default function App() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [quote, setQuote] = useState<{ quoteId: string; farePaise: number; distanceKm: number; durationMinutes: number; expiresAt?: string } | null>(null);
+  const [authMode, setAuthMode] = useState<"register" | "login">("register");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [account, setAccount] = useState<{ token: string; email: string; displayName?: string } | null>(null);
+  const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup !== destination && Boolean(pickup && destination) && Boolean(route) && !routeLoading;
 
