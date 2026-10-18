@@ -37,7 +37,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 
 - Tokens remain valid until expiry; there is no general token revocation/session registry yet.
 - In-process rate limits do not coordinate across multiple API replicas and are not a substitute for edge/WAF limits.
-- There is no shared PostgreSQL connection pool, durable outbox publisher, push transport, production monitoring or verified restore drill yet.
+- There is no shared PostgreSQL connection pool, authenticated push transport, production monitoring or verified restore drill yet. The outbox publisher emits PostgreSQL NOTIFY events, which are not a durable client-delivery guarantee; clients still need authenticated subscriptions and REST resynchronization.
 - Driver approval is an administrative workflow, not identity, licence, insurance or vehicle-document verification.
 - Location updates are user-submitted and freshness-checked, not proof of real GPS provenance.
 - Public routing/geocoding endpoints are for development/evaluation only.
