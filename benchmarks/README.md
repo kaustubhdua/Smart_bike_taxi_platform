@@ -18,3 +18,16 @@ The benchmark uses a deterministic 1,000-node graph and 1,000 repetitions by def
 - Timing varies by runner, compiler, and system load. Compare repeated runs on the same runner class before drawing conclusions.
 - Do not claim the custom hash table is faster unless repeated measurements support that claim.
 - These are microbenchmarks of the academic DSA core, not production dispatch throughput or end-to-end ride latency.
+
+
+## Recorded sample
+
+A real GitHub Actions run on **2026-10-18** (Ubuntu 24.04, Release build, default GCC toolchain, 1,000 graph nodes, 1,000 repetitions) produced the checked-in sample `results/ubuntu-latest-2026-10-18.csv`. The source run is [workflow run 39116464262](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39116464262), commit `008cd311637c9c481aacafe338f0d71d5790df17`.
+
+| Measurement | Single-run result |
+|---|---:|
+| 1,000 route queries | 77.098 ms |
+| Custom hash-table lookup, 1,000 operations | 0.074 ms |
+| `std::unordered_map` lookup, 1,000 operations | 0.064 ms |
+
+This is one sample, not a statistically reliable performance claim. In this run, `std::unordered_map` was faster for the lookup microbenchmark; repeat runs and variance analysis are needed before drawing general conclusions. The benchmark is not a measurement of production dispatch or end-to-end ride latency.
