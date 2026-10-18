@@ -67,6 +67,13 @@ jobs:
           set -euo pipefail
           python3 backend/tests/mock_routing_provider.py > /tmp/saarthi-provider.log 2>&1 &
           provider_pid=$!
+          for attempt in $(seq 1 10); do
+            if curl --silent --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --silent --show-error --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null
           ./build-backend/saarthi_api > /tmp/saarthi-api.log 2>&1 &
           api_pid=$!
           trap 'kill "$api_pid" "$provider_pid" 2>/dev/null || true' EXIT
