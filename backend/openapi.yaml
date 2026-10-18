@@ -99,13 +99,13 @@ paths:
         "409": { description: Invalid lifecycle transition }
   /driver/availability:
     put:
-      summary: Set authenticated driver's availability
+      summary: Set availability for an explicitly approved authenticated driver
       responses:
         "200": { description: Availability updated }
         "403": { description: Driver role required }
   /driver/rides:
     get:
-      summary: List unassigned ride requests for an authenticated driver
+      summary: List unassigned ride requests for an approved driver with a fresh online location
       responses:
         "200": { description: Available ride queue }
         "401": { description: Unauthenticated }
@@ -144,6 +144,57 @@ paths:
         "403": { description: Driver role required }
         "404": { description: Ride not found }
         "409": { description: Invalid transition }
+  /admin/drivers:
+    get:
+      summary: List provisioned drivers and approval state
+      responses:
+        "200": { description: Driver records returned }
+        "401": { description: Unauthenticated }
+        "403": { description: Admin role required }
+    post:
+      summary: Provision a driver account that is unapproved by default
+      description: This endpoint does not verify a driver's real-world identity or vehicle documents. Approval must be a separate explicit admin action.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, displayName, password, vehicleRegistration]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                displayName: { type: string, minLength: 1, maxLength: 120 }
+                password: { type: string, minLength: 12, maxLength: 128 }
+                vehicleRegistration: { type: string, minLength: 3, maxLength: 32 }
+      responses:
+        "201": { description: Driver provisioned and not yet approved }
+        "401": { description: Unauthenticated }
+        "403": { description: Admin role required }
+        "409": { description: Email or vehicle registration already exists }
+  /admin/drivers/{driverId}/approval:
+    put:
+      summary: Approve or suspend a provisioned driver
+      parameters:
+        - in: path
+          name: driverId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [approved]
+              properties:
+                approved: { type: boolean }
+      responses:
+        "200": { description: Approval state updated and action audited }
+        "401": { description: Unauthenticated }
+        "403": { description: Admin role required }
+        "404": { description: Driver profile not found }
   /admin/metrics:
     get:
       summary: Read operational metrics
