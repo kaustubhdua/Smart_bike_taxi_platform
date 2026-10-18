@@ -68,18 +68,45 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/routes/quote`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pickup: { label: pickup }, destination: { label: destination } }),
-      });
-      if (!response.ok) throw new Error("Quote service returned an error.");
-      const data = await response.json() as { quoteId?: string; farePaise?: number; distanceKm?: number; durationMinutes?: number; expiresAt?: string };
-      if (!data.quoteId || !Number.isInteger(data.farePaise) || !Number.isFinite(data.distanceKm) || !Number.isFinite(data.durationMinutes)) {
-        throw new Error("The quote service returned an invalid response.");
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      let response: Response;
+      try {
+        response = await fetch(`${base.replace(/\/$/, "")}/api/v1/routes/quote`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ pickup: { label: pickup }, destination: { label: destination } }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
       }
-      setQuote({ quoteId: data.quoteId, farePaise: data.farePaise as number, distanceKm: data.distanceKm as number, durationMinutes: data.durationMinutes as number, expiresAt: data.expiresAt });
-      setNotice(`Server quote received: ${data.distanceKm} km · ₹${Math.round((data.farePaise as number) / 100)}. This checks the quote only; it does not create a ride.`);
+      if (!response.ok) {
+        if (response.status === 429) throw new Error("Too many quote requests. Wait a moment and try again.");
+        if (response.status === 503) throw new Error("Routing is temporarily unavailable. Please try again shortly.");
+        if (response.status === 422) throw new Error("One of these locations could not be routed. Check the pickup and destination.");
+        throw new Error(`Quote service returned HTTP ${response.status}.`);
+      }
+      const data = await response.json() as {
+        quoteId?: string; farePaise?: number; distanceKm?: number; durationMinutes?: number;
+        currency?: string; expiresAt?: string;
+      };
+      const expiry = data.expiresAt ? Date.parse(data.expiresAt) : Number.NaN;
+      if (
+        typeof data.quoteId !== "string" || data.quoteId.trim().length < 8 ||
+        !Number.isSafeInteger(data.farePaise) || (data.farePaise as number) < 0 ||
+        typeof data.distanceKm !== "number" || !Number.isFinite(data.distanceKm) || data.distanceKm <= 0 ||
+        !Number.isSafeInteger(data.durationMinutes) || (data.durationMinutes as number) <= 0 ||
+        data.currency !== "INR" || !Number.isFinite(expiry) || expiry <= Date.now()
+      ) {
+        throw new Error("The quote service returned an invalid or expired quote. Please try again.");
+      }
+      setQuote({
+        quoteId: data.quoteId, farePaise: data.farePaise as number,
+        distanceKm: data.distanceKm, durationMinutes: data.durationMinutes as number,
+        expiresAt: new Date(expiry).toISOString(),
+      });
+      setNotice(`Server quote received: ${data.distanceKm} km · ₹${((data.farePaise as number) / 100).toFixed(2)}. This checks the quote only; it does not create a ride.`);
       setApiState("idle");
     } catch (error) {
       setApiState("offline");
