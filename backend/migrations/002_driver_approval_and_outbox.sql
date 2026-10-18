@@ -28,6 +28,18 @@ CREATE INDEX IF NOT EXISTS ride_event_outbox_pending
   ON ride_event_outbox (available_at, id)
   WHERE published_at IS NULL;
 
+CREATE TABLE IF NOT EXISTS admin_audit_events (
+  id bigserial PRIMARY KEY,
+  actor_id uuid NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  action text NOT NULL CHECK (length(trim(action)) BETWEEN 1 AND 80),
+  target_type text NOT NULL CHECK (length(trim(target_type)) BETWEEN 1 AND 80),
+  target_id text NOT NULL CHECK (length(trim(target_id)) BETWEEN 1 AND 160),
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS admin_audit_events_recent
+  ON admin_audit_events (created_at DESC, id DESC);
+
 CREATE OR REPLACE FUNCTION enqueue_ride_event_notification()
 RETURNS trigger
 LANGUAGE plpgsql
