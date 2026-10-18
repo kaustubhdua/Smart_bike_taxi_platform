@@ -54,6 +54,12 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Missing booking idempotency table';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = current_schema() AND table_name = 'route_quotes'
+  ) THEN
+    RAISE EXCEPTION 'Missing persisted route quote table';
+  END IF;
 END $$;
 
 ROLLBACK;
