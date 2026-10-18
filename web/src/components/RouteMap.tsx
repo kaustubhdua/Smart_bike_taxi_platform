@@ -27,13 +27,13 @@ export default function RouteMap({ geometry, pickup, destination }: RouteMapProp
     const start = L.circleMarker(points[0], {
       radius: 7, color: "#17211d", weight: 2, fillColor: "#b9f65b", fillOpacity: 1,
     }).bindTooltip(`Pickup: ${pickup}`).addTo(map);
-    const end = L.circleMarker(points[points.length - 1], {
+    L.circleMarker(points[points.length - 1], {
       radius: 7, color: "#ffffff", weight: 2, fillColor: "#335cff", fillOpacity: 1,
     }).bindTooltip(`Destination: ${destination}`).addTo(map);
     map.fitBounds(route.getBounds(), { padding: [28, 28], maxZoom: 15 });
     start.openTooltip();
     map.invalidateSize();
-    return () => map.remove();
+    return () => { map.remove(); };
   }, [geometry, pickup, destination]);
 
   if (!geometry || geometry.length < 2) {
