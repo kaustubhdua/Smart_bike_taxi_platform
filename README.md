@@ -67,6 +67,8 @@ The benchmark prints CSV timing data for route queries and custom-versus-standar
 
 See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service supports database-backed quotes, passenger registration/login, signed access tokens, idempotent booking transactions, ride history/detail reads, cancellation, driver queue/availability/acceptance/lifecycle-transition endpoints and admin metrics. Backend CI covers API compilation, auth/booking smoke behavior, and clean PostgreSQL migrations. Real-world identity/vehicle verification, broader concurrency/authorization tests, an outbox publisher with push-based real-time delivery, and production deployment remain release gates. Track the remaining work in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
 
+See also the [implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md), [security model and release checklist](docs/SECURITY_MODEL.md), and [operations runbook](docs/OPERATIONS_RUNBOOK.md). These documents separate implemented behavior from release blockers and do not claim commercial readiness.
+
 ### Run the API and PostgreSQL locally
 
 With Docker Compose installed, copy `.env.example` to `.env`, replace the local database password in both `POSTGRES_PASSWORD` and `DATABASE_URL`, set a contact-bearing `RIDEFORGE_USER_AGENT`, and generate a random `RIDEFORGE_JWT_SECRET` of at least 32 characters. Optional provider URL overrides are documented in the template. Then run:
