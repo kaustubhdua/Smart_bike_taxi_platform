@@ -472,6 +472,18 @@ export default function App() {
                   )}
                 </section>
               )}
+              {account?.role === "admin" && (
+                <section className="driver-panel" aria-labelledby="admin-console-title">
+                  <div className="driver-panel-head">
+                    <div><h3 id="admin-console-title">Admin overview</h3><p>Operational counts from PostgreSQL.</p></div>
+                    <button className="driver-online" onClick={loadAdminMetrics}>Refresh metrics</button>
+                  </div>
+                  {adminMetrics && <div className="admin-metrics">
+                    <strong>{adminMetrics.onlineDrivers} online drivers</strong>
+                    {Object.entries(adminMetrics.ridesByStatus).map(([status, count]) => <span key={status}>{status.replaceAll("_", " ")} <b>{count}</b></span>)}
+                  </div>}
+                </section>
+              )}
               <div className="card-footnote"><ShieldCheck size={14} /> Quotes and ride requests are saved by the API. Driver matching and live tracking are not live yet.</div>
               <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
             </div>
