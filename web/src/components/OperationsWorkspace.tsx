@@ -143,6 +143,24 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  async function signOutDriver() {
+    setBusy(true);
+    try {
+      if (online && driverLocation) {
+        await request("/api/v1/driver/availability", {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ online: false, latitude: driverLocation.latitude, longitude: driverLocation.longitude }),
+        });
+      }
+      setError("Driver signed out and availability stopped.");
+    } catch {
+      setError("Signed out locally. If the offline request failed, dispatch eligibility expires when the location becomes stale.");
+    } finally {
+      setToken(""); setRides([]); setActiveRide(null); setOnline(false); setDriverLocation(null);
+      setBusy(false);
+    }
+  }
+
   async function refreshMetrics() {
     setBusy(true);
     try {
@@ -215,7 +233,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
             </div>
           ) : mode === "driver" ? (
             <>
-              <div className="card-heading"><div><span className="card-eyebrow">DRIVER SESSION</span><h3>Availability and rides</h3></div><button className="text-action" onClick={() => { setToken(""); setRides([]); setActiveRide(null); setOnline(false); }}>Sign out</button></div>
+              <div className="card-heading"><div><span className="card-eyebrow">DRIVER SESSION</span><h3>Availability and rides</h3></div><button className="text-action" onClick={() => { void signOutDriver(); }} disabled={busy}>Sign out</button></div>
               <p className="auth-caption">Location permission is used to refresh your dispatch eligibility while online. The queue requires a recent location.</p>
               <button className="book-button" onClick={toggleAvailability} disabled={busy}>{online ? "Go offline" : "Use my location and go online"} <ArrowRight size={18} /></button>
               {driverLocation && <p className="auth-caption" aria-live="polite">Last location: {driverLocation.latitude.toFixed(4)}, {driverLocation.longitude.toFixed(4)}</p>}
