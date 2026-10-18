@@ -11,7 +11,7 @@ CREATE INDEX IF NOT EXISTS driver_profiles_dispatch_eligibility
   WHERE is_approved = true;
 
 -- Durable notification outbox. Ride-event inserts and outbox rows commit together;
--- a future worker can publish notifications and retry without losing state changes.
+-- the worker publishes PostgreSQL notifications with bounded retry/backoff and dead-letter handling.
 CREATE TABLE IF NOT EXISTS ride_event_outbox (
   id bigserial PRIMARY KEY,
   ride_event_id bigint NOT NULL UNIQUE REFERENCES ride_events(id) ON DELETE RESTRICT,
