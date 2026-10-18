@@ -251,12 +251,18 @@ public:
         return ride;
     }
 
-    json list_available_rides() {
-        PGresult* result = PQexec(connection_,
-            "SELECT id::text,pickup_label,destination_label,route_distance_m::text,"
-            "quoted_fare_paise::text,created_at::text FROM rides "
-            "WHERE status IN ('requested','matching') AND driver_id IS NULL "
-            "ORDER BY created_at ASC LIMIT 100");
+    json list_available_rides(const std::string& driver_id) {
+        // Do not expose pickup/drop-off data to drivers who are offline or whose
+        // last location is stale. Dispatch eligibility is checked again when accepting.
+        const char* params[] = {driver_id.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "SELECT r.id::text,r.pickup_label,r.destination_label,r.route_distance_m::text,"
+            "r.quoted_fare_paise::text,r.created_at::text FROM rides r "
+            "WHERE r.status IN ('requested','matching') AND r.driver_id IS NULL "
+            "AND EXISTS (SELECT 1 FROM driver_profiles d WHERE d.account_id=$1::uuid "
+            "AND d.is_online=true AND d.last_location_at>now()-interval '5 minutes') "
+            "ORDER BY r.created_at ASC LIMIT 100",
+            1, nullptr, params, nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
             if (result != nullptr) PQclear(result);
             throw std::runtime_error("Could not list available rides");
@@ -1042,7 +1048,7 @@ void handle_request(tcp::socket socket) {
         } else {
             try {
                 Database database(env_or("DATABASE_URL", ""));
-                result = response(http::status::ok, database.list_available_rides(), request);
+                result = response(http::status::ok, database.list_available_rides(claims->subject), request);
             } catch (const std::exception&) {
                 result = response(http::status::service_unavailable, {{"error", "driver_queue_unavailable"}}, request);
             }
