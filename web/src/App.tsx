@@ -75,7 +75,7 @@ export default function App() {
     const remaining = expiresAt - Date.now();
     if (!Number.isFinite(remaining) || remaining <= 0) {
       setQuote(null);
-      setBookingKey("");
+      setBookingKey(null);
       setNotice("Your fare quote expired. Request a fresh quote before making a decision.");
       return;
     }
@@ -135,7 +135,6 @@ export default function App() {
         distanceKm: data.distanceKm, durationMinutes: data.durationMinutes as number,
         expiresAt: new Date(expiry).toISOString(),
       });
-      setBookingKey("saarthi-" + crypto.randomUUID());
       setBookingKey(`saarthi-${crypto.randomUUID()}`);
       setNotice(`Server quote received: ${data.distanceKm} km · ₹${((data.farePaise as number) / 100).toFixed(2)}. This checks the quote only; it does not create a ride.`);
       setApiState("idle");
