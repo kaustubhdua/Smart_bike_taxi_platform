@@ -16,6 +16,10 @@ const locations = [
   "Sector 62",
 ];
 
+function apiUrl(base: string, path: string): string {
+  return (base.endsWith("/") ? base.slice(0, -1) : base) + path;
+}
+
 export default function App() {
   const reduceMotion = useReducedMotion();
   const [pickup, setPickup] = useState(locations[0]);
@@ -97,7 +101,7 @@ export default function App() {
       const timeout = setTimeout(() => controller.abort(), 10_000);
       let response: Response;
       try {
-        response = await fetch(`${base.replace(/\/$/, "")}/api/v1/routes/quote`, {
+        response = await fetch(apiUrl(base, "/api/v1/routes/quote"), {
           method: "POST",
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
           body: JSON.stringify({ pickup: { label: pickup }, destination: { label: destination } }),
@@ -157,7 +161,7 @@ export default function App() {
       const payload = authMode === "register"
         ? { email: authEmail, displayName: authName, password: authPassword }
         : { email: authEmail, password: authPassword };
-      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/auth/${authMode}`, {
+      const response = await fetch(apiUrl(base, "/api/v1/auth/" + authMode), {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify(payload),
@@ -195,7 +199,7 @@ export default function App() {
     const key = bookingKey || ("saarthi-" + crypto.randomUUID());
     setBookingKey(key);
     try {
-      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/rides`, {
+      const response = await fetch(apiUrl(base, "/api/v1/rides"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -222,7 +226,7 @@ export default function App() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!base || !account || !ride) return;
     try {
-      const response = await fetch(base.replace(/\/$/, "") + "/api/v1/rides/" + encodeURIComponent(ride.rideId) + "/cancel", {
+      const response = await fetch(apiUrl(base, "/api/v1/rides/" + encodeURIComponent(ride.rideId) + "/cancel"), {
         method: "POST",
         headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
       });
