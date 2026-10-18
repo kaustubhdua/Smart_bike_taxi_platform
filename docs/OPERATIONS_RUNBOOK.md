@@ -31,6 +31,7 @@ docker compose ps
 docker compose logs --tail=200 api
 docker compose logs --tail=200 migrate
 docker compose logs --tail=200 db
+docker compose logs --tail=200 outbox-worker
 docker compose down
 ```
 
@@ -56,6 +57,21 @@ unset RIDEFORGE_ADMIN_PASSWORD
 ```
 
 Use a unique password and replace the example email. The command refuses to overwrite an existing email. Keep shell history and terminal transcripts private; for production, provision administrators through a reviewed operator process with a least-privilege database credential.
+
+## Bootstrap the first local administrator
+
+After the API container is healthy, open an interactive shell in the API container and read the password without putting it in shell history:
+
+```sh
+docker compose exec api sh
+read -r -s ADMIN_PASSWORD
+printf '\\n'
+printf '%s\\n' "$ADMIN_PASSWORD" | rideforge_admin_bootstrap admin@example.test "Local Demo Admin"
+unset ADMIN_PASSWORD
+exit
+```
+
+Use a unique password of at least 12 characters. The bootstrap tool refuses to overwrite an existing account. Do not use this example email/password pattern for a public environment; create and store real credentials securely.
 
 ## Driver provisioning
 
