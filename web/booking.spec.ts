@@ -80,3 +80,27 @@ test("booking page has no automated WCAG 2.2 AA violations", async ({ page }) =>
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   expect(results.violations).toEqual([]);
 });
+
+test("quote rate limits are surfaced without pretending a booking succeeded", async ({ page }) => {
+  await mockRouting(page);
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    await route.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ error: "rate_limited" }) });
+  });
+  await page.goto("/");
+  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.getByRole("status")).toContainText(/too many quote requests/i);
+  await expect(page.locator(".fare-amount")).toContainText("—");
+});
+
+test("mobile booking layout has no horizontal page overflow", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium", "Mobile-only viewport assertion");
+  await mockRouting(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /your next stop/i })).toBeVisible();
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    page: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport);
+});
