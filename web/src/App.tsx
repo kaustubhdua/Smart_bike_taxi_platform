@@ -141,9 +141,9 @@ export default function App() {
               <div className="location-fields">
                 <div className="location-rail"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
                 <div className="field-stack">
-                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><select value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setNotice(""); }} aria-label="Pickup point">{locations.map(item => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={15} className="select-chevron" /></div></label>
+                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="saarthi-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setNotice(""); }} aria-label="Pickup point" placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
                   <div className="field-separator" />
-                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><select value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setNotice(""); }} aria-label="Drop-off point">{locations.map(item => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={15} className="select-chevron" /></div></label>
+                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="saarthi-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setNotice(""); }} aria-label="Drop-off point" placeholder="Search destination in Noida" autoComplete="off" /></div></label>
                 </div>
                 <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
               </div>
