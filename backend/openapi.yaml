@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Saarthi Ride API
   version: 0.1.0
-  description: Initial Saarthi API contract. The health and persisted route-quote endpoints are implemented; authentication and ride operations remain planned.
+  description: Versioned API contract for implemented passenger quote/booking operations, driver lifecycle routes, and admin metrics.
 servers:
   - url: http://localhost:8080/api/v1
 security:
@@ -84,10 +84,7 @@ paths:
     get:
       summary: Read a ride authorized to the authenticated user
       parameters:
-        - in: path
-          name: rideId
-          required: true
-          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/RideId"
       responses:
         "200": { description: Ride details }
         "403": { description: Forbidden }
@@ -95,6 +92,8 @@ paths:
   /rides/{rideId}/cancel:
     post:
       summary: Cancel eligible ride and release driver atomically
+      parameters:
+        - $ref: "#/components/parameters/RideId"
       responses:
         "200": { description: Ride cancelled }
         "409": { description: Invalid lifecycle transition }
@@ -104,17 +103,46 @@ paths:
       responses:
         "200": { description: Availability updated }
         "403": { description: Driver role required }
+  /driver/rides:
+    get:
+      summary: List unassigned ride requests for an authenticated driver
+      responses:
+        "200": { description: Available ride queue }
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
   /driver/rides/{rideId}/accept:
     post:
       summary: Atomically accept a matching ride
+      parameters:
+        - $ref: "#/components/parameters/RideId"
       responses:
         "200": { description: Ride assigned }
-        "409": { description: Another driver won assignment race }
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
+        "404": { description: Ride not found }
+        "409": { description: Another driver won assignment race or driver unavailable }
   /driver/rides/{rideId}/status:
-    put:
+    post:
       summary: Advance the assigned driver's ride lifecycle
+      parameters:
+        - $ref: "#/components/parameters/RideId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [driver_arriving, in_progress, completed]
       responses:
         "200": { description: Lifecycle advanced }
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
+        "404": { description: Ride not found }
         "409": { description: Invalid transition }
   /admin/metrics:
     get:
@@ -123,6 +151,12 @@ paths:
         "200": { description: Metrics returned }
         "403": { description: Admin role required }
 components:
+  parameters:
+    RideId:
+      in: path
+      name: rideId
+      required: true
+      schema: { type: string, format: uuid }
   schemas:
     RegisterRequest:
       type: object
