@@ -84,32 +84,3 @@ export async function calculateRoute(
   };
 }
 
-/** Project a GeoJSON [longitude, latitude] route into the existing SVG viewBox. */
-export function routeToSvgPath(
-  coordinates: Array<[number, number]>,
-  width = 500,
-  height = 260,
-  padding = 24,
-): string {
-  if (coordinates.length < 2) return "";
-  const longitudes = coordinates.map(([longitude]) => longitude);
-  const latitudes = coordinates.map(([, latitude]) => latitude);
-  const minLon = Math.min(...longitudes);
-  const maxLon = Math.max(...longitudes);
-  const minLat = Math.min(...latitudes);
-  const maxLat = Math.max(...latitudes);
-  const lonSpan = maxLon - minLon || 1;
-  const latSpan = maxLat - minLat || 1;
-  const usableWidth = width - padding * 2;
-  const usableHeight = height - padding * 2;
-  const scale = Math.min(usableWidth / lonSpan, usableHeight / latSpan);
-  const drawnWidth = lonSpan * scale;
-  const drawnHeight = latSpan * scale;
-  const offsetX = (width - drawnWidth) / 2;
-  const offsetY = (height - drawnHeight) / 2;
-  return coordinates.map(([longitude, latitude], index) => {
-    const x = offsetX + (longitude - minLon) * scale;
-    const y = height - offsetY - (latitude - minLat) * scale;
-    return `${index === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
-  }).join(" ");
-}
