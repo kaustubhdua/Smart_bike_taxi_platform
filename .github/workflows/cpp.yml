@@ -13,6 +13,7 @@ jobs:
   build-and-test:
     name: Build and test (${{ matrix.compiler }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +39,7 @@ jobs:
   sanitizers:
     name: Address and undefined behavior sanitizers
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
