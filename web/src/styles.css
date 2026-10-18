@@ -24,3 +24,13 @@
 .ride-confirmation strong{font-size:13px;color:#213b2a}
 .ride-confirmation span,.ride-confirmation small{overflow-wrap:anywhere;font-size:11px;color:#49604e}
 .ride-confirmation .text-action{align-self:center}
+
+/* Operational workspaces: keep driver/admin controls legible at narrow widths. */
+.driver-queue{display:grid;gap:10px;margin-top:22px}
+.driver-queue>h3{margin:0;color:#17211d;font-size:15px;letter-spacing:-.02em}
+.driver-queue>p{margin:0;color:#68717c;font-size:13px;line-height:1.55}
+.driver-queue .ride-confirmation{min-width:0}
+#operations .location-fields{margin:16px 0}
+#operations .outline-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px}
+#operations .card-heading .text-action{flex:none}
+@media(max-width:560px){#operations .ride-confirmation{flex-wrap:wrap}#operations .ride-confirmation .text-action{margin-left:40px}}
