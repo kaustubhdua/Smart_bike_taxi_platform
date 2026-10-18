@@ -67,7 +67,7 @@ test("route failures are honest and do not enable quote requests", async ({ page
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
   await page.goto("/");
-  await expect(page.getByText(/couldn't find/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.quote-details').getByText(/couldn't find/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
   await expect(page.locator(".fare-amount")).toContainText("—");
 });
