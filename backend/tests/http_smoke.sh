@@ -137,6 +137,20 @@ test "$status" = "200"
 test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM driver_profiles WHERE account_id='$provisioned_id' AND is_approved=false AND is_online=false")" = "1"
 test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM admin_audit_events WHERE actor_id='$admin_id' AND target_id='$provisioned_id' AND action IN ('driver.provisioned','driver.approved','driver.suspended')")" = "3"
 
+status="$(curl --silent --show-error --output "$tmp_dir/admin-audit.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $admin_token" "$base_url/api/v1/admin/audit?limit=50")"
+test "$status" = "200"
+python3 -c 'import json,sys; events=json.load(sys.stdin)["events"]; assert any(e["action"]=="driver.provisioned" for e in events); assert any(e["action"]=="driver.approved" for e in events); assert any(e["action"]=="driver.suspended" for e in events)' < "$tmp_dir/admin-audit.json"
+status="$(curl --silent --show-error --output "$tmp_dir/admin-audit-invalid.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $admin_token" "$base_url/api/v1/admin/audit?limit=1000")"
+test "$status" = "400"
+status="$(curl --silent --show-error --output "$tmp_dir/admin-audit-passenger.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/admin/audit")"
+test "$status" = "403"
+status="$(curl --silent --show-error --output "$tmp_dir/admin-audit-anonymous.json" --write-out '%{http_code}' \
+  "$base_url/api/v1/admin/audit")"
+test "$status" = "401"
+
 # Valid credentials with malformed booking input are client errors, not auth failures.
 status="$(curl --silent --show-error --output "$tmp_dir/short-idempotency.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
