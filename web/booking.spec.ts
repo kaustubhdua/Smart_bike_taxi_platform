@@ -252,7 +252,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await expect(page.getByRole("heading", { name: "Availability and rides" })).toBeVisible();
   await page.context().grantPermissions(["geolocation"]);
   await page.context().setGeolocation({ latitude: 28.53, longitude: 77.35 });
-  await page.getByRole("button", { name: "Go online" }).click();
+  await page.getByRole("button", { name: /Use my location and go online/ }).click();
   await page.getByRole("button", { name: "Refresh ride queue" }).click();
   await expect(page.getByText("Pickup → Destination")).toBeVisible();
   await page.getByRole("button", { name: "Accept" }).click();
