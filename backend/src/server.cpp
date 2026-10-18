@@ -17,6 +17,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <poll.h>
 #include <string>
 #include <thread>
 #include <utility>
@@ -1042,6 +1043,158 @@ std::optional<rideforge_security::Claims> bearer_claims(
 #include "driver_status.inc"
 #include "driver_queue.inc"
 
+// Authenticated SSE stream. The outbox worker emits PostgreSQL NOTIFY messages only
+// after the corresponding state change and published marker commit together. Clients
+// reconnect with Last-Event-ID; persisted ride_events provide gap-free resynchronization.
+bool stream_ride_events(beast::tcp_stream& stream,
+                        const http::request<http::string_body>& request,
+                        const std::string& path) {
+    constexpr std::string_view prefix = "/api/v1/rides/";
+    constexpr std::string_view suffix = "/events";
+    if (request.method() != http::verb::get || path.rfind(prefix, 0) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.substr(path.size() - suffix.size()) != suffix) return false;
+
+    const std::string ride_id = path.substr(prefix.size(), path.size() - prefix.size() - suffix.size());
+    const auto claims = bearer_claims(request);
+    auto send_json_error = [&](http::status status, const json& body) {
+        boost::system::error_code ec;
+        auto result = response(status, body, request);
+        result.keep_alive(false);
+        http::write(stream, result, ec);
+    };
+    if (!claims) {
+        send_json_error(http::status::unauthorized, {{"error", "authentication_required"}});
+        return true;
+    }
+
+    try {
+        Database database(env_or("DATABASE_URL", ""));
+        if (!database.get_ride(ride_id, claims->subject, claims->role)) {
+            send_json_error(http::status::not_found, {{"error", "ride_not_found"}});
+            return true;
+        }
+    } catch (const std::exception&) {
+        send_json_error(http::status::service_unavailable, {{"error", "event_stream_unavailable"}});
+        return true;
+    }
+
+    std::uint64_t last_event_id = 0;
+    const auto last_header = request["Last-Event-ID"];
+    if (!last_header.empty()) {
+        try {
+            const std::string value(last_header.data(), last_header.size());
+            std::size_t consumed = 0;
+            last_event_id = std::stoull(value, &consumed);
+            if (consumed != value.size()) throw std::invalid_argument("invalid event id");
+        } catch (...) {
+            send_json_error(http::status::bad_request, {{"error", "invalid_last_event_id"}});
+            return true;
+        }
+    }
+
+    PGconn* connection = PQconnectdb(env_or("DATABASE_URL", "").c_str());
+    if (connection == nullptr || PQstatus(connection) != CONNECTION_OK) {
+        if (connection != nullptr) PQfinish(connection);
+        send_json_error(http::status::service_unavailable, {{"error", "event_stream_unavailable"}});
+        return true;
+    }
+    Result listen(PQexec(connection, "LISTEN rideforge_ride_events"));
+    if (listen.get() == nullptr || PQresultStatus(listen.get()) != PGRES_COMMAND_OK) {
+        PQfinish(connection);
+        send_json_error(http::status::service_unavailable, {{"error", "event_stream_unavailable"}});
+        return true;
+    }
+
+    http::response<http::empty_body> header{http::status::ok, request.version()};
+    header.set(http::field::server, "RideForge API");
+    header.set(http::field::content_type, "text/event-stream; charset=utf-8");
+    header.set(http::field::cache_control, "no-cache, no-transform");
+    header.set(http::field::connection, "keep-alive");
+    header.set("X-Content-Type-Options", "nosniff");
+    header.set("X-Accel-Buffering", "no");
+    const auto origin_view = request[http::field::origin];
+    const std::string origin(origin_view.data(), origin_view.size());
+    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
+    if (!origin.empty() && origin == allowed) {
+        header.set(http::field::access_control_allow_origin, allowed);
+        header.set(http::field::vary, "Origin");
+    }
+    header.chunked(true);
+    http::response_serializer<http::empty_body> serializer{header};
+    boost::system::error_code ec;
+    stream.expires_after(std::chrono::seconds(5));
+    http::write_header(stream, serializer, ec);
+    if (ec) { PQfinish(connection); return true; }
+
+    auto send_chunk = [&](const std::string& payload) {
+        stream.expires_after(std::chrono::seconds(5));
+        asio::write(stream, http::make_chunk(asio::buffer(payload)), ec);
+        return !ec;
+    };
+    auto emit_event = [&](std::uint64_t event_id, const std::string& status,
+                          const std::string& created_at) {
+        const json payload{{"eventId", event_id}, {"rideId", ride_id},
+                           {"status", status}, {"createdAt", created_at}};
+        const std::string frame = "id: " + std::to_string(event_id) +
+            "\nevent: ride-status\ndata: " + payload.dump() + "\n\n";
+        if (event_id > last_event_id) last_event_id = event_id;
+        return send_chunk(frame);
+    };
+
+    // Replay persisted events after LISTEN is active, avoiding a lost-event race.
+    const std::string after = std::to_string(last_event_id);
+    const char* values[] = {ride_id.c_str(), after.c_str()};
+    Result replay(PQexecParams(connection,
+        "SELECT id::text,new_status::text,created_at::text FROM ride_events "
+        "WHERE ride_id=$1::uuid AND id>$2::bigint ORDER BY id LIMIT 100",
+        2, nullptr, values, nullptr, nullptr, 0));
+    if (replay.get() == nullptr || PQresultStatus(replay.get()) != PGRES_TUPLES_OK) {
+        asio::write(stream, http::make_chunk_last(), ec);
+        PQfinish(connection);
+        return true;
+    }
+    for (int i = 0; i < PQntuples(replay.get()) && !ec; ++i) {
+        const auto id = static_cast<std::uint64_t>(std::stoull(PQgetvalue(replay.get(), i, 0)));
+        if (!emit_event(id, PQgetvalue(replay.get(), i, 1), PQgetvalue(replay.get(), i, 2))) break;
+    }
+
+    const auto started = std::chrono::steady_clock::now();
+    auto heartbeat = started;
+    while (!ec && std::chrono::steady_clock::now() - started < std::chrono::seconds(25)) {
+        pollfd descriptor{PQsocket(connection), POLLIN, 0};
+        const int ready = ::poll(&descriptor, 1, 500);
+        if (ready > 0 && (descriptor.revents & POLLIN) != 0) {
+            if (PQconsumeInput(connection) == 0) break;
+            PGnotify* notification = nullptr;
+            while ((notification = PQnotifies(connection)) != nullptr) {
+                try {
+                    const auto payload = json::parse(notification->extra);
+                    if (payload.value("rideId", std::string()) == ride_id &&
+                        payload.contains("eventId") && payload["eventId"].is_number()) {
+                        const auto event_id = payload["eventId"].get<std::uint64_t>();
+                        if (event_id > last_event_id) {
+                            const std::string frame = "id: " + std::to_string(event_id) +
+                                "\nevent: ride-status\ndata: " + payload.dump() + "\n\n";
+                            last_event_id = event_id;
+                            if (!send_chunk(frame)) { PQfreemem(notification); break; }
+                        }
+                    }
+                } catch (...) { /* Ignore malformed notification payloads. */ }
+                PQfreemem(notification);
+            }
+        }
+        const auto now = std::chrono::steady_clock::now();
+        if (!ec && now - heartbeat >= std::chrono::seconds(10)) {
+            if (!send_chunk(": heartbeat\n\n")) break;
+            heartbeat = now;
+        }
+    }
+    asio::write(stream, http::make_chunk_last(), ec);
+    PQfinish(connection);
+    return true;
+}
+
 void handle_request(tcp::socket socket) {
     // Bound memory and connection occupancy before any route handler runs. Checking
     // request.body().size() after http::read is too late: Beast has already buffered it.
@@ -1075,8 +1228,10 @@ void handle_request(tcp::socket socket) {
     }
     auto request = parser.release();
 
-    http::response<http::string_body> result;
     const std::string path(request.target().data(), request.target().size());
+    if (stream_ride_events(stream, request, path)) return;
+
+    http::response<http::string_body> result;
     if (request.method() == http::verb::post &&
         (path == "/api/v1/auth/register" || path == "/api/v1/auth/login")) {
         result = handle_auth(request, path, client_ip(stream.socket()));
