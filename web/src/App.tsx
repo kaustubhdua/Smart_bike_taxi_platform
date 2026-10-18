@@ -58,6 +58,22 @@ export default function App() {
     return () => controller.abort();
   }, [pickup, destination]);
 
+  useEffect(() => {
+    if (!quote?.expiresAt) return;
+    const expiresAt = Date.parse(quote.expiresAt);
+    const remaining = expiresAt - Date.now();
+    if (!Number.isFinite(remaining) || remaining <= 0) {
+      setQuote(null);
+      setNotice("Your fare quote expired. Request a fresh quote before making a decision.");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setQuote(null);
+      setNotice("Your fare quote expired. Request a fresh quote before making a decision.");
+    }, Math.min(remaining, 2_147_000_000));
+    return () => clearTimeout(timer);
+  }, [quote?.expiresAt]);
+
   async function requestRide() {
     setNotice("");
     setApiState("checking");
