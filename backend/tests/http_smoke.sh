@@ -357,6 +357,10 @@ status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-online.json
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
 test "$status" = "200"
 python3 -c 'import json,sys; ids={r["rideId"] for r in json.load(sys.stdin)["rides"]}; assert sys.argv[1] in ids and sys.argv[2] not in ids' "$ride_id" "$far_ride_id" < "$tmp_dir/driver-queue-online.json"
+status="$(curl --silent --show-error --output "$tmp_dir/far-accept.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" --request POST "$base_url/api/v1/driver/rides/$far_ride_id/accept")"
+test "$status" = "409"
+grep -q '"error":"ride_outside_dispatch_radius"' "$tmp_dir/far-accept.json"
 status="$(curl --silent --show-error --output "$tmp_dir/far-cancel.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $other_token" --request POST "$base_url/api/v1/rides/$far_ride_id/cancel")"
 test "$status" = "200"
