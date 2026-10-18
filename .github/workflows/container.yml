@@ -1,0 +1,47 @@
+name: Container build and Compose validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "compose.yaml"
+      - ".env.example"
+      - "backend/**"
+      - "web/**"
+      - ".github/workflows/container.yml"
+  push:
+    branches: [main]
+    paths:
+      - "compose.yaml"
+      - ".env.example"
+      - "backend/**"
+      - "web/**"
+      - ".github/workflows/container.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    name: Validate Compose and build runtime images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure safe CI environment
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_PASSWORD=ci-only-not-for-production-password
+          DATABASE_URL=postgresql://saarthi:ci-only-not-for-production-password@db:5432/saarthi
+          SAARTHI_USER_AGENT=SaarthiCI/0.1 (ci@example.invalid)
+          SAARTHI_JWT_SECRET=ci-only-signing-secret-that-is-long-enough-for-tests
+          SAARTHI_GEOCODING_URL=https://nominatim.openstreetmap.org/search
+          SAARTHI_ROUTING_URL=https://router.project-osrm.org/route/v1/driving
+          EOF
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      - name: Build API and web runtime images
+        run: docker compose build --pull api web
