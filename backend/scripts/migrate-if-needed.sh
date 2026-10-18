@@ -2,10 +2,10 @@
 set -eu
 
 db_host="${PGHOST:-db}"
-db_user="${PGUSER:-saarthi}"
-db_name="${PGDATABASE:-saarthi}"
-migrations_dir="${SAARTHI_MIGRATIONS_DIR:-/migrations}"
-schema_file="${SAARTHI_SCHEMA_FILE:-}"
+db_user="${PGUSER:-rideforge}"
+db_name="${PGDATABASE:-rideforge}"
+migrations_dir="${RIDEFORGE_MIGRATIONS_DIR:-/migrations}"
+schema_file="${RIDEFORGE_SCHEMA_FILE:-}"
 
 psql_db() {
   psql -h "$db_host" -U "$db_user" -d "$db_name" "$@"
