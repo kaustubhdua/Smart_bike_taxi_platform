@@ -223,11 +223,23 @@ status="$(curl --silent --show-error --output "$tmp_dir/driver-login.json" --wri
 test "$status" = "200"
 driver_token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/driver-login.json")"
 
+# Offline drivers must not receive pickup/drop-off data from the dispatch queue.
+status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-offline.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
+test "$status" = "200"
+python3 -c 'import json,sys; assert json.load(sys.stdin)["rides"] == []' < "$tmp_dir/driver-queue-offline.json"
+
 status="$(curl --silent --show-error --output "$tmp_dir/driver-online.json" --write-out '%{http_code}' \
   --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $driver_token" \
   --data '{"online":true,"latitude":28.53,"longitude":77.35}' \
   "$base_url/api/v1/driver/availability")"
 test "$status" = "200"
+
+# Online drivers with a fresh location can see eligible unassigned ride requests.
+status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-online.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
+test "$status" = "200"
+python3 -c 'import json,sys; assert any(r["rideId"] == sys.argv[1] for r in json.load(sys.stdin)["rides"])' "$ride_id" < "$tmp_dir/driver-queue-online.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
