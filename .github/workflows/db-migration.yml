@@ -18,6 +18,7 @@ permissions:
 jobs:
   migration:
     name: Apply schema and verify integrity constraints
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     services:
       postgres:
