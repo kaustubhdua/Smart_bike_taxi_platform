@@ -39,6 +39,7 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number; updatedAt: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -98,6 +99,10 @@ export default function App() {
     if (account?.role === "admin") void loadAdminMetrics();
   }, [account?.role]);
 
+  useEffect(() => {
+    setDriverLocation(null);
+  }, [ride?.rideId]);
+
   // Use authenticated SSE for low-latency updates and keep REST polling as recovery.
   useEffect(() => {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -137,8 +142,14 @@ export default function App() {
           signal: AbortSignal.timeout(8000),
         });
         if (!response.ok) return;
-        const data = await response.json() as { rideId?: string; status?: string };
+        const data = await response.json() as { rideId?: string; status?: string; driverLocation?: { latitude?: number; longitude?: number; updatedAt?: string } };
         applyStatus(data);
+        if (data.rideId === ride.rideId && data.driverLocation &&
+            typeof data.driverLocation.latitude === "number" && Number.isFinite(data.driverLocation.latitude) &&
+            typeof data.driverLocation.longitude === "number" && Number.isFinite(data.driverLocation.longitude) &&
+            typeof data.driverLocation.updatedAt === "string") {
+          setDriverLocation({ latitude: data.driverLocation.latitude, longitude: data.driverLocation.longitude, updatedAt: data.driverLocation.updatedAt });
+        } else if (data.rideId === ride.rideId) setDriverLocation(null);
       } catch {
         // Transient network errors do not erase persisted status; retry on the next poll.
       } finally {
@@ -632,7 +643,7 @@ export default function App() {
               <div className="mini-map" role="group" aria-label={route ? `Route map from ${pickup} to ${destination}` : "Route map"}>
                 <Suspense fallback={<div className="route-map-empty" role="status">Loading interactive map…</div>}>
                   {route
-                    ? <RouteMap geometry={route.geometry} pickup={pickup} destination={destination} />
+                    ? <RouteMap geometry={route.geometry} pickup={pickup} destination={destination} driverLocation={driverLocation} />
                     : <div className="route-map-empty" role="status">A real road route will appear here when routing succeeds.</div>}
                 </Suspense>
                 <button className="locate-button" onClick={() => setNotice("Device location is not requested in this preview. Choose a pickup from the location list.")} aria-label="About current location"><LocateFixed size={17} /></button>
