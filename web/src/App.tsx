@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { calculateRoute, routeToSvgPath } from "./lib/routing";
+import { calculateRoute } from "./lib/routing";
+import RouteMap from "./components/RouteMap";
 import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bike, Check, ChevronDown,
   CircleHelp, Clock3, Compass, Crosshair, Gauge, LocateFixed,
@@ -154,11 +155,9 @@ export default function App() {
             </div>
             <div className="route-card">
               <div className="route-card-top"><div><span className="card-eyebrow">THE SHORT VERSION</span><h3>Your route, at a glance.</h3></div><span className="compass-chip"><Compass size={16} /></span></div>
-              <div className="mini-map" role="img" aria-label={route ? `Road route from ${pickup} to ${destination}; ${route.km.toFixed(1)} kilometres` : `Route preview from ${pickup} to ${destination}`}>
-                <div className="map-block block-1" /><div className="map-block block-2" /><div className="map-block block-3" /><div className="map-block block-4" /><div className="map-block block-5" /><div className="map-block block-6" />
-                <svg viewBox="0 0 500 260" preserveAspectRatio="none" aria-hidden="true">{route && <><path d={routeToSvgPath(route.geometry)} fill="none" stroke="#fff" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round"/><path d={routeToSvgPath(route.geometry)} fill="none" stroke="#335cff" strokeWidth="4" strokeDasharray="7 7" strokeLinecap="round" strokeLinejoin="round"/></>}</svg>
-                <span className="map-place start-place">{pickup}</span><span className="map-place end-place">{destination}</span><span className="map-watermark">{route ? "ROAD ROUTE" : routeLoading ? "ROUTING…" : "NO ROUTE"}</span>
-                <button className="locate-button" onClick={() => setNotice("Location access is not requested in this preview. Pickup is selected manually.")} aria-label="About current location"><LocateFixed size={17} /></button>
+              <div className="mini-map" role="group" aria-label={route ? `Route map from ${pickup} to ${destination}` : "Route map"}>
+                <RouteMap geometry={route?.geometry ?? null} pickup={pickup} destination={destination} />
+                <button className="locate-button" onClick={() => setNotice("Device location is not requested in this preview. Choose a pickup from the location list.")} aria-label="About current location"><LocateFixed size={17} /></button>
               </div>
               <div className="route-stats"><div><span><Route size={15} /> DISTANCE</span><strong>{route ? route.km.toFixed(1) : "—"} <small>km</small></strong></div><div><span><Clock3 size={15} /> EST. TIME</span><strong>{route ? route.mins : "—"} <small>min</small></strong></div><div><span><Gauge size={15} /> ROUTE TYPE</span><strong>{route ? "Road" : "—"} <small>{route ? "route" : "unavailable"}</small></strong></div></div>
               <div className="route-disclaimer"><span className="disclaimer-dot" /> {route ? `Real road geometry via ${route.provider}; live traffic may not be included.` : routeLoading ? "Looking up locations and calculating road geometry…" : routeError || "A route will appear when a real road route is available."}</div>
