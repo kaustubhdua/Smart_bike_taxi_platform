@@ -453,11 +453,13 @@ export default function App() {
                     <button className={driverOnline ? "driver-online online" : "driver-online"} onClick={toggleDriverAvailability}>{driverOnline ? "Go offline" : "Go online"}</button>
                     <button className="text-action" onClick={() => { setAccount(null); setDriverQueue([]); setDriverRide(null); setDriverOnline(false); }}>Sign out</button>
                   </div>
+                  <label className="auth-field"><span>Latitude</span><input aria-label="Latitude" inputMode="decimal" value={driverLatitude} onChange={event => setDriverLatitude(event.target.value)} /></label>
+                  <label className="auth-field"><span>Longitude</span><input aria-label="Longitude" inputMode="decimal" value={driverLongitude} onChange={event => setDriverLongitude(event.target.value)} /></label>
                   <button className="text-action" onClick={refreshDriverQueue}>Refresh ride queue</button>
                   {driverRide ? (
                     <div className="driver-active-ride">
                       <strong>Active ride</strong><span>Reference: {driverRide.rideId}</span><span>Status: {driverRide.status}</span>
-                      {driverRide.status === "assigned" && <button className="book-button" onClick={() => advanceDriverRide("driver_arriving")}>I'm heading to pickup</button>}
+                      {driverRide.status === "assigned" && <button className="book-button" onClick={() => advanceDriverRide("driver_arriving")}>Mark arriving</button>}
                       {driverRide.status === "driver_arriving" && <button className="book-button" onClick={() => advanceDriverRide("in_progress")}>Start trip</button>}
                       {driverRide.status === "in_progress" && <button className="book-button" onClick={() => advanceDriverRide("completed")}>Complete trip</button>}
                     </div>
