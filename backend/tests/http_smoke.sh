@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-base_url="${SAARTHI_TEST_BASE_URL:-http://127.0.0.1:8080}"
+base_url="${RIDEFORGE_TEST_BASE_URL:-http://127.0.0.1:8080}"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
