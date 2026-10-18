@@ -12,10 +12,16 @@ http::response<http::string_body> handle_driver_queue(
         if (connection != nullptr) PQfinish(connection);
         return response(http::status::service_unavailable, {{"error", "driver_queue_unavailable"}}, request);
     }
-    PGresult* result = PQexec(connection,
-        "SELECT id::text,pickup_label,destination_label,route_distance_m::text,"
-        "quoted_fare_paise::text,created_at::text FROM rides "
-        "WHERE status IN ('requested','matching') ORDER BY created_at ASC LIMIT 20");
+    const char* params[] = {claims->subject.c_str()};
+    PGresult* result = PQexecParams(connection,
+        "SELECT r.id::text,r.pickup_label,r.destination_label,r.route_distance_m::text,"
+        "r.quoted_fare_paise::text,r.created_at::text FROM rides r "
+        "WHERE r.status IN ('requested','matching') AND r.driver_id IS NULL "
+        "AND EXISTS (SELECT 1 FROM driver_profiles d WHERE d.account_id=$1::uuid "
+        "AND d.is_approved=true AND d.is_online=true "
+        "AND d.last_location_at>now()-interval '5 minutes') "
+        "ORDER BY r.created_at ASC LIMIT 20",
+        1, nullptr, params, nullptr, nullptr, 0);
     if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
         if (result != nullptr) PQclear(result);
         PQfinish(connection);
