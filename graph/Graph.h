@@ -59,12 +59,18 @@ public:
         dist[start] = 0.0;
         pq.push({0.0, names_[start]});
 
+        const auto wouldCreateParentCycle = [&parent](int child, int candidateParent) {
+            for (int at = candidateParent; at != -1; at = parent[at]) {
+                if (at == child) return true;
+            }
+            return false;
+        };
+
         while (!pq.empty()) {
             const auto [currentDistance, currentName] = pq.top();
             pq.pop();
             const int u = index_.at(currentName);
             if (currentDistance > dist[u]) continue;
-            if (u == finish) break;
 
             for (const auto& [v, weight] : adjacency_[u]) {
                 const double candidate = currentDistance + weight;
@@ -75,11 +81,11 @@ public:
                     parent[v] = u;
                     pq.push({candidate, names_[v]});
                 } else if (candidate == dist[v] && v != start &&
-                           (parent[v] == -1 ||
-                            names_[u] < names_[parent[v]])) {
-                    // Lexicographically smallest predecessor resolves equal routes.
-                    // Strictly decreasing predecessor names avoid parent cycles
-                    // across zero-weight edges.
+                           (parent[v] == -1 || names_[u] < names_[parent[v]]) &&
+                           !wouldCreateParentCycle(v, u)) {
+                    // Lexicographically smallest available predecessor resolves ties.
+                    // Zero-weight edges can otherwise create a parent cycle, so reject
+                    // any update whose parent chain already contains this vertex.
                     parent[v] = u;
                 }
             }
