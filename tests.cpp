@@ -58,6 +58,41 @@ void testGraph() {
     check(!graph.addRoad("A", "C", std::numeric_limits<double>::quiet_NaN()),
           "NaN road rejected");
     check(graph.addRoad("A", "A", 0.0), "zero-length self road accepted");
+
+    Graph disconnected;
+    check(disconnected.addLocation("A") && disconnected.addLocation("B") &&
+              disconnected.addLocation("C"), "create disconnected graph");
+    check(disconnected.addRoad("A", "B", 1.0), "connect only one component");
+    check(!disconnected.shortestPath("A", "C").reachable,
+          "disconnected destination remains unreachable");
+
+    Graph zeroCycle;
+    check(zeroCycle.addLocation("S") && zeroCycle.addLocation("B") &&
+              zeroCycle.addLocation("A"), "create zero-weight cycle graph");
+    check(zeroCycle.addRoad("S", "A", 0.0) &&
+              zeroCycle.addRoad("S", "B", 0.0) &&
+              zeroCycle.addRoad("A", "B", 0.0), "add zero-weight cycle");
+    const auto zeroRouteA = zeroCycle.shortestPath("S", "A");
+    const auto zeroRouteB = zeroCycle.shortestPath("S", "B");
+    check(zeroRouteA.reachable && zeroRouteA.distance == 0.0 &&
+              zeroRouteA.path.front() == "S" && zeroRouteA.path.back() == "A" &&
+              zeroRouteA.path.size() <= 3,
+          "zero-weight cycle reconstructs an acyclic route to A");
+    check(zeroRouteB.reachable && zeroRouteB.distance == 0.0 &&
+              zeroRouteB.path.front() == "S" && zeroRouteB.path.back() == "B" &&
+              zeroRouteB.path.size() <= 3,
+          "zero-weight cycle reconstructs an acyclic route to B");
+
+    Graph extreme;
+    check(extreme.addLocation("X") && extreme.addLocation("Y") &&
+              extreme.addLocation("Z"), "create extreme-weight graph");
+    const double largest = std::numeric_limits<double>::max();
+    check(extreme.addRoad("X", "Y", largest) &&
+              extreme.addRoad("Y", "Z", largest), "accept finite extreme weights");
+    check(extreme.shortestPath("X", "Y").reachable,
+          "a finite maximum-weight edge remains reachable");
+    check(!extreme.shortestPath("X", "Z").reachable,
+          "overflowing path sums are not treated as reachable");
 }
 
 void testHashTable() {
