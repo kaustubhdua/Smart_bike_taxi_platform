@@ -11,7 +11,7 @@ The native C++17 HTTP service now implements:
 - `GET /api/v1/rides`, `GET /api/v1/rides/{rideId}`, and `POST /api/v1/rides/{rideId}/cancel`: passenger history, ownership-scoped reads, and transactional cancellation.
 - `GET /api/v1/rides/{rideId}/events`: authenticated server-sent events scoped to a ride owner, with persisted-event replay from `Last-Event-ID`, PostgreSQL LISTEN/NOTIFY and heartbeats.
 - `PUT /api/v1/driver/availability`: role-checked availability/location updates; only profiles explicitly approved by an administrator can go online.
-- Driver queue visibility is restricted to approved drivers who are online with a location updated in the last five minutes. Acceptance rechecks eligibility inside the database transaction.
+- Driver queue visibility is restricted to approved drivers who are online with a location updated in the last five minutes and pickup coordinates within a 20 km great-circle radius. Queue results are ranked by pickup distance; acceptance rechecks approval, freshness and the radius inside the transaction. This is not road-ETA ranking.
 - `POST /api/v1/driver/rides/{rideId}/accept` and `PUT /api/v1/driver/rides/{rideId}/status`: transactional driver acceptance, conflict-safe assignment, lifecycle transitions, and event records.
 - `GET /api/v1/admin/metrics`: role-checked database-backed operational counts.
 - `GET /api/v1/admin/audit?limit=50`: admin-only, bounded recent audit-event history for privileged driver operations.
