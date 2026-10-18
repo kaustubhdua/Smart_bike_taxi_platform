@@ -52,9 +52,10 @@ export default function RouteMap({ geometry, pickup, destination, driverLocation
     if (!driverMarkerRef.current) {
       driverMarkerRef.current = L.circleMarker(point, {
         radius: 9, color: "#ffffff", weight: 3, fillColor: "#f97316", fillOpacity: 1,
-      }).bindTooltip("Driver's latest reported location").addTo(map);
+      }).bindTooltip("Driver's latest reported location · " + new Date(driverLocation.updatedAt).toLocaleTimeString()).addTo(map);
     } else {
       driverMarkerRef.current.setLatLng(point);
+      driverMarkerRef.current.setTooltipContent("Driver's latest reported location · " + new Date(driverLocation.updatedAt).toLocaleTimeString());
     }
     if (!map.getBounds().contains(point)) map.panTo(point, { animate: false });
   }, [driverLocation]);
