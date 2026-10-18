@@ -190,6 +190,31 @@ public:
         return account;
     }
 
+    json admin_metrics() {
+        PGresult* result = PQexec(connection_,
+            "SELECT status::text,count(*)::text FROM rides GROUP BY status ORDER BY status");
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not read ride metrics");
+        }
+        json counts = json::object();
+        for (int i = 0; i < PQntuples(result); ++i) {
+            counts[PQgetvalue(result, i, 0)] = std::stoi(PQgetvalue(result, i, 1));
+        }
+        PQclear(result);
+        PGresult* drivers = PQexec(connection_,
+            "SELECT count(*)::text FROM driver_profiles WHERE is_online=true "
+            "AND last_location_at>now()-interval '5 minutes'");
+        if (drivers == nullptr || PQresultStatus(drivers) != PGRES_TUPLES_OK ||
+            PQntuples(drivers) != 1) {
+            if (drivers != nullptr) PQclear(drivers);
+            throw std::runtime_error("Could not read driver metrics");
+        }
+        const int online_drivers = std::stoi(PQgetvalue(drivers, 0, 0));
+        PQclear(drivers);
+        return json{{"ridesByStatus", counts}, {"onlineDrivers", online_drivers}};
+    }
+
     std::optional<json> get_ride(const std::string& ride_id, const std::string& actor_id,
                                   const std::string& role) {
         const char* params[] = {ride_id.c_str(), actor_id.c_str()};
