@@ -19,6 +19,8 @@
 #include <optional>
 #include <poll.h>
 #include <string>
+#include <string_view>
+#include <cstdint>
 #include <thread>
 #include <utility>
 #include <vector>
