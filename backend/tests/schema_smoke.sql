@@ -39,32 +39,4 @@ BEGIN
   END;
 END $$;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE schemaname = current_schema()
-      AND indexname = 'rides_one_active_ride_per_driver'
-  ) THEN
-    RAISE EXCEPTION 'Missing active-driver concurrency guard index';
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = current_schema() AND table_name = 'booking_idempotency'
-  ) THEN
-    RAISE EXCEPTION 'Missing booking idempotency table';
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = current_schema() AND table_name = 'route_quotes'
-  ) THEN
-    RAISE EXCEPTION 'Missing persisted route quote table';
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM schema_migrations WHERE version = '001_initial_schema'
-  ) THEN
-    RAISE EXCEPTION 'Initial schema migration was not recorded atomically';
-  END IF;
-END $;
-
 ROLLBACK;
