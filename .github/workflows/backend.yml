@@ -34,6 +34,11 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://saarthi:saarthi_test_password@127.0.0.1:5432/saarthi_test
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: saarthi_test
+      PGUSER: saarthi
+      PGPASSWORD: saarthi_test_password
       SAARTHI_ALLOWED_ORIGIN: http://localhost:5173
       SAARTHI_USER_AGENT: SaarthiGithubActionsSmoke/0.1 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)
       PORT: 8080
