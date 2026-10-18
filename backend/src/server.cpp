@@ -1530,7 +1530,8 @@ void handle_request(tcp::socket socket) {
                 result = response(http::status::service_unavailable, {{"error", "driver_management_unavailable"}}, request);
             }
         }
-    } else if (request.method() == http::verb::get && path == "/api/v1/admin/audit") {
+    } else if (request.method() == http::verb::get &&
+               (path == "/api/v1/admin/audit" || path.rfind("/api/v1/admin/audit?", 0) == 0)) {
         const auto claims = bearer_claims(request);
         if (!claims) {
             result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
