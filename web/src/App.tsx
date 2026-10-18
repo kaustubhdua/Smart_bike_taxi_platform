@@ -41,6 +41,8 @@ export default function App() {
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
+  const [driverLatitude, setDriverLatitude] = useState("28.53");
+  const [driverLongitude, setDriverLongitude] = useState("77.35");
   const [driverQueue, setDriverQueue] = useState<Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number }>>([]);
   const [driverRide, setDriverRide] = useState<{ rideId: string; status: string } | null>(null);
   const [adminMetrics, setAdminMetrics] = useState<{ onlineDrivers: number; ridesByStatus: Record<string, number> } | null>(null);
