@@ -98,15 +98,31 @@ export default function App() {
     if (account?.role === "admin") void loadAdminMetrics();
   }, [account?.role]);
 
-  // Poll persisted passenger ride state while visible, then resync immediately on return.
+  // Use authenticated SSE for low-latency updates and keep REST polling as recovery.
   useEffect(() => {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || account.role !== "passenger" || !ride ||
-        ["completed", "cancelled", "failed"].includes(ride.status)) return;
+    if (!base || !account || account.role !== "passenger" || !ride) return;
     let inFlight = false;
     let disposed = false;
+    let lastEventId = 0;
+    let lastKnownStatus = ride.status;
+    const terminal = () => ["completed", "cancelled", "failed"].includes(lastKnownStatus);
+    const streamAbort = new AbortController();
+
+    const applyStatus = (data: { rideId?: string; status?: string }) => {
+      if (disposed || data.rideId !== ride.rideId || typeof data.status !== "string" ||
+          data.status === lastKnownStatus) return;
+      lastKnownStatus = data.status;
+      setRide(current => {
+        if (!current || current.rideId !== data.rideId) return current;
+        return { rideId: current.rideId, status: data.status! };
+      });
+      setNotice("Ride status updated to " + data.status + ".");
+      if (terminal()) streamAbort.abort();
+    };
+
     const refreshRide = async () => {
-      if (disposed || inFlight || document.visibilityState !== "visible") return;
+      if (disposed || inFlight || terminal() || document.visibilityState !== "visible") return;
       inFlight = true;
       try {
         const response = await fetch(apiUrl(base, "/api/v1/rides/" + encodeURIComponent(ride.rideId)), {
@@ -115,31 +131,85 @@ export default function App() {
         });
         if (!response.ok) return;
         const data = await response.json() as { rideId?: string; status?: string };
-        if (!disposed && data.rideId === ride.rideId && typeof data.status === "string" && data.status !== ride.status) {
-          setRide(current => {
-            if (!current || current.rideId !== data.rideId) return current;
-            return { rideId: current.rideId, status: data.status! };
-          });
-          setNotice("Ride status updated to " + data.status + ".");
-        }
+        applyStatus(data);
       } catch {
-        // Transient network errors do not erase the last persisted status; retry on the next poll.
+        // Transient network errors do not erase persisted status; retry on the next poll.
       } finally {
         inFlight = false;
       }
     };
+
+    const pause = (milliseconds: number) =>
+      new Promise<void>(resolve => window.setTimeout(resolve, milliseconds));
+    const connectEvents = async () => {
+      while (!disposed && !terminal()) {
+        try {
+          const headers: Record<string, string> = {
+            "Accept": "text/event-stream",
+            "Authorization": "Bearer " + account.token,
+          };
+          if (lastEventId > 0) headers["Last-Event-ID"] = String(lastEventId);
+          const response = await fetch(apiUrl(base, "/api/v1/rides/" + encodeURIComponent(ride.rideId) + "/events"), {
+            headers,
+            signal: streamAbort.signal,
+          });
+          if (!response.ok || !response.body) throw new Error("Ride event stream unavailable");
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let streamEnded = false;
+          while (!disposed && !terminal() && !streamEnded) {
+            const chunk = await reader.read();
+            if (chunk.done) { streamEnded = true; break; }
+            buffer += decoder.decode(chunk.value, { stream: true }).replace(/\r\n/g, "\n");
+            let boundary = buffer.indexOf("\n\n");
+            while (boundary >= 0) {
+              const frame = buffer.slice(0, boundary);
+              buffer = buffer.slice(boundary + 2);
+              let id = 0;
+              const dataLines: string[] = [];
+              for (const line of frame.split("\n")) {
+                if (line.startsWith("id:")) {
+                  const parsed = Number(line.slice(3).trim());
+                  if (Number.isSafeInteger(parsed) && parsed >= 0) id = parsed;
+                } else if (line.startsWith("data:")) {
+                  dataLines.push(line.slice(5).trimStart());
+                }
+              }
+              if (id > lastEventId) lastEventId = id;
+              if (dataLines.length > 0) {
+                try {
+                  const data = JSON.parse(dataLines.join("\n")) as { rideId?: string; status?: string };
+                  applyStatus(data);
+                } catch {
+                  // Ignore malformed frames; REST polling remains the recovery path.
+                }
+              }
+              boundary = buffer.indexOf("\n\n");
+            }
+          }
+          if (!disposed && !terminal()) await pause(250);
+        } catch {
+          if (disposed || streamAbort.signal.aborted || terminal()) break;
+          await pause(1500);
+        }
+      }
+    };
+
     const timer = window.setInterval(() => { void refreshRide(); }, 5000);
     const resync = () => { if (document.visibilityState === "visible") void refreshRide(); };
     document.addEventListener("visibilitychange", resync);
     window.addEventListener("focus", resync);
     void refreshRide();
+    void connectEvents();
     return () => {
       disposed = true;
+      streamAbort.abort();
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", resync);
       window.removeEventListener("focus", resync);
     };
-  }, [account?.token, account?.role, ride?.rideId, ride?.status]);
+  }, [account?.token, account?.role, ride?.rideId]);
 
   // Keep the driver's queue fresh without polling in a hidden tab or while offline.
   useEffect(() => {
