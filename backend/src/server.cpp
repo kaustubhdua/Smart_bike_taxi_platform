@@ -250,6 +250,30 @@ public:
         return ride;
     }
 
+    json list_available_rides() {
+        PGresult* result = PQexec(connection_,
+            "SELECT id::text,pickup_label,destination_label,route_distance_m::text,"
+            "quoted_fare_paise::text,created_at::text FROM rides "
+            "WHERE status IN ('requested','matching') AND driver_id IS NULL "
+            "ORDER BY created_at ASC LIMIT 100");
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not list available rides");
+        }
+        json rides = json::array();
+        for (int i = 0; i < PQntuples(result); ++i) {
+            json ride{{"rideId", PQgetvalue(result, i, 0)},
+                {"pickup", PQgetvalue(result, i, 1)},
+                {"destination", PQgetvalue(result, i, 2)},
+                {"farePaise", std::stoi(PQgetvalue(result, i, 4))},
+                {"currency", "INR"}, {"createdAt", PQgetvalue(result, i, 5)}};
+            if (!PQgetisnull(result, i, 3)) ride["distanceMeters"] = std::stoi(PQgetvalue(result, i, 3));
+            rides.push_back(std::move(ride));
+        }
+        PQclear(result);
+        return json{{"rides", rides}};
+    }
+
     json list_rides(const std::string& passenger_id) {
         const char* params[] = {passenger_id.c_str()};
         PGresult* result = PQexecParams(connection_,
@@ -971,6 +995,68 @@ void handle_request(tcp::socket socket) {
                 result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
             } catch (const std::exception&) {
                 result = response(http::status::service_unavailable, {{"error", "driver_unavailable"}}, request);
+            }
+        }
+    } else if (request.method() == http::verb::get && path == "/api/v1/driver/rides") {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "driver") {
+            result = response(http::status::forbidden, {{"error", "driver_role_required"}}, request);
+        } else {
+            try {
+                Database database(env_or("DATABASE_URL", ""));
+                result = response(http::status::ok, database.list_available_rides(), request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "driver_queue_unavailable"}}, request);
+            }
+        }
+    } else if (path.rfind("/api/v1/driver/rides/", 0) == 0 &&
+               request.method() == http::verb::post) {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "driver") {
+            result = response(http::status::forbidden, {{"error", "driver_role_required"}}, request);
+        } else {
+            const std::string prefix = "/api/v1/driver/rides/";
+            const bool accepting = path.size() > prefix.size() + 7 &&
+                path.substr(path.size() - 7) == "/accept";
+            const bool changing_status = path.size() > prefix.size() + 7 &&
+                path.substr(path.size() - 7) == "/status";
+            if (!accepting && !changing_status) {
+                result = response(http::status::not_found, {{"error", "not_found"}}, request);
+            } else {
+                const std::string ride_id = path.substr(prefix.size(), path.size() - prefix.size() - 7);
+                try {
+                    Database database(env_or("DATABASE_URL", ""));
+                    if (accepting) {
+                        result = response(http::status::ok, database.accept_ride(ride_id, claims->subject), request);
+                    } else {
+                        if (request.body().size() > 4096) throw std::invalid_argument("request_too_large");
+                        const auto body = json::parse(request.body());
+                        if (!body.is_object() || !body.contains("status") || !body["status"].is_string()) {
+                            throw std::invalid_argument("status_required");
+                        }
+                        const std::string next_status = body["status"].get<std::string>();
+                        if (next_status != "driver_arriving" && next_status != "in_progress" &&
+                            next_status != "completed") {
+                            throw std::invalid_argument("unsupported_ride_status");
+                        }
+                        result = response(http::status::ok,
+                            database.advance_ride(ride_id, claims->subject, next_status), request);
+                    }
+                } catch (const std::domain_error& error) {
+                    const std::string reason = error.what();
+                    const auto status = reason == "ride_not_found" ? http::status::not_found : http::status::conflict;
+                    result = response(status, {{"error", reason}}, request);
+                } catch (const std::invalid_argument& error) {
+                    result = response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
+                } catch (const json::exception&) {
+                    result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+                } catch (const std::exception&) {
+                    result = response(http::status::service_unavailable, {{"error", "driver_action_unavailable"}}, request);
+                }
             }
         }
     } else if (request.method() == http::verb::get && path == "/api/v1/admin/metrics") {
