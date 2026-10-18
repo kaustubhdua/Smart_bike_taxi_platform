@@ -18,7 +18,7 @@ Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local 
 
 ## Full-stack roadmap status
 
-This repository is being extended from its original C++17 academic simulation into **Saarthi**, an original bike-taxi booking product. The C++ API now exposes a PostgreSQL-backed route quote endpoint, but the product is still an incremental portfolio build—not a live ride service.
+This repository is being extended from its original C++17 academic simulation into **Saarthi**, an original bike-taxi booking product. The C++ API now exposes PostgreSQL-backed quotes, passenger authentication and persisted booking, cancellation, history, driver lifecycle, and admin metrics endpoints. This is still an incremental portfolio build—not a live commercial ride service.
 
 | Area | Current evidence | Status |
 |---|---|---|
@@ -27,9 +27,9 @@ This repository is being extended from its original C++17 academic simulation in
 | Ride lifecycle/dispatch | Cancellation releases drivers; tests cover cancellation/reassignment, deterministic driver ties and unreachable drivers | GCC, Clang and ASan/UBSan passed on current feature head |
 | Benchmarking | Deterministic 1,000-node / 1,000-query benchmark, CI CSV artifact, checked-in sample with environment notes | A real CI sample is recorded in [`benchmarks/results/ubuntu-latest-2026-10-18.csv`](benchmarks/results/ubuntu-latest-2026-10-18.csv); one run is not a general performance claim |
 | Web UI | React + TypeScript + Vite; lazy-loaded Leaflet map; Nominatim geocoding + OSRM road geometry; pickup/drop autocomplete; quote expiry validation | Typecheck/build, high-severity npm audit, gzip budgets, desktop/mobile Playwright E2E and axe audit passed on `8cdd5429593347b8c7e167da7d7a9c0e6a5c32b5`; server fare quote still needs API |
-| API service | C++17 HTTP server at `backend/src/server.cpp`; `GET /api/v1/health`; `POST /api/v1/routes/quote` geocodes, routes, calculates a server fare, and persists an expiring quote | Implemented incrementally; requires PostgreSQL and external routing providers; CI smoke tests do not call external providers |
+| API service | C++17 Boost.Beast HTTP server; health, quote, passenger auth/booking/history/cancellation, driver queue/accept/status/availability, and admin metrics routes | CI API build and PostgreSQL-backed smoke tests passed on the recorded implementation head; public routing providers are not exercised by CI |
 | PostgreSQL | Initial schema includes accounts, driver profiles, rides, route quotes, event history, idempotency and active-driver uniqueness guard | CI applies migration to PostgreSQL 16; no production DB or migration runner configured |
-| Authentication, ride creation/cancellation/history, driver/admin workflows, realtime | Not implemented | Release blockers; do not claim these are live |
+| Authentication and passenger booking | PBKDF2 password hashing, short-lived signed access tokens, role/ownership checks, quote consumption, transactional idempotency, ride history and cancellation | API implemented with smoke coverage; expand authorization and concurrency tests before release |\n| Driver/admin operations | Driver queue/accept/state/availability and protected admin metrics API | Backend routes implemented; connected driver/admin web experience and trusted driver provisioning remain blockers |\n| Realtime, payments and safety operations | Not implemented | Release blockers; do not claim these are live |
 | Reproducible installs | `web/package-lock.json` not yet generated; CI still uses `npm install` | Release blocker; generate a genuine lockfile in a network-enabled checkout and switch to `npm ci` |
 | Deployment and screenshots | No live full-stack deployment verified | Planned |
 
@@ -43,7 +43,7 @@ npm run typecheck
 npm run build
 ```
 
-The web CI workflow runs typechecking and a production build. The web interface requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. The API calculates and persists a five-minute demo quote in PostgreSQL; the UI now supports passenger registration/sign-in, ride confirmation, and cancellation through API calls. Public demo routing endpoints are for evaluation only, and driver matching/live tracking are not live yet. Browser E2E, accessibility, lockfile-backed installs and deployment verification remain tracked in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
+The web CI workflow runs typechecking and a production build. The web interface requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. The API calculates and persists a five-minute demo quote in PostgreSQL; the UI supports passenger registration/sign-in, ride confirmation, and cancellation through API calls. Playwright desktop/mobile E2E, axe accessibility audit, high-severity npm audit and gzip budgets run in CI. Public demo routing endpoints are for evaluation only, and driver matching/live tracking are not yet connected to the passenger UI. Lockfile-backed installs and deployment verification remain tracked in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
 
 ### C++ tests and benchmark
 
@@ -61,7 +61,7 @@ The benchmark prints CSV timing data for route queries and custom-versus-standar
 
 ### Backend contract and schema
 
-See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service now supports database-backed quotes, passenger registration/login, signed access tokens, idempotent booking transactions, ride history/detail reads, cancellation, driver availability updates and admin metrics. Backend CI covers authentication and transactional booking behavior, and the API now exposes driver availability, acceptance, and lifecycle-transition endpoints. The driver UI/onboarding, real-time delivery, and production deployment remain release gates. Track the remaining work in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
+See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). The native service supports database-backed quotes, passenger registration/login, signed access tokens, idempotent booking transactions, ride history/detail reads, cancellation, driver queue/availability/acceptance/lifecycle-transition endpoints and admin metrics. Backend CI covers API compilation, auth/booking smoke behavior, and clean PostgreSQL migrations. Driver UI/onboarding, broader concurrency/authorization tests, real-time delivery, and production deployment remain release gates. Track the remaining work in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
 
 ### Run the API and PostgreSQL locally
 
@@ -82,7 +82,7 @@ The design is original and may incorporate licensed open-source components selec
 
 Smart Bike Taxi Platform is an interactive terminal application that demonstrates how core DSA concepts can support a simplified ride-hailing workflow. It uses a small, illustrative Noida road network and lets users register riders and drivers, request and cancel rides, dispatch requests, estimate fares, and review ride history.
 
-> The C++ console application is an academic simulation. The separate web UI can request road geometry from public OpenStreetMap/OSRM demo services, but has no live ride dispatch, driver tracking, payment, or persistent web booking.
+> The C++ console application is an academic simulation. The separate web UI can request road geometry and persist passenger ride requests through the API. Live automated dispatch, driver tracking, payments, and safety operations are not available.
 
 ## Workflow
 
