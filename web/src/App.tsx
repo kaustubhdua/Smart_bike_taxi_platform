@@ -447,6 +447,31 @@ export default function App() {
                   <button className="text-action" onClick={() => { setRide(null); setQuote(null); setNotice("Ride request saved. You can request a new quote for another trip."); }}>New ride</button>
                 </div>
               )}
+              {account?.role === "driver" && (
+                <section className="driver-panel" aria-labelledby="driver-console-title">
+                  <div className="driver-panel-head">
+                    <div><h3 id="driver-console-title">Driver console</h3><p>Availability and ride actions use the API.</p></div>
+                    <button className={driverOnline ? "driver-online online" : "driver-online"} onClick={toggleDriverAvailability}>{driverOnline ? "Go offline" : "Go online"}</button>
+                  </div>
+                  <button className="text-action" onClick={refreshDriverQueue}>Refresh ride queue</button>
+                  {driverRide ? (
+                    <div className="driver-active-ride">
+                      <strong>Active ride</strong><span>Reference: {driverRide.rideId}</span><span>Status: {driverRide.status}</span>
+                      {driverRide.status === "assigned" && <button className="book-button" onClick={() => advanceDriverRide("driver_arriving")}>I'm heading to pickup</button>}
+                      {driverRide.status === "driver_arriving" && <button className="book-button" onClick={() => advanceDriverRide("in_progress")}>Start ride</button>}
+                      {driverRide.status === "in_progress" && <button className="book-button" onClick={() => advanceDriverRide("completed")}>Complete ride</button>}
+                    </div>
+                  ) : (
+                    <div className="driver-queue">
+                      {driverQueue.map(item => <article className="driver-queue-item" key={item.rideId}>
+                        <div><strong>{item.pickup}</strong><span>to {item.destination}</span><small>{(item.distanceMeters / 1000).toFixed(1)} km · ₹{(item.farePaise / 100).toFixed(2)}</small></div>
+                        <button onClick={() => acceptDriverRide(item.rideId)} disabled={!driverOnline}>Accept</button>
+                      </article>)}
+                      {driverQueue.length === 0 && <p className="auth-caption">{driverOnline ? "No open requests right now. Refresh to check again." : "Go online to update your location and see open requests."}</p>}
+                    </div>
+                  )}
+                </section>
+              )}
               <div className="card-footnote"><ShieldCheck size={14} /> Quotes and ride requests are saved by the API. Driver matching and live tracking are not live yet.</div>
               <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
             </div>
