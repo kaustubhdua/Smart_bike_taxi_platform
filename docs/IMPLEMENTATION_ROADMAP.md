@@ -18,7 +18,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 
 ## Known gaps — do not represent as complete
 
-- No self-service or admin UI for driver provisioning and approval; trusted provisioning currently requires an explicit operator/database action.
+- Driver provisioning, approval and suspension API/UI are implemented with an audit trail. Real-world identity/vehicle document verification remains outside this demo.
 - The ride-event outbox is durable, but there is no publisher worker, WebSocket/SSE delivery, retry loop or client resync protocol yet. Passenger status polling remains the recovery mechanism.
 - Dispatch queue filtering currently uses approval, online status and location freshness; it is not yet a full road-ETA ranking service or geographic matching engine.
 - Admin workspace currently exposes operational metrics, not full driver approval, incident, audit-search or suspension workflows.
@@ -54,14 +54,14 @@ Acceptance: adversarial integration tests pass and no client can read or mutate 
 
 ## Phase 2 — driver trust and operations
 
-- [ ] Add an admin-only driver provisioning/approval/suspension API and corresponding UI.
-- [ ] Record approval actor/time and audit every privileged change.
+- [x] Add an admin-only driver provisioning/approval/suspension API and corresponding UI.
+- [x] Record approval actor/time and audit driver provisioning, approval and suspension.
 - [ ] Add driver profile/vehicle fields and a documented demo verification policy.
 - [ ] Reject stale or out-of-area offers at both queue and acceptance time.
 - [ ] Add a driver trip history/earnings ledger that is derived from persisted rides.
 - [ ] Add admin ride search, failed dispatch inspection and incident records.
 
-Acceptance: a newly created driver cannot go online until explicitly approved; suspended drivers lose dispatch eligibility.
+Acceptance: a newly created driver cannot go online until explicitly approved; suspended drivers lose dispatch eligibility. The API and UI are implemented; CI evidence on the current head is still required.
 
 ## Phase 3 — realtime and dispatch
 
