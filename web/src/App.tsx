@@ -41,6 +41,8 @@ export default function App() {
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
+  const [driverLatitude, setDriverLatitude] = useState("28.53");
+  const [driverLongitude, setDriverLongitude] = useState("77.35");
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [driverQueue, setDriverQueue] = useState<Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number }>>([]);
   const [driverRide, setDriverRide] = useState<{ rideId: string; status: string } | null>(null);
@@ -329,8 +331,7 @@ export default function App() {
       });
       const data = await response.json() as { status?: string; error?: string };
       if (!response.ok || !data.status) throw new Error(data.error || "Could not update ride status.");
-      if (nextStatus === "completed") setDriverRide(null);
-      else setDriverRide({ ...driverRide, status: nextStatus });
+      setDriverRide({ ...driverRide, status: nextStatus });
       setNotice("Ride status updated to " + nextStatus + ".");
       await refreshDriverQueue();
     } catch (error) {
@@ -417,7 +418,7 @@ export default function App() {
               <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Finding a real road route…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Select different locations to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
               <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? " awaiting server quote" : " server quote"}</span></div></div><div className="fare-note"><Check size={14} /> {quote ? "Quote from API" : "No invented price"}<br /><small>{quote ? (quote.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Check quote expiry before booking") : "A fare appears only after the server responds."}</small></div></div>
               <button className="book-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>{apiState === "checking" ? "Checking quote…" : "Get server fare quote"} <ArrowRight size={18} /></button>
-              {quote && !ride && account?.role !== "driver" && account?.role !== "admin" && (
+              {((quote && !ride) || mode !== "ride") && account?.role !== "driver" && account?.role !== "admin" && (
                 <div className="auth-panel">
                   {account ? (
                     <div className="auth-session">
