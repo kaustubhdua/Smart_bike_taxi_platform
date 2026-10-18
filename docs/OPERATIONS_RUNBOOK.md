@@ -50,8 +50,8 @@ The public API intentionally has no endpoint that can grant an account the admin
 
 ```sh
 read -rsp "Initial admin password (12+ chars): " RIDEFORGE_ADMIN_PASSWORD
-printf '\\n'
-printf '%s\\n' "$RIDEFORGE_ADMIN_PASSWORD" | docker compose exec -T api /usr/local/bin/rideforge_admin_bootstrap admin@example.test "RideForge Admin"
+printf '\n'
+printf '%s\n' "$RIDEFORGE_ADMIN_PASSWORD" | docker compose exec -T api /usr/local/bin/rideforge_admin_bootstrap admin@example.test "RideForge Admin"
 unset RIDEFORGE_ADMIN_PASSWORD
 ```
 
