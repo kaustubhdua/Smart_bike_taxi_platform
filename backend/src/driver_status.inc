@@ -1,8 +1,11 @@
 http::response<http::string_body> handle_driver_status(
     const http::request<http::string_body>& request, const std::string& path) {
     const auto claims = bearer_claims(request);
-    if (!claims || claims->role != "driver") {
-        return response(http::status::forbidden, {{"error", "driver_auth_required"}}, request);
+    if (!claims) {
+        return response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+    }
+    if (claims->role != "driver") {
+        return response(http::status::forbidden, {{"error", "driver_role_required"}}, request);
     }
     const std::string prefix = "/api/v1/driver/rides/";
     if (path.size() <= prefix.size() + 7) {
