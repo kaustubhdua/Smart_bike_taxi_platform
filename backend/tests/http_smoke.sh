@@ -91,6 +91,37 @@ test "$register_status" = "201"
 token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/register.json")"
 test -n "$token"
 
+# Admin-only driver provisioning starts unapproved and requires an audited approval action.
+admin_id="$(psql -v ON_ERROR_STOP=1 -tAqc "INSERT INTO accounts (email,display_name,role,password_hash) SELECT 'smoke-admin@example.test','CI Admin','admin',password_hash FROM accounts WHERE email='smoke-passenger@example.test' RETURNING id")"
+test -n "$admin_id"
+status="$(curl --silent --show-error --output "$tmp_dir/admin-login.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"email":"smoke-admin@example.test","password":"a-long-ci-password-123"}' \
+  "$base_url/api/v1/auth/login")"
+test "$status" = "200"
+admin_token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/admin-login.json")"
+
+status="$(curl --silent --show-error --output "$tmp_dir/admin-provision.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
+  --data '{"email":"smoke-provisioned-driver@example.test","displayName":"Provisioned Driver","password":"driver-ci-password-123","vehicleRegistration":"CI-PROVISIONED-001"}' \
+  "$base_url/api/v1/admin/drivers")"
+test "$status" = "201"
+provisioned_id="$(python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["approved"] is False; print(d["driverId"])' < "$tmp_dir/admin-provision.json")"
+test -n "$provisioned_id"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM driver_profiles WHERE account_id='$provisioned_id' AND is_approved=false AND is_online=false")" = "1"
+
+status="$(curl --silent --show-error --output "$tmp_dir/admin-approve.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
+  --data '{"approved":true}' "$base_url/api/v1/admin/drivers/$provisioned_id/approval")"
+test "$status" = "200"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM driver_profiles WHERE account_id='$provisioned_id' AND is_approved=true AND approved_by='$admin_id' AND approved_at IS NOT NULL AND is_online=false")" = "1"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM admin_audit_events WHERE actor_id='$admin_id' AND target_id='$provisioned_id' AND action IN ('driver.provisioned','driver.approved')")" = "2"
+
+status="$(curl --silent --show-error --output "$tmp_dir/admin-drivers.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $admin_token" "$base_url/api/v1/admin/drivers")"
+test "$status" = "200"
+grep -q "$provisioned_id" "$tmp_dir/admin-drivers.json"
+
 # Valid credentials with malformed booking input are client errors, not auth failures.
 status="$(curl --silent --show-error --output "$tmp_dir/short-idempotency.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
