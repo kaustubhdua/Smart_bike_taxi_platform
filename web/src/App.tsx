@@ -156,7 +156,7 @@ export default function App() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!base) {
       setApiState("offline");
-      setNotice("Saarthi API is not configured. Set VITE_API_BASE_URL to request quotes and create ride bookings.");
+      setNotice("RideForge API is not configured. Set VITE_API_BASE_URL to request quotes and create ride bookings.");
       return;
     }
     try {
@@ -198,7 +198,7 @@ export default function App() {
         distanceKm: data.distanceKm, durationMinutes: data.durationMinutes as number,
         expiresAt: new Date(expiry).toISOString(),
       });
-      setBookingKey(`saarthi-${crypto.randomUUID()}`);
+      setBookingKey(`rideforge-${crypto.randomUUID()}`);
       setNotice(`Server quote received: ${data.distanceKm} km · ₹${((data.farePaise as number) / 100).toFixed(2)}. This checks the quote only; it does not create a ride.`);
       setApiState("idle");
     } catch (error) {
@@ -216,7 +216,7 @@ export default function App() {
   async function authenticate() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!base) {
-      setNotice("Configure VITE_API_BASE_URL to connect to the Saarthi API.");
+      setNotice("Configure VITE_API_BASE_URL to connect to the RideForge API.");
       return;
     }
     try {
@@ -258,7 +258,7 @@ export default function App() {
       setNotice("Your quote expired. Request a fresh quote before booking.");
       return;
     }
-    const key = bookingKey || ("saarthi-" + crypto.randomUUID());
+    const key = bookingKey || ("rideforge-" + crypto.randomUUID());
     setBookingKey(key);
     try {
       const response = await fetch(apiUrl(base, "/api/v1/rides"), {
@@ -417,7 +417,7 @@ export default function App() {
       <header className="site-header">
         <a className="brand" href="#top">
           <span className="brand-mark"><Bike size={22} strokeWidth={2.3} /></span>
-          <span>saarthi<span className="brand-period">.</span><small>URBAN MOBILITY</small></span>
+          <span>rideforge<span className="brand-period">.</span><small>URBAN MOBILITY</small></span>
         </a>
         <nav className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
           <button className={mode === "ride" ? "nav-link active" : "nav-link"} onClick={() => { setMode("ride"); setMenuOpen(false); }}>Book a ride</button>
@@ -462,11 +462,11 @@ export default function App() {
               <div className="location-fields">
                 <div className="location-rail"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
                 <div className="field-stack">
-                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="saarthi-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Pickup point" placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
+                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Pickup point" placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
                   <div className="field-separator" />
-                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="saarthi-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setRide(null); setNotice(""); }} aria-label="Drop-off point" placeholder="Search destination in Noida" autoComplete="off" /></div></label>
+                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setRide(null); setNotice(""); }} aria-label="Drop-off point" placeholder="Search destination in Noida" autoComplete="off" /></div></label>
                 </div>
-                <datalist id="saarthi-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
+                <datalist id="rideforge-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
                 <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
               </div>
               <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Finding a real road route…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Select different locations to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
@@ -566,7 +566,7 @@ export default function App() {
           </div>
         </section>
 
-        <section className="value-section" id="safety"><div className="value-header"><div><span className="section-kicker">THE SAARTHI DIFFERENCE</span><h2>Less guesswork.<br />More go-time.</h2></div><p>Good mobility is not just getting there. It's knowing what's happening at every step.</p></div>
+        <section className="value-section" id="safety"><div className="value-header"><div><span className="section-kicker">THE RIDEFORGE DIFFERENCE</span><h2>Less guesswork.<br />More go-time.</h2></div><p>Good mobility is not just getting there. It's knowing what's happening at every step.</p></div>
           <div className="value-grid">
             <article className="value-card"><div className="value-icon lime"><Wallet size={21} /></div><span className="value-number">01 / CLARITY</span><h3>Price, made plain.</h3><p>See the estimate and how it's calculated before you commit. No mystery math.</p><a href="#booking" onClick={e => { e.preventDefault(); scrollToBooking(); }}>Plan a ride <ArrowRight size={15} /></a></article>
             <article className="value-card"><div className="value-icon blue"><ShieldCheck size={21} /></div><span className="value-number">02 / CONFIDENCE</span><h3>Safety isn't a footnote.</h3><p>Trip status, support and sharing belong in the experience — not buried in settings.</p><a href="#safety" onClick={e => { e.preventDefault(); setNotice("Safety workflows are planned for the operational milestone."); }}>Our approach <ArrowRight size={15} /></a></article>
@@ -579,7 +579,7 @@ export default function App() {
         <section className="closing-cta"><div><span className="section-kicker">YOUR CITY IS CALLING</span><h2>Make the next move<br />a little lighter.</h2></div><button onClick={scrollToBooking}>Plan your first route <ArrowRight size={17} /></button><span className="cta-decoration">↗</span></section>
       </main>
 
-      <footer className="site-footer"><a className="brand footer-brand" href="#top"><span className="brand-mark"><Bike size={20} /></span><span>saarthi<span className="brand-period">.</span><small>URBAN MOBILITY</small></span></a><span className="footer-note">A portfolio project in progress. No live rides or payments.</span><div className="footer-links"><a href="#booking">Ride planner</a><a href="#safety">Safety</a><a href="#lab">DSA lab</a><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={13} /></a></div><span className="copyright">© 2026 SAARTHI LABS</span></footer>
+      <footer className="site-footer"><a className="brand footer-brand" href="#top"><span className="brand-mark"><Bike size={20} /></span><span>rideforge<span className="brand-period">.</span><small>URBAN MOBILITY</small></span></a><span className="footer-note">A portfolio project in progress. No live rides or payments.</span><div className="footer-links"><a href="#booking">Ride planner</a><a href="#safety">Safety</a><a href="#lab">DSA lab</a><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={13} /></a></div><span className="copyright">© 2026 RIDEFORGE LABS</span></footer>
       <div className="mobile-bottom-bar"><span><small>ESTIMATED FARE</small><strong>{fare === null ? "—" : `₹${fare}`}</strong></span><button onClick={scrollToBooking}>Plan a ride <ArrowRight size={16} /></button></div>
     </div>
   );
