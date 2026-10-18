@@ -272,7 +272,39 @@ export default function App() {
               <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Finding a real road route…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Select different locations to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
               <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? " awaiting server quote" : " server quote"}</span></div></div><div className="fare-note"><Check size={14} /> {quote ? "Quote from API" : "No invented price"}<br /><small>{quote ? (quote.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Check quote expiry before booking") : "A fare appears only after the server responds."}</small></div></div>
               <button className="book-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>{apiState === "checking" ? "Checking quote…" : "Get server fare quote"} <ArrowRight size={18} /></button>
-              <div className="card-footnote"><ShieldCheck size={14} /> Quote only. Booking and driver assignment are not implemented yet.</div>
+              {quote && !ride && (
+                <div className="auth-panel">
+                  {account ? (
+                    <div className="auth-session">
+                      <span><Check size={15} /> Signed in as <strong>{account.email}</strong></span>
+                      <button className="text-action" onClick={() => setAccount(null)}>Sign out</button>
+                      <button className="book-button" onClick={createBooking}>Confirm ride request <ArrowRight size={18} /></button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="auth-switch" role="group" aria-label="Account action">
+                        <button className={authMode === "register" ? "auth-tab selected" : "auth-tab"} onClick={() => setAuthMode("register")}>Create account</button>
+                        <button className={authMode === "login" ? "auth-tab selected" : "auth-tab"} onClick={() => setAuthMode("login")}>Sign in</button>
+                      </div>
+                      {authMode === "register" && (
+                        <label className="auth-field"><span>Your name</span><input value={authName} onChange={event => setAuthName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Full name" /></label>
+                      )}
+                      <label className="auth-field"><span>Email</span><input type="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></label>
+                      <label className="auth-field"><span>Password</span><input type="password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} maxLength={128} minLength={authMode === "register" ? 12 : 1} autoComplete={authMode === "register" ? "new-password" : "current-password"} placeholder={authMode === "register" ? "At least 12 characters" : "Your password"} /></label>
+                      <button className="book-button" onClick={authenticate}>{authMode === "register" ? "Create passenger account" : "Sign in"} <ArrowRight size={18} /></button>
+                      <p className="auth-caption">Your access token is kept in memory and cleared when you sign out or refresh.</p>
+                    </>
+                  )}
+                </div>
+              )}
+              {ride && (
+                <div className="ride-confirmation" role="status">
+                  <span className="confirmation-icon"><Check size={17} /></span>
+                  <div><strong>Ride request created</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status}. Driver matching is not live yet.</small></div>
+                  <button className="text-action" onClick={() => { setRide(null); setQuote(null); setNotice("Ride request saved. You can request a new quote for another trip."); }}>New ride</button>
+                </div>
+              )}
+              <div className="card-footnote"><ShieldCheck size={14} /> Quotes and ride requests are saved by the API. Driver matching and live tracking are not live yet.</div>
               <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
             </div>
             <div className="route-card">
