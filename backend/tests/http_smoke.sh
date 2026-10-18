@@ -11,13 +11,13 @@ grep -q '"status":"ok"' "$tmp_dir/health.json"
 grep -q '"database":"connected"' "$tmp_dir/health.json"
 
 # SSE reconnects use Last-Event-ID and must pass the API's CORS preflight.
-status="$(curl --silent --show-error --output "$tmp_dir/sse-preflight.txt" --write-out '%{http_code}' \
+status="$(curl --silent --show-error --output "$tmp_dir/sse-preflight.txt" --dump-header "$tmp_dir/sse-preflight-headers.txt" --write-out '%{http_code}' \
   --request OPTIONS --header 'Origin: http://localhost:5173' \
   --header 'Access-Control-Request-Method: GET' \
   --header 'Access-Control-Request-Headers: authorization,last-event-id' \
   "$base_url/api/v1/rides/30000000-0000-4000-8000-000000000001/events")"
 test "$status" = "204"
-grep -qi 'Last-Event-ID' "$tmp_dir/sse-preflight.txt" || true
+grep -qi 'Last-Event-ID' "$tmp_dir/sse-preflight-headers.txt"
 
 # Request parser must reject oversized bodies before buffering/dispatching them to handlers.
 python3 -c 'print("{\"padding\":\"" + "x" * 20000 + "\"}")' > "$tmp_dir/oversized.json"
