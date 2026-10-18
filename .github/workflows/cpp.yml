@@ -47,3 +47,23 @@ jobs:
         run: cmake --build build --parallel
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
+
+  reproducible-benchmark:
+    name: Build deterministic benchmark dataset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Configure release benchmark
+        run: cmake -S . -B build-bench -DSMART_BIKE_TAXI_BUILD_BENCHMARKS=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build benchmark
+        run: cmake --build build-bench --target smart_bike_taxi_benchmark --parallel
+      - name: Run benchmark and capture CSV
+        run: ./build-bench/smart_bike_taxi_benchmark 1000 1000 > benchmark-results.csv
+      - name: Upload raw benchmark measurements
+        uses: actions/upload-artifact@v4
+        with:
+          name: saarthi-benchmark-${{ github.sha }}
+          path: benchmark-results.csv
+          if-no-files-found: error
+          retention-days: 30
