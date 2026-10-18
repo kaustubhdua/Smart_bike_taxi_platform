@@ -7,7 +7,7 @@
 Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local persistence
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
-![CI](https://github.com/coolbandariya/Smart_bike_taxi_platform/actions/workflows/cpp.yml/badge.svg)
+![CI](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/cpp.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 ![Project](https://img.shields.io/badge/status-academic%20simulation-orange)
 
@@ -188,6 +188,6 @@ Possible extensions include a configurable map, a larger/resizing hash table, br
 
 Built as a C++17 DSA academic project.
 
-**[View repository](https://github.com/coolbandariya/Smart_bike_taxi_platform)**
+**[View repository](https://github.com/kaustubhdua/Smart_bike_taxi_platform)**
 
 </div>
