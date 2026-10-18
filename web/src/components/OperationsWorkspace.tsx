@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { ArrowRight, Check, RefreshCw, ShieldCheck } from "lucide-react";
 
 type WorkspaceMode = "driver" | "admin";
@@ -129,7 +129,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
-  async function provisionDriver(event: React.FormEvent<HTMLFormElement>) {
+  async function provisionDriver(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     try {
