@@ -81,4 +81,4 @@ To rehearse restoration, use a separate disposable database/volume and restore t
 
 ## Production launch blockers
 
-Before any public launch, provide HTTPS, managed secrets, least-privilege database roles, connection pooling, shared rate limits, observability/alerts, backup/restore proof, a durable outbox publisher and realtime transport, location retention/deletion, security/load testing, a contracted or self-hosted routing provider, incident response and legal/privacy review. Payments and emergency/safety operations are not implemented.
+Before any public launch, provide HTTPS, managed secrets, least-privilege database roles, connection pooling, shared rate limits, observability/alerts, backup/restore proof, authenticated realtime transport and client resynchronization, location retention/deletion, security/load testing, a contracted or self-hosted routing provider, incident response and legal/privacy review. Payments and emergency/safety operations are not implemented.
