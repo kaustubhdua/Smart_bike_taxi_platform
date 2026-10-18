@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Saarthi Ride API
   version: 0.1.0
-  description: Contract for the planned API. Routes are not live until the HTTP service and integration tests are implemented.
+  description: Initial Saarthi API contract. The health and persisted route-quote endpoints are implemented; authentication and ride operations remain planned.
 servers:
   - url: http://localhost:8080/api/v1
 security:
@@ -32,8 +32,8 @@ paths:
   /routes/quote:
     post:
       security: []
-      summary: Calculate a server-authoritative route and fare quote without creating a ride
-      description: Public quote requests must be rate-limited. The server must recalculate route and fare; client-supplied distance or price is never authoritative.
+      summary: Calculate and persist a server-authoritative expiring quote without creating a ride
+      description: Public quote requests must be rate-limited. The implemented handler geocodes with Nominatim, calculates a road route with OSRM, applies the demo tariff, and persists a five-minute quote. Client-supplied distance or price is never authoritative. Public provider endpoints are for evaluation, not production SLA.
       requestBody:
         required: true
         content:
