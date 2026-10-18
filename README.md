@@ -60,7 +60,7 @@ The benchmark prints CSV timing data for route queries and custom-versus-standar
 
 ### Backend contract and schema
 
-See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). These files document intended behavior and database invariants, not a deployed/working HTTP service. The UI calls the documented `POST /api/v1/routes/quote` path, but that handler is not implemented yet. The next backend milestone must implement the handlers, transaction boundaries, auth/authorization and integration tests before a quote can succeed or a ride can be booked.
+See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). These files document intended behavior and database invariants, not a deployed/working HTTP service. The UI calls the documented `POST /api/v1/routes/quote` path, but that handler is not implemented yet. Track the P0 implementation and release gates in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2); the handlers, transaction boundaries, auth/authorization and integration tests must pass before a quote can succeed or a ride can be booked.
 
 ### UI libraries and attribution
 
