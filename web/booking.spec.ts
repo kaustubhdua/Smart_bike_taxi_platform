@@ -233,7 +233,7 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await page.goto("/");
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
   if (await openAdminNav.isVisible()) await openAdminNav.click();
-  await page.getByRole("button", { name: "How it works" }).click();
+  await page.getByRole("button", { name: "Admin console" }).click();
   await page.getByLabel("Email").fill("admin@example.test");
   await page.getByLabel("Password").fill("admin-password");
   await page.getByRole("button", { name: "Sign in securely" }).click();
