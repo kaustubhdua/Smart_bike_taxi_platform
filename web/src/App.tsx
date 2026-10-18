@@ -210,6 +210,23 @@ export default function App() {
     }
   }
 
+  async function cancelRide() {
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base || !account || !ride) return;
+    try {
+      const response = await fetch(base.replace(/\/$/, "") + "/api/v1/rides/" + encodeURIComponent(ride.rideId) + "/cancel", {
+        method: "POST",
+        headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
+      });
+      const data = await response.json() as { status?: string; error?: string };
+      if (!response.ok || !data.status) throw new Error(data.error || "Cancellation failed (HTTP " + response.status + ").");
+      setRide({ ...ride, status: data.status });
+      setNotice("Ride request cancelled.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not cancel this ride request.");
+    }
+  }
+
   function scrollToBooking() {
     document.getElementById("booking")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }
@@ -262,12 +279,12 @@ export default function App() {
               <div className="location-fields">
                 <div className="location-rail"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
                 <div className="field-stack">
-                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="saarthi-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setNotice(""); }} aria-label="Pickup point" placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
+                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="saarthi-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setRide(null); setNotice(""); }} aria-label="Pickup point" placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
                   <div className="field-separator" />
-                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="saarthi-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setNotice(""); }} aria-label="Drop-off point" placeholder="Search destination in Noida" autoComplete="off" /></div></label>
+                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="saarthi-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setRide(null); setNotice(""); }} aria-label="Drop-off point" placeholder="Search destination in Noida" autoComplete="off" /></div></label>
                 </div>
                 <datalist id="saarthi-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
-                <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
+                <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setQuote(null); setRide(null); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
               </div>
               <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Finding a real road route…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Select different locations to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
               <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? " awaiting server quote" : " server quote"}</span></div></div><div className="fare-note"><Check size={14} /> {quote ? "Quote from API" : "No invented price"}<br /><small>{quote ? (quote.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Check quote expiry before booking") : "A fare appears only after the server responds."}</small></div></div>
@@ -301,6 +318,9 @@ export default function App() {
                 <div className="ride-confirmation" role="status">
                   <span className="confirmation-icon"><Check size={17} /></span>
                   <div><strong>Ride request created</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status}. Driver matching is not live yet.</small></div>
+                  {ride.status !== "cancelled" && ride.status !== "completed" && account && (
+                    <button className="text-action" onClick={cancelRide}>Cancel request</button>
+                  )}
                   <button className="text-action" onClick={() => { setRide(null); setQuote(null); setNotice("Ride request saved. You can request a new quote for another trip."); }}>New ride</button>
                 </div>
               )}
