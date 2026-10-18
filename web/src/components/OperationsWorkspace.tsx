@@ -8,6 +8,7 @@ type RideRequest = {
   destination: string;
   farePaise: number;
   distanceMeters?: number;
+  pickupDistanceMeters?: number;
 };
 type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number };
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
@@ -370,7 +371,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                 {activeRide.status === "in_progress" && <button className="text-action" onClick={() => rideAction(activeRide.rideId, "completed")} disabled={busy}>Complete trip</button>}
               </div>}
               <div className="driver-queue"><h3>Available requests ({rides.length})</h3>
-                {rides.length === 0 ? <p>Queue is empty or has not been loaded yet.</p> : rides.map(ride => <div className="ride-confirmation" key={ride.rideId}><div><strong>{ride.pickup} → {ride.destination}</strong><span>{ride.distanceMeters ? (ride.distanceMeters / 1000).toFixed(1) + " km · " : ""}₹{(ride.farePaise / 100).toFixed(2)}</span><small>{ride.rideId}</small></div><button className="text-action" onClick={() => rideAction(ride.rideId, "accept")} disabled={busy}>Accept</button></div>)}
+                {rides.length === 0 ? <p>Queue is empty or has not been loaded yet.</p> : rides.map(ride => <div className="ride-confirmation" key={ride.rideId}><div><strong>{ride.pickup} → {ride.destination}</strong><span>{typeof ride.pickupDistanceMeters === "number" ? "Pickup " + (ride.pickupDistanceMeters / 1000).toFixed(1) + " km away · " : ""}{ride.distanceMeters ? (ride.distanceMeters / 1000).toFixed(1) + " km trip · " : ""}₹{(ride.farePaise / 100).toFixed(2)}</span><small>{ride.rideId}</small></div><button className="text-action" onClick={() => rideAction(ride.rideId, "accept")} disabled={busy}>Accept</button></div>)}
               </div>
             </>
           ) : (
