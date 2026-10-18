@@ -212,8 +212,8 @@ http::response<http::string_body> response(http::status status, const json& body
     result.set(http::field::server, "Saarthi API");
     result.set(http::field::content_type, "application/json; charset=utf-8");
     result.set(http::field::cache_control, "no-store");
-    result.set(http::field::x_content_type_options, "nosniff");
-    result.set(http::field::referrer_policy, "no-referrer");
+    result.set("X-Content-Type-Options", "nosniff");
+    result.set("Referrer-Policy", "no-referrer");
     const auto origin_view = request[http::field::origin];
     const std::string origin(origin_view.data(), origin_view.size());
     const std::string allowed = env_or("SAARTHI_ALLOWED_ORIGIN", "http://localhost:5173");
