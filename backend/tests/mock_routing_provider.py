@@ -36,7 +36,7 @@ class Handler(BaseHTTPRequestHandler):
                 "display_name": "Mock " + query[:200],
             }])
         if parsed.path.startswith("/route/v1/driving/"):
-            if "77.37" in parsed.path:
+            if "77.37" in self.path:
                 return self._send(200, {"code": "NoRoute", "routes": []})
             return self._send(200, {
                 "code": "Ok",
