@@ -235,6 +235,25 @@ test "$status" = "201"
 ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/booking.json")"
 grep -q '"status":"requested"' "$tmp_dir/booking.json"
 
+# SSE must authorize the ride owner and replay persisted events before live notifications.
+status="$(curl --silent --show-error --output "$tmp_dir/events-unauthorized.json" --write-out '%{http_code}' \
+  "$base_url/api/v1/rides/$ride_id/events")"
+test "$status" = "401"
+if curl --silent --show-error --no-buffer --max-time 2 \
+  --header "Authorization: Bearer $token" \
+  "$base_url/api/v1/rides/$ride_id/events" > "$tmp_dir/events-sse.txt"; then
+  :
+else
+  curl_status=$?
+  test "$curl_status" = "28"
+fi
+grep -q 'event: ride-status' "$tmp_dir/events-sse.txt"
+grep -q '"status":"requested"' "$tmp_dir/events-sse.txt"
+
+status="$(curl --silent --show-error --output "$tmp_dir/events-cross-owner.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $other_token" "$base_url/api/v1/rides/$ride_id/events")"
+test "$status" = "404"
+
 status="$(curl --silent --show-error --output "$tmp_dir/replay.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
   --header 'Idempotency-Key: smoke-booking-key-0001' \
