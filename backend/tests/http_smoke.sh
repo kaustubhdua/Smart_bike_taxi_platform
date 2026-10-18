@@ -28,12 +28,12 @@ test "$register_status" = "201"
 token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/register.json")"
 test -n "$token"
 
-status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-forbidden.json" --write-out '%{http_code}' \\
+status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-forbidden.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/driver/rides")"
 test "$status" = "403"
 
-status="$(curl --silent --show-error --output "$tmp_dir/driver-accept-forbidden.json" --write-out '%{http_code}' \\
-  --header "Authorization: Bearer $token" --header 'Content-Type: application/json' --data '{}' \\
+status="$(curl --silent --show-error --output "$tmp_dir/driver-accept-forbidden.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" --header 'Content-Type: application/json' --data '{}' \
   "$base_url/api/v1/driver/rides/30000000-0000-4000-8000-000000000001/accept")"
 test "$status" = "403"
 
