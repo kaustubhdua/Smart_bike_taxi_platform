@@ -19,7 +19,7 @@ std::string trim(std::string value) {
 
 int main(int argc, char** argv) {
     if (argc != 3) {
-        std::cerr << "Usage: saarthi_admin_bootstrap <email> <display-name> (password is read from stdin)\n";
+        std::cerr << "Usage: rideforge_admin_bootstrap <email> <display-name> (password is read from stdin)\n";
         return 2;
     }
     const char* database_url = std::getenv("DATABASE_URL");
