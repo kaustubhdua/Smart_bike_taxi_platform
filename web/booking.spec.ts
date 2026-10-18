@@ -161,3 +161,80 @@ test("mobile booking layout has no horizontal page overflow", async ({ page }, t
   }));
   expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport);
 });
+
+test("driver workspace uses protected API routes for availability and ride lifecycle", async ({ page }) => {
+  await page.route("http://api.test/api/v1/auth/login", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      accessToken: "driver-access-token", account: { email: "driver@example.test", role: "driver" },
+    }) });
+  });
+  await page.route("http://api.test/api/v1/driver/availability", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer driver-access-token");
+    expect(route.request().method()).toBe("PUT");
+    const body = route.request().postDataJSON();
+    expect(body.latitude).toBe(28.53);
+    expect(body.longitude).toBe(77.35);
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ online: true, updated: true }) });
+  });
+  await page.route("http://api.test/api/v1/driver/rides", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [{
+      rideId: "30000000-0000-4000-8000-000000000001", pickup: "Pickup", destination: "Destination",
+      farePaise: 4750, distanceMeters: 5200,
+    }] }) });
+  });
+  await page.route("http://api.test/api/v1/driver/rides/*/accept", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer driver-access-token");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      rideId: "30000000-0000-4000-8000-000000000001", status: "assigned",
+    }) });
+  });
+  await page.route("http://api.test/api/v1/driver/rides/*/status", async route => {
+    const status = route.request().postDataJSON().status;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      rideId: "30000000-0000-4000-8000-000000000001", status,
+    }) });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Drive with us" }).click();
+  await page.getByLabel("Email").fill("driver@example.test");
+  await page.getByLabel("Password").fill("driver-password");
+  await page.getByRole("button", { name: "Sign in securely" }).click();
+  await expect(page.getByRole("heading", { name: "Availability and rides" })).toBeVisible();
+  await page.getByLabel("Latitude").fill("28.53");
+  await page.getByLabel("Longitude").fill("77.35");
+  await page.getByRole("button", { name: "Go online" }).click();
+  await page.getByRole("button", { name: "Refresh ride queue" }).click();
+  await expect(page.getByText("Pickup → Destination")).toBeVisible();
+  await page.getByRole("button", { name: "Accept" }).click();
+  await expect(page.getByText("Status: assigned")).toBeVisible();
+  await page.getByRole("button", { name: "Mark arriving" }).click();
+  await expect(page.getByText("Status: driver_arriving")).toBeVisible();
+  await page.getByRole("button", { name: "Start trip" }).click();
+  await expect(page.getByText("Status: in_progress")).toBeVisible();
+  await page.getByRole("button", { name: "Complete trip" }).click();
+  await expect(page.getByText("Status: completed")).toBeVisible();
+});
+
+test("admin workspace reads metrics from the protected API", async ({ page }) => {
+  await page.route("http://api.test/api/v1/auth/login", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      accessToken: "admin-access-token", account: { email: "admin@example.test", role: "admin" },
+    }) });
+  });
+  await page.route("http://api.test/api/v1/admin/metrics", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer admin-access-token");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      ridesByStatus: { requested: 3, completed: 2 }, onlineDrivers: 4,
+    }) });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "How it works" }).click();
+  await page.getByLabel("Email").fill("admin@example.test");
+  await page.getByLabel("Password").fill("admin-password");
+  await page.getByRole("button", { name: "Sign in securely" }).click();
+  await page.getByRole("button", { name: "Refresh metrics" }).click();
+  await expect(page.getByText("Online drivers:")).toBeVisible();
+  await expect(page.getByText("4", { exact: true })).toBeVisible();
+  await expect(page.getByText("requested")).toBeVisible();
+});
