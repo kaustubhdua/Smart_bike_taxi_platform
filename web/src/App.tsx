@@ -78,6 +78,7 @@ export default function App() {
     }
     const timer = setTimeout(() => {
       setQuote(null);
+      setBookingKey(null);
       setNotice("Your fare quote expired. Request a fresh quote before making a decision.");
     }, Math.min(remaining, 2_147_000_000));
     return () => clearTimeout(timer);
