@@ -18,7 +18,7 @@ This directory contains the intended API contract and first PostgreSQL schema mi
 
 ## Migration
 
-Apply migrations/001_initial_schema.sql to a dedicated PostgreSQL database through a migration runner. Production still needs a migration runner, backup/restore validation and least-privilege database roles.
+Apply migrations/001_initial_schema.sql to a dedicated PostgreSQL database through a migration runner. Production still needs a migration runner, backup/restore validation and least-privilege database roles. The `PostgreSQL migration smoke test` workflow applies this migration to a clean PostgreSQL 16 database and checks the active-driver uniqueness guard and idempotency table. Run locally with `psql -v ON_ERROR_STOP=1 -f migrations/001_initial_schema.sql` followed by `psql -v ON_ERROR_STOP=1 -f tests/schema_smoke.sql` against a disposable database.
 
 ## Contract
 
