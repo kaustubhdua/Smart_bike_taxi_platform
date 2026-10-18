@@ -72,7 +72,7 @@ bool publish_one(PGconn* connection) {
 
     try {
         require_command(connection, "BEGIN");
-        const std::string payload = json{{"eventId", event_id}, {"rideId", ride_id},
+        const std::string payload = json{{"eventId", std::stoull(event_id)}, {"rideId", ride_id},
             {"status", status}, {"createdAt", created_at}}.dump();
         const char* values[] = {payload.c_str()};
         Result notified(PQexecParams(connection, "SELECT pg_notify('rideforge_ride_events',$1)",
