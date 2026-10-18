@@ -1,21 +1,35 @@
-# Saarthi web experience
+# Saarthi web application
 
-React + TypeScript + Vite frontend foundation for Smart Bike Taxi Platform.
+React + TypeScript + Vite passenger booking experience.
 
-## Local development
-```bash
-cd web
+## Run locally
+
+```sh
 npm install
-npm run dev
 npm run typecheck
 npm run build
+npm run dev
 ```
 
-Configure `VITE_API_BASE_URL` in a local `.env` file when the C++ API is implemented. The first UI milestone intentionally does not fabricate bookings, drivers, payments or live GPS. The current route illustration and fare values are clearly labelled sample data and must be replaced by an API-backed routing/quote service before being presented as live estimates.
+## Current behavior
 
-## UI implementation notes
-- Original Saarthi visual identity; not a clone of Rapido branding or proprietary assets.
-- Motion-powered micro-interactions and Lucide icons.
-- Responsive booking UI, keyboard focus styles, visible sample-data disclaimers and reduced-motion support.
-- Component inspiration is documented in `../docs/UX_DESIGN_SYSTEM.md`; check package and source licenses before adapting third-party components.
-- Live map/geocoding, authentication, persistent bookings, driver console and WebSocket updates are not implemented yet.
+- Pickup and destination choices are geocoded using OpenStreetMap Nominatim.
+- Road distance, estimated duration, and route geometry are requested from the OSRM demo router and rendered on an interactive Leaflet/OpenStreetMap map.
+- Fare is **not guessed in the browser**. It appears only when the server returns a quote in integer paise.
+- The quote button calls `POST /api/v1/routes/quote` using the contract in `../backend/openapi.yaml`.
+- Ride creation, authentication, driver assignment, and persistent booking are not yet implemented. A quote is not a booking.
+- Live traffic may not be included in the OSRM duration estimate.
+
+## Routing provider limitations
+
+The default Nominatim and OSRM public demo endpoints are for development and evaluation, not production availability guarantees. Nominatim public usage is rate-limited. Configure `VITE_GEOCODING_BASE_URL` and `VITE_ROUTING_BASE_URL` for an approved hosted/self-hosted provider before launch. Do not send personal or sensitive location data to an unreviewed provider. A production backend should calculate and validate its own route and fare rather than trusting client-supplied values.
+
+The OpenStreetMap tile layer requires visible attribution, which is provided by Leaflet. Respect the tile provider's usage policy; use a suitable provider or self-hosted tiles for production traffic.
+
+## Environment
+
+- `VITE_API_BASE_URL`: API origin, for example `http://localhost:8080`. The app appends `/api/v1/routes/quote`.
+- `VITE_GEOCODING_BASE_URL`: optional geocoding endpoint; defaults to Nominatim search.
+- `VITE_ROUTING_BASE_URL`: optional OSRM-compatible route endpoint; defaults to the public OSRM demo router.
+
+The current API contract is not yet backed by a running HTTP service. Without `VITE_API_BASE_URL` and a working API, the UI intentionally reports that the quote service is unavailable instead of inventing a fare.
