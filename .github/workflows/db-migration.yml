@@ -1,0 +1,52 @@
+name: PostgreSQL migration smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/db-migration.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/db-migration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  migration:
+    name: Apply schema and verify integrity constraints
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: saarthi_test
+          POSTGRES_USER: saarthi
+          POSTGRES_PASSWORD: saarthi_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U saarthi -d saarthi_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: saarthi_test
+      PGUSER: saarthi
+      PGPASSWORD: saarthi_test_password
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Apply initial migration to a clean database
+        run: psql -v ON_ERROR_STOP=1 -f backend/migrations/001_initial_schema.sql
+      - name: Verify active-driver uniqueness and idempotency schema
+        run: psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
