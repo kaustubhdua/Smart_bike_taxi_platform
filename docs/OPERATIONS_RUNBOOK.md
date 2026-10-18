@@ -44,6 +44,19 @@ A plain `docker compose down` preserves the named database volume. Do not remove
 - If an accounts table exists without schema_migrations, the runner fails closed. Back up the database and deliberately baseline its schema; do not bypass the check casually.
 - Before production schema changes, take a verified backup, test the migration on a copy, and prepare a rollback/recovery plan. Destructive migrations require a separate reviewed plan.
 
+## Create the first local administrator
+
+The public API intentionally has no endpoint that can grant an account the admin role. After the stack is running, use the one-time bootstrap utility to create the first admin. It reads the password from standard input instead of a command-line argument.
+
+```sh
+read -rsp "Initial admin password (12+ chars): " RIDEFORGE_ADMIN_PASSWORD
+printf '\\n'
+printf '%s\\n' "$RIDEFORGE_ADMIN_PASSWORD" | docker compose exec -T api /usr/local/bin/rideforge_admin_bootstrap admin@example.test "RideForge Admin"
+unset RIDEFORGE_ADMIN_PASSWORD
+```
+
+Use a unique password and replace the example email. The command refuses to overwrite an existing email. Keep shell history and terminal transcripts private; for production, provision administrators through a reviewed operator process with a least-privilege database credential.
+
 ## Driver provisioning
 
 - Admin creates a driver profile through the admin workspace.
