@@ -5,7 +5,12 @@
 The native C++17 HTTP service now implements:
 
 - `GET /api/v1/health`: checks whether PostgreSQL is reachable.
-- `POST /api/v1/routes/quote`: validates two labels, geocodes them using Nominatim, requests a road route from OSRM, calculates a server-side demo fare, and persists a five-minute quote to PostgreSQL.
+- `POST /api/v1/routes/quote`: validates labels, geocodes through Nominatim, routes through OSRM, calculates a server-side demo fare, and persists a five-minute quote.
+- `POST /api/v1/auth/register` and `POST /api/v1/auth/login`: passenger accounts, PBKDF2-HMAC-SHA-256 password hashes, short-lived HMAC-signed access tokens, duplicate-email handling, and per-IP authentication throttling.
+- `POST /api/v1/rides`: authenticated quote consumption and ride creation in a PostgreSQL transaction, with idempotency replay/conflict handling and ride-event history.
+- `GET /api/v1/rides`, `GET /api/v1/rides/{rideId}`, and `POST /api/v1/rides/{rideId}/cancel`: passenger history, ownership-scoped reads, and transactional cancellation.
+- `PUT /api/v1/driver/availability`: role-checked driver profile availability/location updates.
+- `GET /api/v1/admin/metrics`: role-checked database-backed operational counts.
 
 Build with CMake after installing Boost.Beast headers, libcurl, libpq, OpenSSL, nlohmann-json, and a C++17 compiler:
 
@@ -16,11 +21,11 @@ cmake --build build-backend --parallel
 
 Configure `DATABASE_URL`, `PORT`, `SAARTHI_ALLOWED_ORIGIN`, and `SAARTHI_USER_AGENT` in the deployment environment. Never commit credentials. The service defaults to port 8080 and a development origin of `http://localhost:5173`. Set a real contact identifier in the user agent before using public Nominatim services. Public Nominatim/OSRM endpoints are evaluation services, not a production SLA; production should use a contracted provider or self-hosted services.
 
-The current demo fare is ₹20 base + ₹11/km, rounded up to a whole paise. This is a portfolio demonstration tariff, not a commercial tariff. Quote requests are limited in-process to 30 requests per minute per direct client IP; this is not a distributed limiter and should be moved to an edge gateway/shared store for production. The CORS origin is configurable. Do not trust client-provided distance or price.
+The current demo fare is ₹20 base + ₹11/km, rounded up to a whole paise. This is a portfolio demonstration tariff, not a commercial tariff. Quote requests are limited in-process to 30 requests per minute and auth requests to 10 per minute per direct client IP; these are not distributed limiters. The CORS origin is configurable. Do not trust client-provided distance or price.
 
 ## Not yet implemented
 
-The API is an incremental backend foundation, **not a complete ride-hailing service**. Registration/login, password hashing, signed access tokens, authorization, persisted ride creation/cancellation/history, driver/admin actions, concurrency-safe dispatch transactions, lifecycle event writes, WebSockets, payment, safety operations, and production deployment remain unimplemented. The UI can request a persisted quote only when the API and PostgreSQL are running; a quote does not create a ride.
+The API is an incremental backend foundation, **not a complete ride-hailing service**. The current CI exercises account registration/login, persisted booking, idempotency replay/conflict, quote expiry rejection, health, and basic validation. Remaining gaps include wiring the driver acceptance and ride-status data methods to HTTP routes, full driver onboarding, real-time delivery/reconnect, production-grade distributed rate limiting, API connection pooling, payment, safety operations, and production deployment. The web UI currently requests a quote but does not yet expose sign-in and ride confirmation; a quote does not create a ride.
 
 ## Database invariants
 
