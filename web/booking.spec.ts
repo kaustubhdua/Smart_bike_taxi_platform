@@ -45,6 +45,49 @@ test("calculates road route and shows a fare only after a valid server quote", a
   await expect(page.locator(".inline-notice")).toContainText("This checks the quote only");
 });
 
+test("registers a passenger, creates a persisted ride request, and cancels it", async ({ page }) => {
+  await mockRouting(page);
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
+      durationMinutes: 14, farePaise: 4750, currency: "INR",
+      expiresAt: new Date(Date.now() + 120_000).toISOString(),
+    }) });
+  });
+  await page.route("http://api.test/api/v1/auth/register", async route => {
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({
+      accessToken: "test-access-token", account: { email: "rider@example.test", displayName: "Test Rider" },
+    }) });
+  });
+  await page.route("http://api.test/api/v1/rides", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-access-token");
+    expect(route.request().headers()["idempotency-key"]).toContain("saarthi-");
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({
+      rideId: "30000000-0000-4000-8000-000000000001", status: "requested",
+    }) });
+  });
+  await page.route("http://api.test/api/v1/rides/*/cancel", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-access-token");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      rideId: "30000000-0000-4000-8000-000000000001", status: "cancelled",
+    }) });
+  });
+
+  await page.goto("/");
+  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.getByRole("heading", { name: "Where to?" })).toBeVisible();
+  await page.getByLabel("Your name").fill("Test Rider");
+  await page.getByLabel("Email").fill("rider@example.test");
+  await page.getByLabel("Password").fill("a-long-password-123");
+  await page.getByRole("button", { name: "Create passenger account" }).click();
+  await expect(page.getByText(/Signed in as rider@example.test/)).toBeVisible();
+  await page.getByRole("button", { name: "Confirm ride request" }).click();
+  await expect(page.getByText(/Ride request created/)).toBeVisible();
+  await page.getByRole("button", { name: "Cancel request" }).click();
+  await expect(page.getByText(/Ride request cancelled/)).toBeVisible();
+});
+
 test("rejects expired or invalid quotes without showing a fare", async ({ page }) => {
   await mockRouting(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
