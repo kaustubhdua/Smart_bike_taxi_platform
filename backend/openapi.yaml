@@ -17,6 +17,12 @@ paths:
     post:
       security: []
       summary: Register passenger account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
       responses:
         "201": { description: Account created }
         "409": { description: Email already exists }
@@ -25,6 +31,12 @@ paths:
     post:
       security: []
       summary: Authenticate and issue short-lived access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
       responses:
         "200": { description: Authenticated }
         "401": { description: Invalid credentials }
@@ -51,6 +63,11 @@ paths:
         "429": { description: Quote rate limit exceeded }
         "503": { description: Routing provider unavailable }
   /rides:
+    get:
+      summary: List the authenticated passenger's most recent rides
+      responses:
+        "200": { description: Passenger ride history }
+        "401": { description: Unauthenticated }
     post:
       summary: Create an idempotent ride request
       parameters:
@@ -107,6 +124,21 @@ paths:
         "403": { description: Admin role required }
 components:
   schemas:
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, displayName, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 128 }
     LocationInput:
       type: object
       additionalProperties: false
