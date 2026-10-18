@@ -9,6 +9,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
+#include <stdexcept>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -143,13 +145,6 @@ public:
 
     std::string save_quote(const Location& pickup, const Location& destination,
                            int distance_m, int duration_seconds, int fare_paise) {
-        const char* values[] = {
-            pickup.label.c_str(), std::to_string(pickup.latitude).c_str(),
-            std::to_string(pickup.longitude).c_str(), destination.label.c_str(),
-            std::to_string(destination.latitude).c_str(), std::to_string(destination.longitude).c_str(),
-            std::to_string(distance_m).c_str(), std::to_string(duration_seconds).c_str(),
-            std::to_string(fare_paise).c_str()
-        };
         // Keep parameter strings alive for the complete PQexecParams call.
         const std::vector<std::string> owned = {
             pickup.label, std::to_string(pickup.latitude), std::to_string(pickup.longitude),
@@ -159,7 +154,6 @@ public:
         std::vector<const char*> params;
         params.reserve(owned.size());
         for (const auto& value : owned) params.push_back(value.c_str());
-        (void)values;
         PGresult* result = PQexecParams(connection_,
             "INSERT INTO route_quotes (pickup_label,pickup_latitude,pickup_longitude,"
             "destination_label,destination_latitude,destination_longitude,route_distance_m,"
@@ -220,7 +214,8 @@ http::response<http::string_body> response(http::status status, const json& body
     result.set(http::field::cache_control, "no-store");
     result.set(http::field::x_content_type_options, "nosniff");
     result.set(http::field::referrer_policy, "no-referrer");
-    const std::string origin = request[http::field::origin];
+    const auto origin_view = request[http::field::origin];
+    const std::string origin(origin_view.data(), origin_view.size());
     const std::string allowed = env_or("SAARTHI_ALLOWED_ORIGIN", "http://localhost:5173");
     if (!origin.empty() && origin == allowed) {
         result.set(http::field::access_control_allow_origin, allowed);
@@ -246,7 +241,7 @@ void handle_request(tcp::socket socket) {
     request.body().shrink_to_fit();
 
     http::response<http::string_body> result;
-    const std::string path(request.target());
+    const std::string path(request.target().data(), request.target().size());
     if (request.method() == http::verb::options) {
         result = response(http::status::no_content, json::object(), request);
         result.set(http::field::access_control_allow_methods, "GET, POST, OPTIONS");
