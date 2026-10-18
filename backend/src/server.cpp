@@ -307,7 +307,7 @@ public:
                 "UPDATE driver_profiles SET is_approved=$2::boolean,"
                 "approved_at=CASE WHEN $2::boolean THEN now() ELSE NULL END,"
                 "approved_by=CASE WHEN $2::boolean THEN $3::uuid ELSE NULL END,"
-                "is_online=CASE WHEN $2::boolean THEN is_online ELSE false END "
+                "is_online=false "
                 "WHERE account_id=$1::uuid",
                 3, nullptr, update_params, nullptr, nullptr, 0);
             if (updated == nullptr || PQresultStatus(updated) != PGRES_COMMAND_OK ||
@@ -329,7 +329,7 @@ public:
             PQclear(audit);
             command("COMMIT");
             return json{{"driverId", driver_id}, {"approved", approved},
-                        {"online", approved ? false : false}};
+                        {"online", false}};
         } catch (...) {
             PGresult* rollback = PQexec(connection_, "ROLLBACK");
             if (rollback != nullptr) PQclear(rollback);
