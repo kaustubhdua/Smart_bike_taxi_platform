@@ -126,8 +126,12 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await page.route("http://api.test/api/v1/rides/30000000-0000-4000-8000-000000000099", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer polling-passenger-token");
     reads += 1;
+    const status = reads === 1 ? "requested" : reads === 2 ? "assigned" : "in_progress";
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-      rideId: "30000000-0000-4000-8000-000000000099", status: reads === 1 ? "requested" : reads === 2 ? "assigned" : "in_progress",
+      rideId: "30000000-0000-4000-8000-000000000099", status,
+      ...(status === "assigned" || status === "in_progress" ? {
+        driverLocation: { latitude: 28.54, longitude: 77.34, updatedAt: new Date().toISOString() },
+      } : {}),
     }) });
   });
 
@@ -143,6 +147,7 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await expect.poll(() => reads).toBeGreaterThan(0);
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
+  await expect(page.getByRole("application", { name: /Includes the driver’s latest reported location/ })).toBeVisible();
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: in_progress");
   await expect(page.getByRole("button", { name: "Cancel request" })).toHaveCount(0);
