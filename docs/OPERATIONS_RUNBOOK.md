@@ -1,4 +1,4 @@
-# Saarthi operations runbook
+# RideForge operations runbook
 
 ## Status and operating boundary
 
@@ -9,7 +9,7 @@ The Compose setup is a local evaluation environment. It is not a production depl
 1. Install Docker Compose.
 2. Copy `.env.example` to `.env`.
 3. Set a strong local POSTGRES_PASSWORD; keep DATABASE_URL's password identical.
-4. Set SAARTHI_JWT_SECRET to at least 32 random characters and set SAARTHI_USER_AGENT to a contact-bearing value.
+4. Set RIDEFORGE_JWT_SECRET to at least 32 random characters and set RIDEFORGE_USER_AGENT to a contact-bearing value.
 5. Start the stack:
 
 ```sh
@@ -61,7 +61,7 @@ Quote requests depend on external geocoding and road-routing services. If the pr
 A local logical backup can be created with:
 
 ```sh
-docker compose exec -T db pg_dump -U saarthi -d saarthi --format=custom > saarthi-demo.dump
+docker compose exec -T db pg_dump -U rideforge -d rideforge --format=custom > rideforge-demo.dump
 ```
 
 To rehearse restoration, use a separate disposable database/volume and restore there. Do not overwrite a production database as an experiment. This command is a procedure example, not evidence that a restore has been tested.
