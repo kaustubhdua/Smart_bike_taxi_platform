@@ -30,14 +30,7 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm install
-      - name: Preserve generated npm lockfile for reproducibility
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-web-lockfile
-          path: web/package-lock.json
-          if-no-files-found: error
-          retention-days: 3
+        run: npm ci
       - name: Audit installed dependencies
         run: npm audit --audit-level=high
       - name: Typecheck
