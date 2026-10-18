@@ -29,7 +29,9 @@ This repository is being extended from its original C++17 academic simulation in
 | Web UI | React + TypeScript + Vite; lazy-loaded Leaflet map; Nominatim geocoding + OSRM road geometry; pickup/drop autocomplete; quote expiry validation | Typecheck/build, high-severity npm audit, gzip budgets, desktop/mobile Playwright E2E and axe audit passed on `8cdd5429593347b8c7e167da7d7a9c0e6a5c32b5`; server fare quote still needs API |
 | API service | C++17 Boost.Beast HTTP server; health, quote, passenger auth/booking/history/cancellation, driver queue/accept/status/availability, and admin metrics routes | CI API build and PostgreSQL-backed smoke tests passed on the recorded implementation head; public routing providers are not exercised by CI |
 | PostgreSQL | Initial schema includes accounts, driver profiles, rides, route quotes, event history, idempotency and active-driver uniqueness guard | CI applies migration to PostgreSQL 16; no production DB or migration runner configured |
-| Authentication and passenger booking | PBKDF2 password hashing, short-lived signed access tokens, role/ownership checks, quote consumption, transactional idempotency, ride history and cancellation | API implemented with smoke coverage; expand authorization and concurrency tests before release |\n| Driver/admin operations | Driver queue/accept/state/availability and protected admin metrics API | Backend routes implemented; connected driver/admin web experience and trusted driver provisioning remain blockers |\n| Realtime, payments and safety operations | Not implemented | Release blockers; do not claim these are live |
+| Authentication and passenger booking | PBKDF2 password hashing, short-lived signed access tokens, role/ownership checks, quote consumption, transactional idempotency, ride history and cancellation | API implemented with smoke coverage; expand authorization and concurrency tests before release |
+| Driver/admin operations | Driver queue/accept/state/availability and protected admin metrics API | Backend routes implemented; connected driver/admin web experience and trusted driver provisioning remain blockers |
+| Realtime, payments and safety operations | Not implemented | Release blockers; do not claim these are live |
 | Reproducible installs | `web/package-lock.json` not yet generated; CI still uses `npm install` | Release blocker; generate a genuine lockfile in a network-enabled checkout and switch to `npm ci` |
 | Deployment and screenshots | No live full-stack deployment verified | Planned |
 
@@ -115,7 +117,8 @@ flowchart TD
 | Rider and driver records | Custom linear-probing hash table |
 | Request management | FIFO queue, pending count, and cancellation by request ID |
 | Driver matching | Min-priority queue selects the available driver with the shortest route to pickup |
-| Driver controls | List drivers and toggle availability |\n| Ride lifecycle | Assigned → in progress → completed; driver is released only on completion |
+| Driver controls | List drivers and toggle availability |
+| Ride lifecycle | Assigned → in progress → completed; driver is released only on completion |
 | Fare estimate | Sample formula: ₹20 base + ₹10 per km |
 | Ride history | Lists all recorded rides and their current status |
 | Persistence | Saves riders, drivers, pending requests, history, and ID counters to a local file |
