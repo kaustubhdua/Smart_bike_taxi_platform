@@ -3,6 +3,7 @@
 #include <curl/curl.h>
 #include <libpq-fe.h>
 #include <nlohmann/json.hpp>
+#include "security.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -26,6 +27,13 @@ using tcp = asio::ip::tcp;
 using json = nlohmann::json;
 
 namespace {
+
+struct Account {
+    std::string id;
+    std::string role;
+    std::string password_hash;
+    bool active{};
+};
 
 struct Location {
     std::string label;
@@ -142,6 +150,44 @@ public:
     ~Database() { if (connection_ != nullptr) PQfinish(connection_); }
     Database(const Database&) = delete;
     Database& operator=(const Database&) = delete;
+
+    std::string create_passenger(const std::string& email, const std::string& name,
+                                 const std::string& hash) {
+        const char* params[] = {email.c_str(), name.c_str(), hash.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "INSERT INTO accounts (email,display_name,role,password_hash) "
+            "VALUES ($1,$2,'passenger',$3) RETURNING id::text",
+            3, nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            const char* state = result == nullptr ? nullptr : PQresultErrorField(result, PG_DIAG_SQLSTATE);
+            const bool duplicate = state != nullptr && std::string(state) == "23505";
+            if (result != nullptr) PQclear(result);
+            if (duplicate) throw std::domain_error("email_exists");
+            throw std::runtime_error("Could not create account");
+        }
+        const std::string id = PQgetvalue(result, 0, 0);
+        PQclear(result);
+        return id;
+    }
+
+    std::optional<Account> find_account(const std::string& email) {
+        const char* params[] = {email.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "SELECT id::text,role::text,password_hash,is_active FROM accounts WHERE email=$1",
+            1, nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not query account");
+        }
+        if (PQntuples(result) == 0) {
+            PQclear(result);
+            return std::nullopt;
+        }
+        Account account{PQgetvalue(result, 0, 0), PQgetvalue(result, 0, 1),
+                        PQgetvalue(result, 0, 2), std::string(PQgetvalue(result, 0, 3)) == "t"};
+        PQclear(result);
+        return account;
+    }
 
     std::string save_quote(const Location& pickup, const Location& destination,
                            int distance_m, int duration_seconds, int fare_paise) {
