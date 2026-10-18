@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { calculateRoute } from "./lib/routing";
-import RouteMap from "./components/RouteMap";
+const RouteMap = lazy(() => import("./components/RouteMap"));
 import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bike, Check,
   CircleHelp, Clock3, Compass, Crosshair, Gauge, LocateFixed,
@@ -204,7 +204,11 @@ export default function App() {
             <div className="route-card">
               <div className="route-card-top"><div><span className="card-eyebrow">THE SHORT VERSION</span><h3>Your route, at a glance.</h3></div><span className="compass-chip"><Compass size={16} /></span></div>
               <div className="mini-map" role="group" aria-label={route ? `Route map from ${pickup} to ${destination}` : "Route map"}>
-                <RouteMap geometry={route?.geometry ?? null} pickup={pickup} destination={destination} />
+                <Suspense fallback={<div className="route-map-empty" role="status">Loading interactive map…</div>}>
+                  {route
+                    ? <RouteMap geometry={route.geometry} pickup={pickup} destination={destination} />
+                    : <div className="route-map-empty" role="status">A real road route will appear here when routing succeeds.</div>}
+                </Suspense>
                 <button className="locate-button" onClick={() => setNotice("Device location is not requested in this preview. Choose a pickup from the location list.")} aria-label="About current location"><LocateFixed size={17} /></button>
               </div>
               <div className="route-stats"><div><span><Route size={15} /> DISTANCE</span><strong>{route ? route.km.toFixed(1) : "—"} <small>km</small></strong></div><div><span><Clock3 size={15} /> EST. TIME</span><strong>{route ? route.mins : "—"} <small>min</small></strong></div><div><span><Gauge size={15} /> ROUTE TYPE</span><strong>{route ? "Road" : "—"} <small>{route ? "route" : "unavailable"}</small></strong></div></div>
