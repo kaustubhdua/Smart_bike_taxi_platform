@@ -412,7 +412,7 @@ export default function App() {
               <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Finding a real road route…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Select different locations to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
               <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? " awaiting server quote" : " server quote"}</span></div></div><div className="fare-note"><Check size={14} /> {quote ? "Quote from API" : "No invented price"}<br /><small>{quote ? (quote.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Check quote expiry before booking") : "A fare appears only after the server responds."}</small></div></div>
               <button className="book-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>{apiState === "checking" ? "Checking quote…" : "Get server fare quote"} <ArrowRight size={18} /></button>
-              {quote && !ride && (
+              {quote && !ride && account?.role !== "driver" && account?.role !== "admin" && (
                 <div className="auth-panel">
                   {account ? (
                     <div className="auth-session">
