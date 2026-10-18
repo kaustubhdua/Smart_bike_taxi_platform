@@ -195,7 +195,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/events-unauthenticated.j
   "$base_url/api/v1/rides/$other_ride_id/events")"
 test "$status" = "401"
 status="$(curl --silent --show-error --output "$tmp_dir/events-admin-forbidden.json" --write-out '%{http_code}' \
-  --header "Authorization: Bearer $admin_token" "$base_url/api/v1/rides/$other_ride_id/events")"
+  --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$other_ride_id/events")"
 test "$status" = "404"
 status="$(curl --silent --show-error --output "$tmp_dir/other-ride-forbidden.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$other_ride_id")"
