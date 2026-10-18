@@ -15,6 +15,57 @@ Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local 
 
 ---
 
+
+## Full-stack roadmap status
+
+This repository is being extended from its original C++17 academic simulation into **Saarthi**, an original bike-taxi booking product. This is an incremental build: the UI is not yet connected to a live booking API, and the project must not be represented as a live ride service.
+
+| Area | Current evidence | Status |
+|---|---|---|
+| C++ DSA baseline | Existing C++ build/tests and GCC/Clang/sanitizer CI | Existing baseline |
+| Route algorithm | Deterministic equal-distance predecessor selection and overflow guard added on the feature branch | CI validation in progress |
+| Ride lifecycle | Assigned-ride cancellation releases the driver; tests cover cancellation/reassignment | CI validation in progress |
+| Benchmarking | Opt-in CSV benchmark target under `benchmarks/` | Added; measured results not yet collected |
+| Web UI | React + TypeScript + Vite responsive Saarthi booking interface | Added; still sample route/fare data |
+| API contract | Initial OpenAPI file at `backend/openapi.yaml` | Contract only; handlers not implemented |
+| PostgreSQL | Initial schema at `backend/migrations/001_initial_schema.sql`, including active-driver uniqueness guard | Migration drafted; not applied to a live DB |
+| Authentication, live routing, realtime, admin | Not implemented | Planned |
+| Deployment and screenshots | No live full-stack deployment verified | Planned |
+
+### Frontend development
+
+```bash
+cd web
+npm install
+npm run dev
+npm run typecheck
+npm run build
+```
+
+The web CI workflow runs typechecking and a production build. The initial booking interface clearly marks route/fare values as illustrative and does not pretend to create a real ride.
+
+### C++ tests and benchmark
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+
+cmake -S . -B build-bench -DSMART_BIKE_TAXI_BUILD_BENCHMARKS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build-bench --target smart_bike_taxi_benchmark --parallel
+./build-bench/smart_bike_taxi_benchmark 1000 1000
+```
+
+The benchmark prints CSV timing data for route queries and custom-versus-standard hash lookup. Results are hardware/compiler/dataset dependent; do not claim one structure is faster until results are recorded under a reproducible environment.
+
+### Backend contract and schema
+
+See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml) and [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql). These files document intended behavior and database invariants, not a deployed/working HTTP service. The next backend milestone must implement the handlers, transaction boundaries, auth/authorization and integration tests before the frontend is connected to them.
+
+### UI libraries and attribution
+
+The design is original and may incorporate licensed open-source components selectively. Review each upstream package's license and retain its notices before copying or vendoring code. Reference libraries include [React Bits](https://github.com/DavidHDev/react-bits), [Magic UI](https://github.com/magicuidesign/magicui), [Radix UI](https://www.radix-ui.com/), [Motion](https://motion.dev/) and [Lucide](https://lucide.dev/). No third-party proprietary ride-hailing source or branding is copied.
+
 ## Overview
 
 Smart Bike Taxi Platform is an interactive terminal application that demonstrates how core DSA concepts can support a simplified ride-hailing workflow. It uses a small, illustrative Noida road network and lets users register riders and drivers, request and cancel rides, dispatch requests, estimate fares, and review ride history.
