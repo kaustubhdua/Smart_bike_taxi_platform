@@ -25,7 +25,7 @@ The current demo fare is ₹20 base + ₹11/km, rounded up to a whole paise. Thi
 
 ## Not yet implemented
 
-The API is an incremental backend foundation, **not a complete ride-hailing service**. The current CI exercises account registration/login, persisted booking, idempotency replay/conflict, quote expiry rejection, health, and basic validation. Remaining gaps include wiring the driver acceptance and ride-status data methods to HTTP routes, full driver onboarding, real-time delivery/reconnect, production-grade distributed rate limiting, API connection pooling, payment, safety operations, and production deployment. The web UI currently requests a quote but does not yet expose sign-in and ride confirmation; a quote does not create a ride.
+The API is an incremental backend foundation, **not a complete ride-hailing service**. The current CI exercises account registration/login, persisted booking, idempotency replay/conflict, quote expiry rejection, health, and basic validation. Remaining gaps include a connected driver/admin web experience, trusted driver onboarding/provisioning, real-time delivery/reconnect, production-grade distributed rate limiting, API connection pooling, payment, safety operations, and production deployment. The web UI currently requests a quote but does not yet expose sign-in and ride confirmation; a quote does not create a ride.
 
 ## Database invariants
 
