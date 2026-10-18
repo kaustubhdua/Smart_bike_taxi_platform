@@ -24,22 +24,22 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_DB: saarthi_test
-          POSTGRES_USER: saarthi
-          POSTGRES_PASSWORD: saarthi_test_password
+          POSTGRES_DB: rideforge_test
+          POSTGRES_USER: rideforge
+          POSTGRES_PASSWORD: rideforge_test_password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U saarthi -d saarthi_test"
+          --health-cmd "pg_isready -U rideforge -d rideforge_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
       PGHOST: localhost
       PGPORT: 5432
-      PGDATABASE: saarthi_test
-      PGUSER: saarthi
-      PGPASSWORD: saarthi_test_password
+      PGDATABASE: rideforge_test
+      PGUSER: rideforge
+      PGPASSWORD: rideforge_test_password
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -49,11 +49,11 @@ jobs:
           sudo apt-get install --yes postgresql-client
       - name: Apply all migrations
         env:
-          SAARTHI_MIGRATIONS_DIR: backend/migrations
+          RIDEFORGE_MIGRATIONS_DIR: backend/migrations
         run: sh backend/scripts/migrate-if-needed.sh
       - name: Verify migration runner is idempotent
         env:
-          SAARTHI_MIGRATIONS_DIR: backend/migrations
+          RIDEFORGE_MIGRATIONS_DIR: backend/migrations
         run: sh backend/scripts/migrate-if-needed.sh
       - name: Verify driver approval, uniqueness and outbox schema
         run: |
