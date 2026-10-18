@@ -100,6 +100,22 @@ inline bool startRide(std::vector<Ride>& history, int rideId) {
     return false;
 }
 
+// A rider may cancel only before the trip starts. Release the assigned driver
+// and preserve the cancelled ride in history.
+inline bool cancelRide(std::vector<Ride>& history, HashTable<Driver>& drivers,
+                       int rideId) {
+    for (auto& ride : history) {
+        if (ride.rideId != rideId) continue;
+        if (ride.status != statusName(RideStatus::Assigned)) return false;
+        Driver* driver = drivers.find(ride.driverId);
+        if (!driver || driver->available) return false;
+        ride.status = statusName(RideStatus::Cancelled);
+        driver->available = true;
+        return true;
+    }
+    return false;
+}
+
 inline bool completeRide(std::vector<Ride>& history, HashTable<Driver>& drivers,
                          int rideId) {
     for (auto& ride : history) {
