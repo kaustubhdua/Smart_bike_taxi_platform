@@ -50,7 +50,7 @@ inline std::vector<unsigned char> base64url_decode(std::string value) {
 }
 
 inline std::string password_hash(std::string_view password) {
-    constexpr int iterations = 210000;
+    constexpr int iterations = 600000;
     std::array<unsigned char, 16> salt{};
     std::array<unsigned char, 32> derived{};
     if (RAND_bytes(salt.data(), static_cast<int>(salt.size())) != 1 ||
