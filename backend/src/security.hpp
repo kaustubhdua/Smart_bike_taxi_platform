@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-namespace saarthi_security {
+namespace rideforge_security {
 using json = nlohmann::json;
 
 inline std::string base64url_encode(const unsigned char* data, std::size_t size) {
@@ -93,12 +93,12 @@ inline bool verify_password(std::string_view password, const std::string& encode
 
 inline std::string sign_access_token(const std::string& subject, const std::string& role,
                                      const std::string& secret) {
-    if (secret.size() < 32) throw std::runtime_error("SAARTHI_JWT_SECRET must contain at least 32 characters");
+    if (secret.size() < 32) throw std::runtime_error("RIDEFORGE_JWT_SECRET must contain at least 32 characters");
     const auto now = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     const std::string header = base64url_encode(
         reinterpret_cast<const unsigned char*>(R"({"alg":"HS256","typ":"JWT"})"), 27);
-    const json claims{{"iss", "saarthi-api"}, {"aud", "saarthi-web"}, {"sub", subject},
+    const json claims{{"iss", "rideforge-api"}, {"aud", "rideforge-web"}, {"sub", subject},
         {"role", role}, {"iat", now}, {"exp", now + 900}};
     const std::string payload_json = claims.dump();
     const std::string payload = base64url_encode(
@@ -142,8 +142,8 @@ inline Claims verify_access_token(const std::string& token, const std::string& s
     const auto claims = json::parse(base64url_decode(token.substr(first + 1, second - first - 1)));
     if (!header.is_object() || header.value("alg", std::string()) != "HS256" ||
         header.value("typ", std::string()) != "JWT" || !claims.is_object() ||
-        claims.value("iss", std::string()) != "saarthi-api" ||
-        claims.value("aud", std::string()) != "saarthi-web" ||
+        claims.value("iss", std::string()) != "rideforge-api" ||
+        claims.value("aud", std::string()) != "rideforge-web" ||
         !claims.contains("sub") || !claims["sub"].is_string() ||
         !claims.contains("role") || !claims["role"].is_string() ||
         !claims.contains("exp") || !claims["exp"].is_number_integer()) {
@@ -159,4 +159,4 @@ inline Claims verify_access_token(const std::string& token, const std::string& s
     }
     return {claims["sub"].get<std::string>(), role, expiry};
 }
-} // namespace saarthi_security
+} // namespace rideforge_security
