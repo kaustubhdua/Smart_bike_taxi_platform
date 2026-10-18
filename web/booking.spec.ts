@@ -401,6 +401,7 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
 
 
 test("passenger applies authenticated server-sent ride events without waiting for polling", async ({ page }) => {
+  await page.clock.install();
   await mockRouting(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
@@ -447,4 +448,7 @@ test("passenger applies authenticated server-sent ride events without waiting fo
   await page.getByRole("button", { name: "Confirm ride request" }).click();
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned", { timeout: 5000 });
   expect(streamRequests).toBeGreaterThan(0);
+  // A stale REST read must not roll the state back after a newer SSE event.
+  await page.clock.fastForward(5000);
+  await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
 });
