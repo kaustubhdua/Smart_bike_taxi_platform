@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Check, RefreshCw, ShieldCheck } from "lucide-react";
 
 type WorkspaceMode = "driver" | "admin";
@@ -101,6 +101,34 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Queue unavailable."); }
     finally { setBusy(false); }
   }
+
+  useEffect(() => {
+    if (mode !== "driver" || !online || !token || !apiBase) return;
+    let cancelled = false;
+    const refreshLocationAndQueue = async () => {
+      try {
+        const location = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            position => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+            () => reject(new Error("Location refresh failed")),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 },
+          );
+        });
+        await request("/api/v1/driver/availability", {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ online: true, latitude: location.latitude, longitude: location.longitude }),
+        });
+        if (cancelled) return;
+        setDriverLocation(location);
+        const data = await request("/api/v1/driver/rides");
+        if (!cancelled) setRides(Array.isArray(data.rides) ? data.rides as RideRequest[] : []);
+      } catch {
+        if (!cancelled) setError("Could not refresh your live location. Dispatch eligibility will expire if the location remains stale; check permission and connection.");
+      }
+    };
+    const interval = window.setInterval(() => { void refreshLocationAndQueue(); }, 60_000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [mode, online, token, apiBase]);
 
   async function toggleAvailability() {
     setBusy(true);
