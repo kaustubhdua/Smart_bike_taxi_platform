@@ -116,7 +116,10 @@ export default function App() {
         if (!response.ok) return;
         const data = await response.json() as { rideId?: string; status?: string };
         if (!disposed && data.rideId === ride.rideId && typeof data.status === "string" && data.status !== ride.status) {
-          setRide(current => current?.rideId === data.rideId ? { ...current, status: data.status! } : current);
+          setRide(current => {
+            if (!current || current.rideId !== data.rideId) return current;
+            return { rideId: current.rideId, status: data.status! };
+          });
           setNotice("Ride status updated to " + data.status + ".");
         }
       } catch {
