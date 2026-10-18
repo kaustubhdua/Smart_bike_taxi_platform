@@ -41,6 +41,8 @@ jobs:
       PGPASSWORD: saarthi_test_password
       SAARTHI_ALLOWED_ORIGIN: http://localhost:5173
       SAARTHI_USER_AGENT: SaarthiGithubActionsSmoke/0.1 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)
+      SAARTHI_GEOCODING_URL: http://127.0.0.1:8090/search
+      SAARTHI_ROUTING_URL: http://127.0.0.1:8090/route/v1/driving
       SAARTHI_JWT_SECRET: not-a-production-secret-please-override-32chars
       PORT: 8080
     steps:
@@ -63,9 +65,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 backend/tests/mock_routing_provider.py > /tmp/saarthi-provider.log 2>&1 &
+          provider_pid=$!
           ./build-backend/saarthi_api > /tmp/saarthi-api.log 2>&1 &
           api_pid=$!
-          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          trap 'kill "$api_pid" "$provider_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --silent --fail http://127.0.0.1:8080/api/v1/health >/dev/null; then
               break
