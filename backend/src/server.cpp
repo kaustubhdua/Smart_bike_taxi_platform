@@ -307,13 +307,10 @@ public:
 
     void set_driver_availability(const std::string& driver_id, bool online,
                                  double latitude, double longitude) {
-        const char* params[] = {driver_id.c_str(), online ? "true" : "false",
-            std::to_string(latitude).c_str(), std::to_string(longitude).c_str()};
         const std::vector<std::string> owned = {
             driver_id, online ? "true" : "false", std::to_string(latitude), std::to_string(longitude)};
         std::vector<const char*> values;
         for (const auto& value : owned) values.push_back(value.c_str());
-        (void)params;
         PGresult* result = PQexecParams(connection_,
             "UPDATE driver_profiles SET is_online=$2::boolean,current_latitude=$3::double precision,"
             "current_longitude=$4::double precision,last_location_at=now() WHERE account_id=$1::uuid",
