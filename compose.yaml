@@ -52,6 +52,19 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  outbox-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RIDEFORGE_OUTBOX_POLL_MS: 250
+    command: ["/usr/local/bin/rideforge_outbox_worker"]
+    restart: unless-stopped
+
   web:
     build:
       context: ./web
