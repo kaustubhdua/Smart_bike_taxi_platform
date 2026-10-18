@@ -36,6 +36,24 @@ test "$register_status" = "201"
 token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/register.json")"
 test -n "$token"
 
+# Valid credentials with malformed booking input are client errors, not auth failures.
+status="$(curl --silent --show-error --output "$tmp_dir/short-idempotency.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --header 'Idempotency-Key: short' --data '{"quoteId":"40000000-0000-4000-8000-000000000001"}' \
+  "$base_url/api/v1/rides")"
+test "$status" = "422"
+
+status="$(curl --silent --show-error --output "$tmp_dir/missing-quote.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --header 'Idempotency-Key: smoke-invalid-body-0001' --data '{}' "$base_url/api/v1/rides")"
+test "$status" = "422"
+
+status="$(curl --silent --show-error --output "$tmp_dir/invalid-token.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --header 'Authorization: Bearer invalid.token.value' \
+  --header 'Idempotency-Key: smoke-invalid-token-0001' --data '{"quoteId":"40000000-0000-4000-8000-000000000001"}' \
+  "$base_url/api/v1/rides")"
+test "$status" = "401"
+
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-forbidden.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/driver/rides")"
 test "$status" = "403"
