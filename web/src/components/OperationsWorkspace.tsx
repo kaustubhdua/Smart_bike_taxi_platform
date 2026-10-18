@@ -10,6 +10,7 @@ type RideRequest = {
   distanceMeters?: number;
 };
 type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number };
+type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
 
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [email, setEmail] = useState("");
@@ -23,6 +24,11 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [rides, setRides] = useState<RideRequest[]>([]);
   const [activeRide, setActiveRide] = useState<{ rideId: string; status: string } | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [driverEmail, setDriverEmail] = useState("");
+  const [driverName, setDriverName] = useState("");
+  const [driverPassword, setDriverPassword] = useState("");
+  const [vehicleRegistration, setVehicleRegistration] = useState("");
   const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
 
   async function signIn() {
@@ -112,6 +118,48 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  async function refreshDrivers() {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/admin/drivers");
+      if (!Array.isArray(data.drivers)) throw new Error("The API returned an invalid driver list.");
+      setDrivers(data.drivers as Driver[]);
+      setError("Driver approval state refreshed from PostgreSQL.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Driver list unavailable."); }
+    finally { setBusy(false); }
+  }
+
+  async function provisionDriver(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/admin/drivers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: driverEmail, displayName: driverName, password: driverPassword, vehicleRegistration }),
+      });
+      if (typeof data.driverId !== "string" || data.approved !== false) throw new Error("The API did not return a new unapproved driver.");
+      setDriverEmail(""); setDriverName(""); setDriverPassword(""); setVehicleRegistration("");
+      setError("Driver provisioned as pending approval. Review the profile before enabling dispatch.");
+      await refreshDrivers();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Driver provisioning failed."); }
+    finally { setBusy(false); }
+  }
+
+  async function changeDriverApproval(driver: Driver) {
+    setBusy(true);
+    try {
+      await request("/api/v1/admin/drivers/" + encodeURIComponent(driver.driverId) + "/approval", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approved: !driver.approved }),
+      });
+      setError(driver.approved ? "Driver suspended and taken offline." : "Driver approved. The driver must still sign in and explicitly go online.");
+      await refreshDrivers();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Driver approval update failed."); }
+    finally { setBusy(false); }
+  }
+
   return (
     <section className="booking-section" id="operations">
       <div className="section-intro">
@@ -149,9 +197,27 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
             </>
           ) : (
             <>
-              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operational metrics</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); }}>Sign out</button></div>
-              <button className="book-button" onClick={refreshMetrics} disabled={busy}>Refresh metrics <ArrowRight size={18} /></button>
+              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); }}>Sign out</button></div>
+              <div className="button-row">
+                <button className="book-button" onClick={refreshMetrics} disabled={busy}>Refresh metrics <ArrowRight size={18} /></button>
+                <button className="outline-button" onClick={refreshDrivers} disabled={busy}><RefreshCw size={15} /> Refresh drivers</button>
+              </div>
               {metrics && <div className="driver-queue"><h3>PostgreSQL-backed counts</h3><p>Online drivers: <strong>{metrics.onlineDrivers}</strong></p>{Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}</div>}
+              <form className="auth-panel" onSubmit={provisionDriver}>
+                <div className="card-heading"><div><span className="card-eyebrow">TRUSTED ONBOARDING</span><h3>Provision a driver</h3></div><ShieldCheck size={20} /></div>
+                <p className="auth-caption">New accounts start unapproved and cannot go online until you explicitly approve them. Provisioning is not identity or document verification.</p>
+                <label className="auth-field"><span>Driver name</span><input required maxLength={120} value={driverName} onChange={event => setDriverName(event.target.value)} autoComplete="name" /></label>
+                <label className="auth-field"><span>Email</span><input required type="email" maxLength={254} value={driverEmail} onChange={event => setDriverEmail(event.target.value)} autoComplete="email" /></label>
+                <label className="auth-field"><span>Temporary password (12+ characters)</span><input required type="password" minLength={12} maxLength={128} value={driverPassword} onChange={event => setDriverPassword(event.target.value)} autoComplete="new-password" /></label>
+                <label className="auth-field"><span>Vehicle registration</span><input required minLength={3} maxLength={32} value={vehicleRegistration} onChange={event => setVehicleRegistration(event.target.value)} autoComplete="off" /></label>
+                <button className="book-button" type="submit" disabled={busy || !driverEmail || !driverName || driverPassword.length < 12 || !vehicleRegistration}>Create pending driver <ArrowRight size={18} /></button>
+              </form>
+              <div className="driver-queue"><h3>Driver review ({drivers.length})</h3>
+                {drivers.length === 0 ? <p>Refresh the driver list to review provisioned accounts.</p> : drivers.map(driver => <div className="ride-confirmation" key={driver.driverId}>
+                  <div><strong>{driver.displayName}</strong><span>{driver.email} · {driver.vehicleRegistration}</span><small>{driver.approved ? "Approved" : "Pending approval"} · {driver.online ? "Online" : "Offline"}</small></div>
+                  <button className="text-action" onClick={() => changeDriverApproval(driver)} disabled={busy}>{driver.approved ? "Suspend" : "Approve"}</button>
+                </div>)}
+              </div>
             </>
           )}
           {error && <div className="inline-notice" role="status" aria-live="polite">{error}</div>}
