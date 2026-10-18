@@ -260,7 +260,7 @@ public:
             "r.quoted_fare_paise::text,r.created_at::text FROM rides r "
             "WHERE r.status IN ('requested','matching') AND r.driver_id IS NULL "
             "AND EXISTS (SELECT 1 FROM driver_profiles d WHERE d.account_id=$1::uuid "
-            "AND d.is_online=true AND d.last_location_at>now()-interval '5 minutes') "
+            "AND d.is_approved=true AND d.is_online=true AND d.last_location_at>now()-interval '5 minutes') "
             "ORDER BY r.created_at ASC LIMIT 100",
             1, nullptr, params, nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
@@ -369,7 +369,7 @@ public:
         for (const auto& value : owned) values.push_back(value.c_str());
         PGresult* result = PQexecParams(connection_,
             "UPDATE driver_profiles SET is_online=$2::boolean,current_latitude=$3::double precision,"
-            "current_longitude=$4::double precision,last_location_at=now() WHERE account_id=$1::uuid",
+            "current_longitude=$4::double precision,last_location_at=now() WHERE account_id=$1::uuid AND is_approved=true",
             static_cast<int>(values.size()), nullptr, values.data(), nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
             if (result != nullptr) PQclear(result);
@@ -377,7 +377,7 @@ public:
         }
         const bool updated = std::string(PQcmdTuples(result)) == "1";
         PQclear(result);
-        if (!updated) throw std::domain_error("driver_profile_missing");
+        if (!updated) throw std::domain_error("driver_profile_missing_or_not_approved");
     }
 
     json accept_ride(const std::string& ride_id, const std::string& driver_id) {
@@ -394,7 +394,7 @@ public:
             const char* driver_params[] = {driver_id.c_str()};
             PGresult* driver = PQexecParams(connection_,
                 "SELECT account_id::text FROM driver_profiles WHERE account_id=$1::uuid "
-                "AND is_online=true AND last_location_at>now()-interval '5 minutes' FOR UPDATE",
+                "AND is_approved=true AND is_online=true AND last_location_at>now()-interval '5 minutes' FOR UPDATE",
                 1, nullptr, driver_params, nullptr, nullptr, 0);
             if (driver == nullptr || PQresultStatus(driver) != PGRES_TUPLES_OK) {
                 if (driver != nullptr) PQclear(driver);
