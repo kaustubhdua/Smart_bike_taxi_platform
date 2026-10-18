@@ -18,6 +18,41 @@ status="$(curl --silent --show-error --output "$tmp_dir/oversized-response.json"
 test "$status" = "413"
 grep -q '"error":"request_too_large"' "$tmp_dir/oversized-response.json"
 
+# Successful route quote: provider response is validated and the authoritative quote is persisted.
+status="$(curl --silent --show-error --output "$tmp_dir/quote.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"pickup":{"label":"Test Origin"},"destination":{"label":"Test Destination"}}' \
+  "$base_url/api/v1/routes/quote")"
+test "$status" = "200"
+quote_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["quoteId"])' < "$tmp_dir/quote.json")"
+python3 -c 'import json,sys; q=json.load(sys.stdin); assert q["currency"]=="INR" and q["farePaise"]>0 and q["distanceKm"]>0 and q["durationMinutes"]>0' < "$tmp_dir/quote.json"
+persisted="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM route_quotes WHERE id='$quote_id'")"
+test "$persisted" = "1"
+
+status="$(curl --silent --show-error --output "$tmp_dir/missing-place.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"pickup":{"label":"Missing Place"},"destination":{"label":"Test Destination"}}' \
+  "$base_url/api/v1/routes/quote")"
+test "$status" = "422"
+
+status="$(curl --silent --show-error --output "$tmp_dir/provider-failure.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"pickup":{"label":"Provider Failure"},"destination":{"label":"Test Destination"}}' \
+  "$base_url/api/v1/routes/quote")"
+test "$status" = "503"
+
+status="$(curl --silent --show-error --output "$tmp_dir/unreachable.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"pickup":{"label":"Test Origin"},"destination":{"label":"Unreachable Destination"}}' \
+  "$base_url/api/v1/routes/quote")"
+test "$status" = "422"
+
+status="$(curl --silent --show-error --output "$tmp_dir/bad-coordinates.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data '{"pickup":{"label":"Bad Coordinates"},"destination":{"label":"Test Destination"}}' \
+  "$base_url/api/v1/routes/quote")"
+test "$status" = "422"
+
 status="$(curl --silent --show-error --output "$tmp_dir/invalid.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' --data '{"pickup":{"label":"A"},"destination":{"label":"B"}}' \
   "$base_url/api/v1/routes/quote")"
