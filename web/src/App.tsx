@@ -126,9 +126,13 @@ export default function App() {
       setApiState("idle");
     } catch (error) {
       setApiState("offline");
-      setNotice(error instanceof Error && error.message !== "Failed to fetch"
-        ? error.message
-        : "We could not reach the quote service. Check the API and try again.");
+      if (error instanceof Error && error.name === "AbortError") {
+        setNotice("The quote service took too long to respond. Please try again.");
+      } else {
+        setNotice(error instanceof Error && error.message !== "Failed to fetch"
+          ? error.message
+          : "We could not reach the quote service. Check the API and try again.");
+      }
     }
   }
 
