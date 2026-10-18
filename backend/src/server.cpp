@@ -340,6 +340,39 @@ public:
         }
     }
 
+    json admin_audit_events(int requested_limit) {
+        const int limit = std::max(1, std::min(requested_limit, 100));
+        const std::string limit_text = std::to_string(limit);
+        const char* params[] = {limit_text.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "SELECT a.id::text,a.actor_id::text,actor.email,a.action,a.target_type,"
+            "a.target_id::text,a.details::text,a.created_at::text "
+            "FROM admin_audit_events a JOIN accounts actor ON actor.id=a.actor_id "
+            "ORDER BY a.id DESC LIMIT $1::integer",
+            1, nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not read admin audit events");
+        }
+        json events = json::array();
+        for (int row = 0; row < PQntuples(result); ++row) {
+            json details = json::object();
+            try { details = json::parse(PQgetvalue(result, row, 6)); } catch (...) {}
+            events.push_back({
+                {"id", PQgetvalue(result, row, 0)},
+                {"actorId", PQgetvalue(result, row, 1)},
+                {"actorEmail", PQgetvalue(result, row, 2)},
+                {"action", PQgetvalue(result, row, 3)},
+                {"targetType", PQgetvalue(result, row, 4)},
+                {"targetId", PQgetvalue(result, row, 5)},
+                {"details", details},
+                {"createdAt", PQgetvalue(result, row, 7)}
+            });
+        }
+        PQclear(result);
+        return json{{"events", events}};
+    }
+
     json admin_metrics() {
         PGresult* result = PQexec(connection_,
             "SELECT status::text,count(*)::text FROM rides GROUP BY status ORDER BY status");
@@ -1495,6 +1528,38 @@ void handle_request(tcp::socket socket) {
                 result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
             } catch (const std::exception&) {
                 result = response(http::status::service_unavailable, {{"error", "driver_management_unavailable"}}, request);
+            }
+        }
+    } else if (request.method() == http::verb::get && path == "/api/v1/admin/audit") {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "admin") {
+            result = response(http::status::forbidden, {{"error", "admin_role_required"}}, request);
+        } else {
+            try {
+                int limit = 50;
+                const auto query = request.target().find("?limit=");
+                if (query != beast::string_view::npos) {
+                    const std::string raw(request.target().substr(query + 7));
+                    if (raw.empty() || raw.find_first_not_of("0123456789") != std::string::npos ||
+                        raw.size() > 3) {
+                        result = response(http::status::bad_request, {{"error", "invalid_limit"}}, request);
+                    } else {
+                        limit = std::stoi(raw);
+                        if (limit < 1 || limit > 100) {
+                            result = response(http::status::bad_request, {{"error", "invalid_limit"}}, request);
+                        } else {
+                            Database database(env_or("DATABASE_URL", ""));
+                            result = response(http::status::ok, database.admin_audit_events(limit), request);
+                        }
+                    }
+                } else {
+                    Database database(env_or("DATABASE_URL", ""));
+                    result = response(http::status::ok, database.admin_audit_events(limit), request);
+                }
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "audit_unavailable"}}, request);
             }
         }
     } else if (request.method() == http::verb::get && path == "/api/v1/admin/metrics") {
