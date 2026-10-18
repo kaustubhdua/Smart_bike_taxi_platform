@@ -50,3 +50,5 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f backend/migrations/001_initial_schema.sql
       - name: Verify active-driver uniqueness and idempotency schema
         run: psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
+      - name: Verify atomic migration version record
+        run: psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '001_initial_schema'" | grep -Fx '001_initial_schema'
