@@ -439,7 +439,7 @@ public:
                 "SELECT d.current_latitude::text,d.current_longitude::text,d.last_location_at::text "
                 "FROM driver_profiles d JOIN rides r ON r.driver_id=d.account_id "
                 "WHERE r.id=$1::uuid AND r.status IN ('assigned','driver_arriving','in_progress') "
-                "AND d.last_location_at>now()-interval '2 minutes' "
+                "AND d.is_online=true AND d.last_location_at>now()-interval '2 minutes' "
                 "AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL",
                 1, nullptr, location_params, nullptr, nullptr, 0);
             if (location != nullptr && PQresultStatus(location) == PGRES_TUPLES_OK &&
