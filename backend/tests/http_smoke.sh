@@ -72,7 +72,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/driver-accept-unauth.jso
 test "$status" = "401"
 
 status="$(curl --silent --show-error --output "$tmp_dir/driver-status-unauth.json" --write-out '%{http_code}' \
-  --header 'Content-Type: application/json' --data '{"status":"completed"}' \
+  --request PUT --header 'Content-Type: application/json' --data '{"status":"completed"}' \
   "$base_url/api/v1/driver/rides/30000000-0000-4000-8000-000000000001/status")"
 test "$status" = "401"
 
