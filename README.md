@@ -65,7 +65,7 @@ See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.y
 
 ### Run the API and PostgreSQL locally
 
-With Docker Compose installed, set `POSTGRES_PASSWORD`, `DATABASE_URL` (for the Compose network, host is `db`), and `SAARTHI_USER_AGENT` in your shell, then run:
+With Docker Compose installed, set `POSTGRES_PASSWORD`, `DATABASE_URL` (for the Compose network, host is `db`), `SAARTHI_USER_AGENT`, and a random `SAARTHI_JWT_SECRET` of at least 32 characters in your shell, then run:
 
 ```bash
 docker compose up --build
