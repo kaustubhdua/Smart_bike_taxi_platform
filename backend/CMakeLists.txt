@@ -18,3 +18,11 @@ target_link_libraries(saarthi_api PRIVATE Boost::headers CURL::libcurl PostgreSQ
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(saarthi_api PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
+
+add_executable(saarthi_security_tests tests/security_test.cpp)
+target_link_libraries(saarthi_security_tests PRIVATE OpenSSL::Crypto nlohmann_json::nlohmann_json)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(saarthi_security_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+enable_testing()
+add_test(NAME saarthi_security_tests COMMAND saarthi_security_tests)
