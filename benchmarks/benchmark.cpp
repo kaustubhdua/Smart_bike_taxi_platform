@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <iomanip>
@@ -27,7 +28,7 @@ int main(int argc, char** argv) {
                       "N" + std::to_string(i + 7), 5.0);
     }
 
-    HashTable<Rider> custom;
+    HashTable<Rider> custom(static_cast<std::size_t>(nodeCount) * 2 + 1);
     std::unordered_map<std::string, Rider> standard;
     for (int i = 0; i < nodeCount; ++i) {
         const auto id = "R" + std::to_string(i);
