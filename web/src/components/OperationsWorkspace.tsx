@@ -18,8 +18,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
+  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [online, setOnline] = useState(false);
   const [rides, setRides] = useState<RideRequest[]>([]);
   const [activeRide, setActiveRide] = useState<{ rideId: string; status: string } | null>(null);
@@ -64,9 +63,36 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     return data;
   }
 
+  function getCurrentLocation(): Promise<{ latitude: number; longitude: number }> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("This browser does not support location. Availability cannot be enabled."));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        position => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+        error => reject(new Error(error.code === error.PERMISSION_DENIED
+          ? "Location permission is required to go online."
+          : "Could not get a fresh location. Check device location settings and retry.")),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 },
+      );
+    });
+  }
+
+  async function syncDriverLocation(): Promise<{ latitude: number; longitude: number }> {
+    const location = await getCurrentLocation();
+    await request("/api/v1/driver/availability", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ online: true, latitude: location.latitude, longitude: location.longitude }),
+    });
+    setDriverLocation(location);
+    return location;
+  }
+
   async function refreshQueue() {
     setBusy(true);
     try {
+      if (online) await syncDriverLocation();
       const data = await request("/api/v1/driver/rides");
       setRides(Array.isArray(data.rides) ? data.rides as RideRequest[] : []);
       setError("Ride queue refreshed from the API.");
@@ -75,19 +101,29 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   }
 
   async function toggleAvailability() {
-    const lat = Number(latitude), lon = Number(longitude);
-    if (!latitude.trim() || !longitude.trim() || !Number.isFinite(lat) || lat < -90 || lat > 90 ||
-        !Number.isFinite(lon) || lon < -180 || lon > 180) {
-      setError("Enter a valid latitude and longitude before changing availability."); return;
-    }
     setBusy(true);
     try {
-      await request("/api/v1/driver/availability", {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ online: !online, latitude: lat, longitude: lon }),
-      });
-      setOnline(value => !value);
-      setError(online ? "You are offline." : "You are online. Refresh the queue to see available requests.");
+      if (online) {
+        if (!driverLocation) throw new Error("No last known location is available. Refresh location before going offline.");
+        await request("/api/v1/driver/availability", {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ online: false, latitude: driverLocation.latitude, longitude: driverLocation.longitude }),
+        });
+        setOnline(false);
+        setRides([]);
+        setError("You are offline. Your location will no longer be refreshed.");
+      } else {
+        const location = await getCurrentLocation();
+        await request("/api/v1/driver/availability", {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ online: true, latitude: location.latitude, longitude: location.longitude }),
+        });
+        setDriverLocation(location);
+        setOnline(true);
+        setError("You are online. Your fresh location is shared while you remain online.");
+        const data = await request("/api/v1/driver/rides");
+        setRides(Array.isArray(data.rides) ? data.rides as RideRequest[] : []);
+      }
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Availability update failed."); }
     finally { setBusy(false); }
   }
@@ -180,11 +216,9 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           ) : mode === "driver" ? (
             <>
               <div className="card-heading"><div><span className="card-eyebrow">DRIVER SESSION</span><h3>Availability and rides</h3></div><button className="text-action" onClick={() => { setToken(""); setRides([]); setActiveRide(null); setOnline(false); }}>Sign out</button></div>
-              <div className="location-fields">
-                <label className="auth-field"><span>Latitude</span><input inputMode="decimal" value={latitude} onChange={event => setLatitude(event.target.value)} placeholder="Latitude" /></label>
-                <label className="auth-field"><span>Longitude</span><input inputMode="decimal" value={longitude} onChange={event => setLongitude(event.target.value)} placeholder="Longitude" /></label>
-              </div>
-              <button className="book-button" onClick={toggleAvailability} disabled={busy}>{online ? "Go offline" : "Go online"} <ArrowRight size={18} /></button>
+              <p className="auth-caption">Location permission is used to refresh your dispatch eligibility while online. The queue requires a recent location.</p>
+              <button className="book-button" onClick={toggleAvailability} disabled={busy}>{online ? "Go offline" : "Use my location and go online"} <ArrowRight size={18} /></button>
+              {driverLocation && <p className="auth-caption" aria-live="polite">Last location: {driverLocation.latitude.toFixed(4)}, {driverLocation.longitude.toFixed(4)}</p>}
               <button className="outline-button" onClick={refreshQueue} disabled={busy}><RefreshCw size={15} /> Refresh ride queue</button>
               {activeRide && <div className="ride-confirmation" role="status"><span className="confirmation-icon"><Check size={16} /></span><div><strong>Active ride</strong><span>{activeRide.rideId}</span><small>Status: {activeRide.status}</small></div>
                 {activeRide.status === "assigned" && <button className="text-action" onClick={() => rideAction(activeRide.rideId, "driver_arriving")} disabled={busy}>Mark arriving</button>}
