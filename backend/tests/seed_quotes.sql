@@ -30,4 +30,6 @@ INSERT INTO route_quotes (
   ('40000000-0000-4000-8000-000000000013', 'Pickup Race 13 B', 28.5300, 77.3500,
    'Destination Race 13 B', 28.5930, 77.4130, 8300, 2190, 10300, 'INR', now() + interval '5 minutes'),
   ('40000000-0000-4000-8000-000000000014', 'Pickup Race 14 A', 28.5300, 77.3500,
-   'Destination Race 14 A', 28.5940, 77.4140, 8400, 2220, 10400, 'INR', now() + interval '5 minutes');
+   'Destination Race 14 A', 28.5940, 77.4140, 8400, 2220, 10400, 'INR', now() + interval '5 minutes'),
+  ('40000000-0000-4000-8000-000000000015', 'Far Pickup', 28.9000, 77.9000,
+   'Far Destination', 28.9100, 77.9100, 12000, 2400, 15000, 'INR', now() + interval '5 minutes');
