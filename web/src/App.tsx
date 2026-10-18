@@ -144,7 +144,7 @@ export default function App() {
     <div className="app-shell">
       <div className="top-strip"><span className="pulse-dot" /> <span>THE BETTER WAY TO GET THERE</span><span className="strip-divider" /> Built for the city, designed around you</div>
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="Saarthi home">
+        <a className="brand" href="#top">
           <span className="brand-mark"><Bike size={22} strokeWidth={2.3} /></span>
           <span>saarthi<span className="brand-period">.</span><small>URBAN MOBILITY</small></span>
         </a>
