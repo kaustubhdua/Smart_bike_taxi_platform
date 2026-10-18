@@ -1,7 +1,7 @@
 FROM ubuntu:24.04 AS build
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates cmake g++ libboost-dev libcurl4-openssl-dev libpq-dev libssl-dev nlohmann-json3-dev \
+    ca-certificates cmake g++ make libboost-dev libcurl4-openssl-dev libpq-dev libssl-dev nlohmann-json3-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
