@@ -23,7 +23,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 ## Implemented controls
 
 - Passenger registration does not accept a role field; newly registered accounts are passengers.
-- Passwords are stored as PBKDF2-HMAC-SHA-256 hashes with random salts and 210,000 iterations. The security module has bounded verification parameters and constant-time digest comparison.
+- Passwords are stored as PBKDF2-HMAC-SHA-256 hashes with random salts and 600,000 iterations. The security module has bounded verification parameters and constant-time digest comparison.
 - Access tokens are HMAC-signed, short-lived, and checked for algorithm, issuer, audience and expiry.
 - Passenger ride reads are scoped to the authenticated passenger; driver actions are scoped to the assigned driver; admin routes check the admin role.
 - Ride creation, idempotency reservation, quote consumption and ride-event insertion occur in a database transaction.
