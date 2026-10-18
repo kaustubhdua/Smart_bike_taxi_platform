@@ -41,6 +41,7 @@ services:
       SAARTHI_BIND_ADDRESS: 0.0.0.0
       SAARTHI_ALLOWED_ORIGIN: http://localhost:5173
       SAARTHI_USER_AGENT: ${SAARTHI_USER_AGENT}
+      SAARTHI_JWT_SECRET: ${SAARTHI_JWT_SECRET}
     ports:
       - "8080:8080"
     restart: unless-stopped
