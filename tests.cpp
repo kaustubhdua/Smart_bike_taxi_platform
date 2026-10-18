@@ -299,6 +299,42 @@ void testRideDispatchService() {
     check(noHistory.empty() && unchangedRideId == 20,
           "failed dispatch does not create ride or consume ID");
 
+    HashTable<Driver> tiedDrivers;
+    check(tiedDrivers.insert("ZED", Driver{"ZED", "Zed", "demo", "B", true}) &&
+              tiedDrivers.insert("ALPHA", Driver{"ALPHA", "Alpha", "demo", "B", true}),
+          "register equally close drivers");
+    std::vector<std::string> reverseDriverIds{"ZED", "ALPHA"};
+    std::queue<RideRequest> tiedRequest;
+    tiedRequest.push(RideRequest{6, "R1", "A", "C"});
+    std::vector<Ride> tiedHistory;
+    int tiedRideId = 30;
+    const auto tiedDispatch = ride_service::dispatchNext(
+        riders, tiedDrivers, reverseDriverIds, city, tiedRequest, tiedHistory, tiedRideId);
+    check(tiedDispatch.status == ride_service::DispatchStatus::Dispatched &&
+              tiedDispatch.ride.driverId == "ALPHA",
+          "equal-distance driver matching uses deterministic lexical ID");
+
+    Graph splitCity;
+    check(splitCity.addLocation("A") && splitCity.addLocation("B") &&
+              splitCity.addLocation("ISLAND"), "create split dispatch graph");
+    check(splitCity.addRoad("A", "B", 1.0), "connect only pickup and destination");
+    HashTable<Driver> isolatedDrivers;
+    check(isolatedDrivers.insert("ISLAND_DRIVER",
+              Driver{"ISLAND_DRIVER", "Isolated", "demo", "ISLAND", true}),
+          "register unreachable driver");
+    std::vector<std::string> isolatedIds{"ISLAND_DRIVER"};
+    std::queue<RideRequest> isolatedRequest;
+    isolatedRequest.push(RideRequest{7, "R1", "A", "B"});
+    std::vector<Ride> isolatedHistory;
+    int isolatedRideId = 40;
+    const auto isolatedDispatch = ride_service::dispatchNext(
+        riders, isolatedDrivers, isolatedIds, splitCity, isolatedRequest,
+        isolatedHistory, isolatedRideId);
+    check(isolatedDispatch.status == ride_service::DispatchStatus::NoAvailableDriver,
+          "unreachable available driver is not assigned");
+    check(isolatedRequest.size() == 1 && isolatedRideId == 40 && isolatedHistory.empty(),
+          "unreachable-driver failure preserves request and state");
+
     std::queue<RideRequest> invalid;
     invalid.push(RideRequest{3, "MISSING", "A", "B"});
     const auto badRequest = ride_service::dispatchNext(
