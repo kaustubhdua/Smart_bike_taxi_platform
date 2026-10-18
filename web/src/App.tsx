@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { calculateRoute, routeToSvgPath } from "./lib/routing";
 import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bike, Check, ChevronDown,
   CircleHelp, Clock3, Compass, Crosshair, Gauge, LocateFixed,
@@ -13,17 +14,6 @@ const locations = [
   "Noida City Centre",
   "Sector 62",
 ];
-const demoRoutes: Record<string, { km: number; mins: number; path: string }> = {
-  "JIIT Sector 128|Botanical Garden Metro": { km: 8.4, mins: 19, path: "Via Noida Expressway" },
-  "JIIT Sector 128|Sector 18 Market": { km: 10.2, mins: 23, path: "Via Sector 18 Link Road" },
-  "JIIT Sector 128|Noida City Centre": { km: 12.6, mins: 27, path: "Via Amity Road" },
-  "JIIT Sector 128|Sector 62": { km: 18.1, mins: 36, path: "Via Dadri Road" },
-};
-const routeFor = (pickup: string, destination: string) => {
-  const direct = demoRoutes[pickup + "|" + destination];
-  const reverse = demoRoutes[destination + "|" + pickup];
-  return direct ?? reverse ?? { km: 6.8, mins: 17, path: "Illustrative sample route" };
-};
 
 export default function App() {
   const reduceMotion = useReducedMotion();
@@ -33,9 +23,39 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [mode, setMode] = useState<"ride" | "driver" | "insights">("ride");
   const [apiState, setApiState] = useState<"idle" | "checking" | "offline">("idle");
-  const route = useMemo(() => routeFor(pickup, destination), [pickup, destination]);
-  const fare = Math.round(20 + route.km * 10);
-  const valid = pickup !== destination && Boolean(pickup && destination);
+  const [route, setRoute] = useState<{ km: number; mins: number; path: string; geometry: Array<[number, number]>; provider: string } | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState("");
+  const [quote, setQuote] = useState<{ quoteId: string; farePaise: number; distanceKm: number; durationMinutes: number; expiresAt?: string } | null>(null);
+  const fare = quote ? Math.round(quote.farePaise / 100) : null;
+  const valid = pickup !== destination && Boolean(pickup && destination) && Boolean(route) && !routeLoading;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setRoute(null);
+    setQuote(null);
+    setRouteError("");
+    if (!pickup || !destination || pickup === destination) {
+      setRouteLoading(false);
+      return () => controller.abort();
+    }
+    setRouteLoading(true);
+    calculateRoute(pickup, destination, controller.signal)
+      .then(result => setRoute({
+        km: result.distanceKm,
+        mins: result.durationMinutes,
+        path: "Road route",
+        geometry: result.geometry,
+        provider: result.provider,
+      }))
+      .catch(error => {
+        if (error instanceof Error && error.name !== "AbortError") setRouteError(error.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRouteLoading(false);
+      });
+    return () => controller.abort();
+  }, [pickup, destination]);
 
   async function requestRide() {
     setNotice("");
@@ -47,20 +67,24 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/quotes`, {
+      const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/routes/quote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pickup, destination }),
+        body: JSON.stringify({ pickup: { label: pickup }, destination: { label: destination } }),
       });
       if (!response.ok) throw new Error("Quote service returned an error.");
-      const data = await response.json() as { quoteId?: string; fare?: number; distanceKm?: number };
-      setNotice(data.quoteId
-        ? `Quote received: ${data.distanceKm ?? route.km} km · ₹${data.fare ?? fare}. Ride creation will be enabled after the booking API contract is finalized.`
-        : "The API responded, but its quote format does not match the current UI contract.");
+      const data = await response.json() as { quoteId?: string; farePaise?: number; distanceKm?: number; durationMinutes?: number; expiresAt?: string };
+      if (!data.quoteId || !Number.isInteger(data.farePaise) || !Number.isFinite(data.distanceKm) || !Number.isFinite(data.durationMinutes)) {
+        throw new Error("The quote service returned an invalid response.");
+      }
+      setQuote({ quoteId: data.quoteId, farePaise: data.farePaise as number, distanceKm: data.distanceKm as number, durationMinutes: data.durationMinutes as number, expiresAt: data.expiresAt });
+      setNotice(`Server quote received: ${data.distanceKm} km · ₹${Math.round((data.farePaise as number) / 100)}. This checks the quote only; it does not create a ride.`);
       setApiState("idle");
-    } catch {
+    } catch (error) {
       setApiState("offline");
-      setNotice("We could not reach the quote service. Check the API and try again.");
+      setNotice(error instanceof Error && error.message !== "Failed to fetch"
+        ? error.message
+        : "We could not reach the quote service. Check the API and try again.");
     }
   }
 
@@ -116,28 +140,28 @@ export default function App() {
               <div className="location-fields">
                 <div className="location-rail"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
                 <div className="field-stack">
-                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><select value={pickup} onChange={e => { setPickup(e.target.value); setNotice(""); }} aria-label="Pickup point">{locations.map(item => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={15} className="select-chevron" /></div></label>
+                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><select value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setNotice(""); }} aria-label="Pickup point">{locations.map(item => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={15} className="select-chevron" /></div></label>
                   <div className="field-separator" />
-                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><select value={destination} onChange={e => { setDestination(e.target.value); setNotice(""); }} aria-label="Drop-off point">{locations.map(item => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={15} className="select-chevron" /></div></label>
+                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><select value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setNotice(""); }} aria-label="Drop-off point">{locations.map(item => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={15} className="select-chevron" /></div></label>
                 </div>
                 <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
               </div>
-              <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{route.km.toFixed(1)} km <span className="bullet">·</span> {route.mins} min <span className="bullet">·</span> {route.path}</span></div><button className="text-action" onClick={() => setNotice("Route distances and times are illustrative sample values until a routing provider is connected.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
-              <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">₹{fare}<span> approx.</span></div></div><div className="fare-note"><Check size={14} /> No hidden add-ons<br /><small>₹20 base + ₹10/km demo formula</small></div></div>
-              <button className="book-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>{apiState === "checking" ? "Checking quote…" : "Check ride availability"} <ArrowRight size={18} /></button>
-              <div className="card-footnote"><ShieldCheck size={14} /> No ride is created in this preview. API connection required.</div>
+              <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Finding a real road route…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Select different locations to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
+              <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? " awaiting server quote" : " server quote"}</span></div></div><div className="fare-note"><Check size={14} /> {quote ? "Quote from API" : "No invented price"}<br /><small>{quote ? (quote.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Check quote expiry before booking") : "A fare appears only after the server responds."}</small></div></div>
+              <button className="book-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>{apiState === "checking" ? "Checking quote…" : "Get server fare quote"} <ArrowRight size={18} /></button>
+              <div className="card-footnote"><ShieldCheck size={14} /> Quote only. Booking and driver assignment are not implemented yet.</div>
               <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
             </div>
             <div className="route-card">
               <div className="route-card-top"><div><span className="card-eyebrow">THE SHORT VERSION</span><h3>Your route, at a glance.</h3></div><span className="compass-chip"><Compass size={16} /></span></div>
-              <div className="mini-map" role="img" aria-label={`Illustrative route from ${pickup} to ${destination}; ${route.km.toFixed(1)} kilometres`}>
+              <div className="mini-map" role="img" aria-label={route ? `Road route from ${pickup} to ${destination}; ${route.km.toFixed(1)} kilometres` : `Route preview from ${pickup} to ${destination}`}>
                 <div className="map-block block-1" /><div className="map-block block-2" /><div className="map-block block-3" /><div className="map-block block-4" /><div className="map-block block-5" /><div className="map-block block-6" />
-                <svg viewBox="0 0 500 260" preserveAspectRatio="none" aria-hidden="true"><path d="M64 190 C115 178 100 130 178 132 S235 204 294 161 S349 70 402 95 S431 140 456 54" fill="none" stroke="#fff" strokeWidth="14" strokeLinecap="round"/><path d="M64 190 C115 178 100 130 178 132 S235 204 294 161 S349 70 402 95 S431 140 456 54" fill="none" stroke="#335cff" strokeWidth="4" strokeDasharray="7 7" strokeLinecap="round"/><circle cx="64" cy="190" r="8" fill="#b9f65b" stroke="#17211d" strokeWidth="3"/><circle cx="456" cy="54" r="9" fill="#335cff" stroke="#fff" strokeWidth="4"/></svg>
-                <span className="map-place start-place">{pickup}</span><span className="map-place end-place">{destination}</span><span className="map-watermark">SAMPLE ROUTE</span>
+                <svg viewBox="0 0 500 260" preserveAspectRatio="none" aria-hidden="true">{route && <><path d={routeToSvgPath(route.geometry)} fill="none" stroke="#fff" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round"/><path d={routeToSvgPath(route.geometry)} fill="none" stroke="#335cff" strokeWidth="4" strokeDasharray="7 7" strokeLinecap="round" strokeLinejoin="round"/></>}</svg>
+                <span className="map-place start-place">{pickup}</span><span className="map-place end-place">{destination}</span><span className="map-watermark">{route ? "ROAD ROUTE" : routeLoading ? "ROUTING…" : "NO ROUTE"}</span>
                 <button className="locate-button" onClick={() => setNotice("Location access is not requested in this preview. Pickup is selected manually.")} aria-label="About current location"><LocateFixed size={17} /></button>
               </div>
-              <div className="route-stats"><div><span><Route size={15} /> DISTANCE</span><strong>{route.km.toFixed(1)} <small>km</small></strong></div><div><span><Clock3 size={15} /> EST. TIME</span><strong>{route.mins} <small>min</small></strong></div><div><span><Gauge size={15} /> ROUTE TYPE</span><strong>City <small>ride</small></strong></div></div>
-              <div className="route-disclaimer"><span className="disclaimer-dot" /> Illustrative preview — live maps and traffic data are not connected.</div>
+              <div className="route-stats"><div><span><Route size={15} /> DISTANCE</span><strong>{route ? route.km.toFixed(1) : "—"} <small>km</small></strong></div><div><span><Clock3 size={15} /> EST. TIME</span><strong>{route ? route.mins : "—"} <small>min</small></strong></div><div><span><Gauge size={15} /> ROUTE TYPE</span><strong>{route ? "Road" : "—"} <small>{route ? "route" : "unavailable"}</small></strong></div></div>
+              <div className="route-disclaimer"><span className="disclaimer-dot" /> {route ? `Real road geometry via ${route.provider}; live traffic may not be included.` : routeLoading ? "Looking up locations and calculating road geometry…" : routeError || "A route will appear when a real road route is available."}</div>
             </div>
           </div>
         </section>
@@ -156,7 +180,7 @@ export default function App() {
       </main>
 
       <footer className="site-footer"><a className="brand footer-brand" href="#top"><span className="brand-mark"><Bike size={20} /></span><span>saarthi<span className="brand-period">.</span><small>URBAN MOBILITY</small></span></a><span className="footer-note">A portfolio project in progress. No live rides or payments.</span><div className="footer-links"><a href="#booking">Ride planner</a><a href="#safety">Safety</a><a href="#lab">DSA lab</a><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={13} /></a></div><span className="copyright">© 2026 SAARTHI LABS</span></footer>
-      <div className="mobile-bottom-bar"><span><small>ESTIMATED FARE</small><strong>₹{fare}</strong></span><button onClick={scrollToBooking}>Plan a ride <ArrowRight size={16} /></button></div>
+      <div className="mobile-bottom-bar"><span><small>ESTIMATED FARE</small><strong>{fare === null ? "—" : `₹${fare}`}</strong></span><button onClick={scrollToBooking}>Plan a ride <ArrowRight size={16} /></button></div>
     </div>
   );
 }
