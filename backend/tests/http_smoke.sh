@@ -53,6 +53,20 @@ status="$(curl --silent --show-error --output "$tmp_dir/unauthenticated.json" --
   "$base_url/api/v1/rides")"
 test "$status" = "401"
 
+status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-unauth.json" --write-out '%{http_code}' \
+  "$base_url/api/v1/driver/rides")"
+test "$status" = "401"
+
+status="$(curl --silent --show-error --output "$tmp_dir/driver-accept-unauth.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --data '{}' \
+  "$base_url/api/v1/driver/rides/30000000-0000-4000-8000-000000000001/accept")"
+test "$status" = "401"
+
+status="$(curl --silent --show-error --output "$tmp_dir/driver-status-unauth.json" --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --data '{"status":"completed"}' \
+  "$base_url/api/v1/driver/rides/30000000-0000-4000-8000-000000000001/status")"
+test "$status" = "401"
+
 status="$(curl --silent --show-error --output "$tmp_dir/booking.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
   --header 'Idempotency-Key: smoke-booking-key-0001' \
