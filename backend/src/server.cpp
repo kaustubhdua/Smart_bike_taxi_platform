@@ -419,6 +419,16 @@ std::string client_ip(const tcp::socket& socket) {
     return ec ? "unknown" : address.to_string();
 }
 
+void trim_in_place(std::string& value) {
+    const auto first = value.find_first_not_of(" ");
+    if (first == std::string::npos) {
+        value.clear();
+        return;
+    }
+    const auto last = value.find_last_not_of(" ");
+    value = value.substr(first, last - first + 1);
+}
+
 http::response<http::string_body> handle_auth(
     const http::request<http::string_body>& request, const std::string& path, const std::string& ip) {
     if (!auth_limiter.allow(ip)) {
@@ -439,12 +449,14 @@ http::response<http::string_body> handle_auth(
         const std::string password = body["password"].get<std::string>();
         std::transform(email.begin(), email.end(), email.begin(),
             [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        trim_in_place(email);
         if (email.empty() || email.size() > 254 || password.empty() || password.size() > 128) {
             throw std::invalid_argument("email or password length is invalid");
         }
         Database database(env_or("DATABASE_URL", ""));
         if (registering) {
             std::string name = body["displayName"].get<std::string>();
+            trim_in_place(name);
             const auto at = email.find('@');
             if (at == std::string::npos || at == 0 || email.find('.', at) == std::string::npos ||
                 name.empty() || name.size() > 120 || password.size() < 12) {
