@@ -83,7 +83,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.getByRole("button", { name: "Create passenger account" }).click();
   await expect(page.locator('.auth-session')).toBeVisible();
   await page.getByRole("button", { name: "Confirm ride request" }).click();
-  await expect(page.getByText(/Ride request created/)).toBeVisible();
+  await expect(page.locator(".ride-confirmation")).toBeVisible();
   await page.getByRole("button", { name: "Cancel request" }).click();
   await expect(page.getByText(/Ride request cancelled/)).toBeVisible();
 });
