@@ -2,13 +2,13 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_DB: saarthi
-      POSTGRES_USER: saarthi
+      POSTGRES_DB: rideforge
+      POSTGRES_USER: rideforge
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - saarthi-data:/var/lib/postgresql/data
+      - rideforge-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U saarthi -d saarthi"]
+      test: ["CMD-SHELL", "pg_isready -U rideforge -d rideforge"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -36,12 +36,12 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       PORT: 8080
-      SAARTHI_BIND_ADDRESS: 0.0.0.0
-      SAARTHI_ALLOWED_ORIGIN: http://localhost:5173
-      SAARTHI_USER_AGENT: ${SAARTHI_USER_AGENT}
-      SAARTHI_GEOCODING_URL: ${SAARTHI_GEOCODING_URL:-https://nominatim.openstreetmap.org/search}
-      SAARTHI_ROUTING_URL: ${SAARTHI_ROUTING_URL:-https://router.project-osrm.org/route/v1/driving}
-      SAARTHI_JWT_SECRET: ${SAARTHI_JWT_SECRET}
+      RIDEFORGE_BIND_ADDRESS: 0.0.0.0
+      RIDEFORGE_ALLOWED_ORIGIN: http://localhost:5173
+      RIDEFORGE_USER_AGENT: ${RIDEFORGE_USER_AGENT}
+      RIDEFORGE_GEOCODING_URL: ${RIDEFORGE_GEOCODING_URL:-https://nominatim.openstreetmap.org/search}
+      RIDEFORGE_ROUTING_URL: ${RIDEFORGE_ROUTING_URL:-https://router.project-osrm.org/route/v1/driving}
+      RIDEFORGE_JWT_SECRET: ${RIDEFORGE_JWT_SECRET}
     ports:
       - "8080:8080"
     healthcheck:
@@ -66,4 +66,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  saarthi-data:
+  rideforge-data:
