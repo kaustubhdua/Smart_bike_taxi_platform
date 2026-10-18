@@ -350,7 +350,7 @@ public:
         }
         PQclear(result);
         PGresult* drivers = PQexec(connection_,
-            "SELECT count(*)::text FROM driver_profiles WHERE is_online=true "
+            "SELECT count(*)::text FROM driver_profiles WHERE is_approved=true AND is_online=true "
             "AND last_location_at>now()-interval '5 minutes'");
         if (drivers == nullptr || PQresultStatus(drivers) != PGRES_TUPLES_OK ||
             PQntuples(drivers) != 1) {
