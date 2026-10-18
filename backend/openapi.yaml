@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Saarthi Ride API
   version: 0.1.0
-  description: Initial contract; endpoints are planned and not yet implemented.
+  description: Contract for the planned API. Routes are not live until the HTTP service and integration tests are implemented.
 servers:
   - url: http://localhost:8080/api/v1
 security:
@@ -31,10 +31,25 @@ paths:
         "429": { description: Rate limited }
   /routes/quote:
     post:
-      summary: Calculate route and quote without creating a ride
+      security: []
+      summary: Calculate a server-authoritative route and fare quote without creating a ride
+      description: Public quote requests must be rate-limited. The server must recalculate route and fare; client-supplied distance or price is never authoritative.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteRequest"
       responses:
-        "200": { description: Route and quote returned }
-        "422": { description: Invalid or unreachable route }
+        "200":
+          description: Route and expiring fare quote returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteResponse"
+        "422": { description: Invalid location or unreachable route }
+        "429": { description: Quote rate limit exceeded }
+        "503": { description: Routing provider unavailable }
   /rides:
     post:
       summary: Create an idempotent ride request
@@ -91,6 +106,49 @@ paths:
         "200": { description: Metrics returned }
         "403": { description: Admin role required }
 components:
+  schemas:
+    LocationInput:
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 2
+          maxLength: 240
+    QuoteRequest:
+      type: object
+      additionalProperties: false
+      required: [pickup, destination]
+      properties:
+        pickup:
+          $ref: "#/components/schemas/LocationInput"
+        destination:
+          $ref: "#/components/schemas/LocationInput"
+    QuoteResponse:
+      type: object
+      additionalProperties: false
+      required: [quoteId, distanceKm, durationMinutes, farePaise, currency, expiresAt]
+      properties:
+        quoteId:
+          type: string
+          format: uuid
+        distanceKm:
+          type: number
+          minimum: 0
+        durationMinutes:
+          type: integer
+          minimum: 0
+        farePaise:
+          type: integer
+          minimum: 0
+          description: Integer paise, never floating-point rupees.
+        currency:
+          type: string
+          enum: [INR]
+        expiresAt:
+          type: string
+          format: date-time
   securitySchemes:
     bearerAuth:
       type: http
