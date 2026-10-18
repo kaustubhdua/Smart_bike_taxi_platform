@@ -429,7 +429,29 @@ public:
         if (!PQgetisnull(result, 0, 3)) ride["driverId"] = PQgetvalue(result, 0, 3);
         if (!PQgetisnull(result, 0, 6)) ride["distanceMeters"] = std::stoi(PQgetvalue(result, 0, 6));
         if (!PQgetisnull(result, 0, 8)) ride["finalFarePaise"] = std::stoi(PQgetvalue(result, 0, 8));
+        const std::string current_status = PQgetvalue(result, 0, 1);
+        const bool can_view_location = role != "admin" && !PQgetisnull(result, 0, 3) &&
+            (current_status == "assigned" || current_status == "driver_arriving" || current_status == "in_progress");
         PQclear(result);
+        if (can_view_location) {
+            const char* location_params[] = {ride_id.c_str()};
+            PGresult* location = PQexecParams(connection_,
+                "SELECT d.current_latitude::text,d.current_longitude::text,d.last_location_at::text "
+                "FROM driver_profiles d JOIN rides r ON r.driver_id=d.account_id "
+                "WHERE r.id=$1::uuid AND r.status IN ('assigned','driver_arriving','in_progress') "
+                "AND d.last_location_at>now()-interval '2 minutes' "
+                "AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL",
+                1, nullptr, location_params, nullptr, nullptr, 0);
+            if (location != nullptr && PQresultStatus(location) == PGRES_TUPLES_OK &&
+                PQntuples(location) == 1) {
+                ride["driverLocation"] = {
+                    {"latitude", std::stod(PQgetvalue(location, 0, 0))},
+                    {"longitude", std::stod(PQgetvalue(location, 0, 1))},
+                    {"updatedAt", PQgetvalue(location, 0, 2)}
+                };
+            }
+            if (location != nullptr) PQclear(location);
+        }
         return ride;
     }
 
