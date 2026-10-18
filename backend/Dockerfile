@@ -5,15 +5,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
-RUN cmake -S . -B /build -DCMAKE_BUILD_TYPE=Release && cmake --build /build --target saarthi_api --parallel
+RUN cmake -S . -B /build -DCMAKE_BUILD_TYPE=Release && cmake --build /build --target rideforge_api --parallel
 
 FROM ubuntu:24.04 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl libcurl4 libpq5 libssl3 \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 10001 --create-home saarthi
-COPY --from=build /build/saarthi_api /usr/local/bin/saarthi_api
+    && useradd --system --uid 10001 --create-home rideforge
+COPY --from=build /build/rideforge_api /usr/local/bin/rideforge_api
 USER 10001:10001
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/saarthi_api"]
+ENTRYPOINT ["/usr/local/bin/rideforge_api"]
