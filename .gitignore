@@ -8,3 +8,10 @@ smart_bike_taxi
 # Local application data (contains demo personal fields)
 smart_bike_taxi_data.txt
 smart_bike_taxi_data.txt.tmp
+
+# Web frontend
+web/node_modules/
+web/dist/
+web/.env
+web/.env.*
+!web/.env.example
