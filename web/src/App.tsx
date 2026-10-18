@@ -430,7 +430,7 @@ export default function App() {
                       )}
                       <label className="auth-field"><span>Email</span><input type="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></label>
                       <label className="auth-field"><span>Password</span><input type="password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} maxLength={128} minLength={authMode === "register" ? 12 : 1} autoComplete={authMode === "register" ? "new-password" : "current-password"} placeholder={authMode === "register" ? "At least 12 characters" : "Your password"} /></label>
-                      <button className="book-button" onClick={authenticate}>{authMode === "register" ? "Create passenger account" : "Sign in"} <ArrowRight size={18} /></button>
+                      <button className="book-button" onClick={authenticate}>{authMode === "register" ? "Create passenger account" : mode === "ride" ? "Sign in" : "Sign in securely"} <ArrowRight size={18} /></button>
                       <p className="auth-caption">Your access token is kept in memory and cleared when you sign out or refresh.</p>
                     </>
                   )}
@@ -449,7 +449,7 @@ export default function App() {
               {account?.role === "driver" && (
                 <section className="driver-panel" aria-labelledby="driver-console-title">
                   <div className="driver-panel-head">
-                    <div><h3 id="driver-console-title">Driver console</h3><p>Availability and ride actions use the API.</p></div>
+                    <div><h3 id="driver-console-title">Availability and rides</h3><p>Availability and ride actions use the API.</p></div>
                     <button className={driverOnline ? "driver-online online" : "driver-online"} onClick={toggleDriverAvailability}>{driverOnline ? "Go offline" : "Go online"}</button>
                     <button className="text-action" onClick={() => { setAccount(null); setDriverQueue([]); setDriverRide(null); setDriverOnline(false); }}>Sign out</button>
                   </div>
@@ -458,13 +458,13 @@ export default function App() {
                     <div className="driver-active-ride">
                       <strong>Active ride</strong><span>Reference: {driverRide.rideId}</span><span>Status: {driverRide.status}</span>
                       {driverRide.status === "assigned" && <button className="book-button" onClick={() => advanceDriverRide("driver_arriving")}>I'm heading to pickup</button>}
-                      {driverRide.status === "driver_arriving" && <button className="book-button" onClick={() => advanceDriverRide("in_progress")}>Start ride</button>}
-                      {driverRide.status === "in_progress" && <button className="book-button" onClick={() => advanceDriverRide("completed")}>Complete ride</button>}
+                      {driverRide.status === "driver_arriving" && <button className="book-button" onClick={() => advanceDriverRide("in_progress")}>Start trip</button>}
+                      {driverRide.status === "in_progress" && <button className="book-button" onClick={() => advanceDriverRide("completed")}>Complete trip</button>}
                     </div>
                   ) : (
                     <div className="driver-queue">
                       {driverQueue.map(item => <article className="driver-queue-item" key={item.rideId}>
-                        <div><strong>{item.pickup}</strong><span>to {item.destination}</span><small>{(item.distanceMeters / 1000).toFixed(1)} km · ₹{(item.farePaise / 100).toFixed(2)}</small></div>
+                        <div><strong>{item.pickup} → {item.destination}</strong><small>{(item.distanceMeters / 1000).toFixed(1)} km · ₹{(item.farePaise / 100).toFixed(2)}</small></div>
                         <button onClick={() => acceptDriverRide(item.rideId)} disabled={!driverOnline}>Accept</button>
                       </article>)}
                       {driverQueue.length === 0 && <p className="auth-caption">{driverOnline ? "No open requests right now. Refresh to check again." : "Go online to update your location and see open requests."}</p>}
@@ -480,7 +480,7 @@ export default function App() {
                     <button className="text-action" onClick={() => { setAccount(null); setAdminMetrics(null); }}>Sign out</button>
                   </div>
                   {adminMetrics && <div className="admin-metrics">
-                    <strong>{adminMetrics.onlineDrivers} online drivers</strong>
+                    <strong>Online drivers: {adminMetrics.onlineDrivers}</strong>
                     {Object.entries(adminMetrics.ridesByStatus).map(([status, count]) => <span key={status}>{status.replaceAll("_", " ")} <b>{count}</b></span>)}
                   </div>}
                 </section>
