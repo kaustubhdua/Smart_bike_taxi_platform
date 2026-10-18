@@ -64,7 +64,7 @@ jobs:
         run: sh backend/scripts/migrate-if-needed.sh
       - name: Verify migration runner idempotency
         env:
-          SAARTHI_SCHEMA_FILE: backend/migrations/001_initial_schema.sql
+          SAARTHI_MIGRATIONS_DIR: backend/migrations
         run: sh backend/scripts/migrate-if-needed.sh
       - name: Seed deterministic quote fixtures
         run: psql -v ON_ERROR_STOP=1 -f backend/tests/seed_quotes.sql
