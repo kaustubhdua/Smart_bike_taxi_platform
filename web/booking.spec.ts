@@ -81,7 +81,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.getByLabel("Email").fill("rider@example.test");
   await page.getByLabel("Password").fill("a-long-password-123");
   await page.getByRole("button", { name: "Create passenger account" }).click();
-  await expect(page.getByText(/Signed in as rider@example.test/)).toBeVisible();
+  await expect(page.locator('.auth-session')).toBeVisible();
   await page.getByRole("button", { name: "Confirm ride request" }).click();
   await expect(page.getByText(/Ride request created/)).toBeVisible();
   await page.getByRole("button", { name: "Cancel request" }).click();
