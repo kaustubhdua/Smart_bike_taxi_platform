@@ -21,7 +21,7 @@ services:
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./backend/migrations/001_initial_schema.sql:/schema.sql:ro
+      - ./backend/migrations:/migrations:ro
       - ./backend/scripts/migrate-if-needed.sh:/migrate.sh:ro
     command: ["sh", "/migrate.sh"]
     restart: "no"
