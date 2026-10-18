@@ -21,7 +21,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - Driver provisioning, approval and suspension API/UI are implemented with an audit trail. Real-world identity/vehicle document verification remains outside this demo.
 - The ride-event outbox publisher is implemented with PostgreSQL NOTIFY, retry/backoff and dead-letter handling. The API exposes an authenticated SSE stream with persisted-event replay and the passenger UI consumes ride-status frames; REST polling remains the recovery path.
 - Dispatch queue filtering currently uses approval, online status and location freshness; it is not yet a full road-ETA ranking service or geographic matching engine.
-- Admin workspace currently exposes operational metrics, not full driver approval, incident, audit-search or suspension workflows.
+- Admin workspace exposes operational metrics, driver provisioning/approval/suspension, and recent privileged-action audit history. Incident response and audit search/filtering remain future work.
 - No real payment processing, refund/reconciliation, real SMS delivery, production safety response or commercial fleet operations.
 - No live production deployment, production provider contract, tested production backup/restore, or legal authorization for commercial rides is claimed.
 - No production-grade distributed rate limiting or shared connection pool is claimed.
