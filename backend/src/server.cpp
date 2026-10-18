@@ -608,14 +608,22 @@ public:
         try {
             const char* driver_params[] = {driver_id.c_str()};
             PGresult* driver = PQexecParams(connection_,
-                "SELECT account_id::text FROM driver_profiles WHERE account_id=$1::uuid "
-                "AND is_approved=true AND is_online=true AND last_location_at>now()-interval '5 minutes' FOR UPDATE",
+                "SELECT account_id::text,current_latitude::text,current_longitude::text "
+                "FROM driver_profiles WHERE account_id=$1::uuid "
+                "AND is_approved=true AND is_online=true AND last_location_at>now()-interval '5 minutes' "
+                "AND current_latitude IS NOT NULL AND current_longitude IS NOT NULL FOR UPDATE",
                 1, nullptr, driver_params, nullptr, nullptr, 0);
             if (driver == nullptr || PQresultStatus(driver) != PGRES_TUPLES_OK) {
                 if (driver != nullptr) PQclear(driver);
                 throw std::runtime_error("Could not lock driver profile");
             }
             const bool available = PQntuples(driver) == 1;
+            double driver_latitude = 0.0;
+            double driver_longitude = 0.0;
+            if (available) {
+                driver_latitude = std::stod(PQgetvalue(driver, 0, 1));
+                driver_longitude = std::stod(PQgetvalue(driver, 0, 2));
+            }
             PQclear(driver);
             if (!available) throw std::domain_error("driver_unavailable");
 
@@ -633,7 +641,8 @@ public:
 
             const char* ride_params[] = {ride_id.c_str()};
             PGresult* ride = PQexecParams(connection_,
-                "SELECT status::text FROM rides WHERE id=$1::uuid FOR UPDATE",
+                "SELECT status::text,pickup_latitude::text,pickup_longitude::text "
+                "FROM rides WHERE id=$1::uuid FOR UPDATE",
                 1, nullptr, ride_params, nullptr, nullptr, 0);
             if (ride == nullptr || PQresultStatus(ride) != PGRES_TUPLES_OK) {
                 if (ride != nullptr) PQclear(ride);
@@ -644,9 +653,29 @@ public:
                 throw std::domain_error("ride_not_found");
             }
             const std::string previous = PQgetvalue(ride, 0, 0);
+            if (PQgetisnull(ride, 0, 1) || PQgetisnull(ride, 0, 2)) {
+                PQclear(ride);
+                throw std::domain_error("ride_location_unavailable");
+            }
+            const double pickup_latitude = std::stod(PQgetvalue(ride, 0, 1));
+            const double pickup_longitude = std::stod(PQgetvalue(ride, 0, 2));
             PQclear(ride);
             if (previous != "requested" && previous != "matching") {
                 throw std::domain_error("ride_not_available");
+            }
+            constexpr double earth_radius_m = 6371000.0;
+            constexpr double degrees_to_radians = 3.14159265358979323846 / 180.0;
+            const double lat1 = driver_latitude * degrees_to_radians;
+            const double lat2 = pickup_latitude * degrees_to_radians;
+            const double delta_lat = (pickup_latitude - driver_latitude) * degrees_to_radians;
+            const double delta_lon = (pickup_longitude - driver_longitude) * degrees_to_radians;
+            const double haversine = std::clamp(
+                std::sin(delta_lat / 2.0) * std::sin(delta_lat / 2.0) +
+                std::cos(lat1) * std::cos(lat2) *
+                std::sin(delta_lon / 2.0) * std::sin(delta_lon / 2.0), 0.0, 1.0);
+            const double pickup_distance_m = 2.0 * earth_radius_m * std::asin(std::sqrt(haversine));
+            if (pickup_distance_m > 20000.0) {
+                throw std::domain_error("ride_outside_dispatch_radius");
             }
 
             const char* update_params[] = {ride_id.c_str(), driver_id.c_str()};
