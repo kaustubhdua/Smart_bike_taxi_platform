@@ -19,6 +19,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(rideforge_api PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+add_executable(rideforge_outbox_worker src/outbox_worker.cpp)
+target_link_libraries(rideforge_outbox_worker PRIVATE PostgreSQL::PostgreSQL nlohmann_json::nlohmann_json Threads::Threads)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(rideforge_outbox_worker PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 add_executable(rideforge_admin_bootstrap src/bootstrap_admin.cpp)
 target_include_directories(rideforge_admin_bootstrap PRIVATE ${Boost_INCLUDE_DIRS})
 target_link_libraries(rideforge_admin_bootstrap PRIVATE PostgreSQL::PostgreSQL OpenSSL::Crypto nlohmann_json::nlohmann_json)
