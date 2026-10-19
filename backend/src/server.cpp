@@ -1256,6 +1256,7 @@ private:
     inline static std::size_t pool_connection_count_ = 0;
 
     static PGconn* acquire_connection(const std::string& url) {
+        if (url.empty()) throw std::runtime_error("DATABASE_URL is required");
         const auto deadline = std::chrono::steady_clock::now() + pool_acquire_timeout_;
         for (;;) {
             std::unique_lock<std::mutex> lock(pool_mutex_);
