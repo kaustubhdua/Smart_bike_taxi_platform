@@ -13,6 +13,7 @@ type RideRequest = {
 type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number; pendingOutboxEvents?: number; deadLetteredOutboxEvents?: number; oldestPendingOutboxAgeSeconds?: number };
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
+type SupportReport = { id: string; rideId: string | null; category: string; description: string; status: string; resolutionNote: string; createdAt: string; updatedAt: string; resolvedAt: string | null; reporterEmail: string; reporterName: string };
 
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [email, setEmail] = useState("");
@@ -31,6 +32,8 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [driverName, setDriverName] = useState("");
   const [driverPassword, setDriverPassword] = useState("");
   const [vehicleRegistration, setVehicleRegistration] = useState("");
+  const [supportReports, setSupportReports] = useState<SupportReport[]>([]);
+  const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
   const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
 
   async function signIn() {
@@ -299,6 +302,37 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  async function refreshSupportReports() {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/admin/support-reports");
+      if (!Array.isArray(data.reports)) throw new Error("The API returned an invalid support report list.");
+      setSupportReports(data.reports as SupportReport[]);
+      setError("Support reports refreshed from PostgreSQL.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Support reports unavailable."); }
+    finally { setBusy(false); }
+  }
+
+  async function updateSupportReport(report: SupportReport, status: "in_review" | "resolved" | "rejected") {
+    const resolutionNote = (resolutionNotes[report.id] ?? "").trim();
+    if ((status === "resolved" || status === "rejected") && resolutionNote.length < 10) {
+      setError("Add a resolution note of at least 10 characters before resolving or rejecting a report.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await request("/api/v1/admin/support-reports/" + encodeURIComponent(report.id), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, resolutionNote }),
+      });
+      setError("Support report #" + report.id + " updated to " + status.replaceAll("_", " ") + ".");
+      await refreshSupportReports();
+      await refreshAudit();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Support report update failed."); }
+    finally { setBusy(false); }
+  }
+
   async function refreshDrivers() {
     setBusy(true);
     try {
@@ -402,6 +436,25 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                   <div><strong>{driver.displayName}</strong><span>{driver.email} · {driver.vehicleRegistration}</span><small>{driver.approved ? "Approved" : "Pending approval"} · {driver.online ? "Online" : "Offline"}</small></div>
                   <button className="text-action" onClick={() => changeDriverApproval(driver)} disabled={busy}>{driver.approved ? "Suspend" : "Approve"}</button>
                 </div>)}
+              </div>
+              <div className="driver-queue">
+                <div className="driver-panel-head"><h3>Support and incident reports ({supportReports.length})</h3><button className="outline-button" onClick={refreshSupportReports} disabled={busy}><RefreshCw size={15} /> Refresh reports</button></div>
+                {supportReports.length === 0 ? <p>Refresh reports to review passenger and driver submissions. Safety reports are records for follow-up; the demo does not contact emergency services.</p> : supportReports.map(report => <article className="ride-confirmation support-review-item" key={report.id}>
+                  <div>
+                    <strong>#{report.id} · {report.category.replaceAll("_", " ")} · {report.status.replaceAll("_", " ")}</strong>
+                    <span>{report.reporterName} ({report.reporterEmail}){report.rideId ? " · Ride " + report.rideId : ""}</span>
+                    <p>{report.description}</p>
+                    {report.resolutionNote && <small>Resolution: {report.resolutionNote}</small>}
+                    {report.status === "open" || report.status === "in_review" ? <>
+                      <label className="auth-field"><span>Resolution note (required to resolve/reject)</span><textarea className="support-description" minLength={10} maxLength={2000} rows={3} value={resolutionNotes[report.id] ?? ""} onChange={event => setResolutionNotes(current => ({ ...current, [report.id]: event.target.value }))} /></label>
+                      <div className="button-row">
+                        {report.status === "open" && <button className="outline-button" onClick={() => updateSupportReport(report, "in_review")} disabled={busy}>Mark in review</button>}
+                        <button className="book-button" onClick={() => updateSupportReport(report, "resolved")} disabled={busy || (resolutionNotes[report.id] ?? "").trim().length < 10}>Resolve</button>
+                        <button className="outline-button" onClick={() => updateSupportReport(report, "rejected")} disabled={busy || (resolutionNotes[report.id] ?? "").trim().length < 10}>Reject</button>
+                      </div>
+                    </> : <small>Terminal report state · {report.resolvedAt ? new Date(report.resolvedAt).toLocaleString() : "updated"}</small>}
+                  </div>
+                </article>)}
               </div>
             </>
           )}
