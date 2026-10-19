@@ -125,3 +125,7 @@ The outbox worker handles `SIGTERM` and `SIGINT`, finishes the current database 
 ## Dispatch radius configuration
 
 The API reads `RIDEFORGE_DISPATCH_RADIUS_KM` at startup (integer 1–100, default 20). The driver queue and acceptance transaction use the same value. CI exercises 5 km and 20 km configurations against a fixture between those radii; invalid values must fail startup. The radius is a great-circle eligibility bound and does not replace road-ETA dispatch or operational tuning.
+
+## Support report operations
+
+Passengers and drivers can submit a report through `POST /api/v1/support/reports`; when a ride reference is supplied, the API verifies the caller participated in that ride. Users can read only their own reports. Administrators can list recent reports at `GET /api/v1/admin/support-reports` and move open reports to review or a terminal resolved/rejected state. Terminal decisions require a resolution note and are recorded in `admin_audit_events` in the same database transaction. This is an internal demo workflow, not a staffed emergency or guaranteed-response service.
