@@ -57,3 +57,7 @@
 .admin-metrics>span{display:flex;justify-content:space-between;gap:8px;padding:10px;border-radius:9px;background:#fff;color:#65736a;font-size:11px;text-transform:capitalize}
 .admin-metrics b{color:#243b2c}
 @media(max-width:520px){.driver-panel{padding:12px}.driver-panel-head{align-items:flex-start;flex-direction:column}.driver-queue-item{align-items:flex-start}.driver-queue-item>button{flex:none}}
+
+
+/* Visually hidden content remains available to assistive technology. */
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
