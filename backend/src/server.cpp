@@ -674,8 +674,10 @@ public:
         if (!PQgetisnull(result, 0, 6)) ride["distanceMeters"] = std::stoi(PQgetvalue(result, 0, 6));
         if (!PQgetisnull(result, 0, 8)) ride["finalFarePaise"] = std::stoi(PQgetvalue(result, 0, 8));
         const std::string current_status = PQgetvalue(result, 0, 1);
-        const bool can_view_location = role != "admin" && !PQgetisnull(result, 0, 3) &&
-            (current_status == "assigned" || current_status == "driver_arriving" || current_status == "in_progress");
+        const bool active_trip = current_status == "assigned" ||
+            current_status == "driver_arriving" || current_status == "in_progress";
+        const bool can_view_location = role != "admin" && !PQgetisnull(result, 0, 3) && active_trip;
+        const bool can_view_driver_details = role == "passenger" && !PQgetisnull(result, 0, 3) && active_trip;
         PQclear(result);
         if (can_view_location) {
             const char* location_params[] = {ride_id.c_str()};
@@ -695,6 +697,25 @@ public:
                 };
             }
             if (location != nullptr) PQclear(location);
+        }
+        if (can_view_driver_details) {
+            const char* driver_params[] = {ride_id.c_str(), actor_id.c_str()};
+            PGresult* details = PQexecParams(connection_,
+                "SELECT a.display_name,d.vehicle_registration FROM rides r "
+                "JOIN accounts a ON a.id=r.driver_id "
+                "JOIN driver_profiles d ON d.account_id=r.driver_id "
+                "WHERE r.id=$1::uuid AND r.passenger_id=$2::uuid "
+                "AND r.status IN ('assigned','driver_arriving','in_progress')",
+                2, nullptr, driver_params, nullptr, nullptr, 0);
+            if (details == nullptr || PQresultStatus(details) != PGRES_TUPLES_OK) {
+                if (details != nullptr) PQclear(details);
+                throw std::runtime_error("Could not read assigned driver details");
+            }
+            if (PQntuples(details) == 1) {
+                ride["driverName"] = PQgetvalue(details, 0, 0);
+                ride["vehicleRegistration"] = PQgetvalue(details, 0, 1);
+            }
+            PQclear(details);
         }
         return ride;
     }
