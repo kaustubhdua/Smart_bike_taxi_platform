@@ -50,6 +50,9 @@ jobs:
       PORT: 8080
     steps:
       - uses: actions/checkout@v4
+      - name: Validate OpenAPI contract syntax and critical routes
+        run: |
+          ruby -e 'require "yaml"; doc = YAML.load_file("backend/openapi.yaml"); paths = doc.fetch("paths"); required = {"/health" => ["get"], "/ready" => ["get"], "/support/reports" => ["post"], "/admin/support/reports" => ["get"], "/admin/support/reports/{reportId}" => ["put"]}; required.each { |path, methods| abort("Missing OpenAPI path: #{path}") unless paths.key?(path); methods.each { |method| abort("Missing OpenAPI operation: #{method.upcase} #{path}") unless paths.fetch(path).key?(method) } }; schemas = doc.dig("components", "schemas") || {}; %w[SupportReportRequest SupportReportCreated SupportReportList SupportReportUpdateRequest SupportReportUpdateResponse].each { |name| abort("Missing OpenAPI schema: #{name}") unless schemas.key?(name) }; puts "OpenAPI syntax and support/readiness operations validated"'
       - name: Install native dependencies
         run: |
           sudo apt-get update
