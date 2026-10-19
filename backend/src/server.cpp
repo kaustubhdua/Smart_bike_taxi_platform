@@ -543,7 +543,7 @@ public:
     json list_rides(const std::string& passenger_id) {
         const char* params[] = {passenger_id.c_str()};
         PGresult* result = PQexecParams(connection_,
-            "SELECT id::text,status::text,pickup_label,destination_label,quoted_fare_paise,created_at::text "
+            "SELECT id::text,status::text,pickup_label,destination_label,COALESCE(final_fare_paise,quoted_fare_paise),created_at::text "
             "FROM rides WHERE passenger_id=$1::uuid ORDER BY created_at DESC LIMIT 50",
             1, nullptr, params, nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
