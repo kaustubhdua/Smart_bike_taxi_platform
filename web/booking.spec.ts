@@ -58,7 +58,7 @@ test("passenger can choose a pickup by clicking the map", async ({ page }) => {
   await page.getByRole("button", { name: "Choose pickup on map" }).click();
   await expect(page.getByRole("status").filter({ hasText: /Tap the map to choose your pickup/ })).toBeVisible();
   await page.locator(".route-map-canvas").click({ position: { x: 120, y: 100 } });
-  await expect(page.getByRole("textbox", { name: "Pickup point" })).toHaveValue("Map-picked pickup, Noida");
+  await expect(page.getByLabel("Pickup point")).toHaveValue("Map-picked pickup, Noida");
   await expect(page.getByText("Pickup selected from the map.")).toBeVisible();
 });
 
