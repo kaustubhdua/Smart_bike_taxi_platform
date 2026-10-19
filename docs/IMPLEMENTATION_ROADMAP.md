@@ -80,7 +80,7 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 ## Phase 4 — passenger product completeness
 
 - [x] Add pickup/destination autocomplete, accessible text route summary/map fallback, and quote-expiry messaging.
-- [ ] Add direct map-click pickup/destination selection.
+- [x] Add direct map-click pickup/destination selection with reverse geocoding and keyboard-accessible selection controls.
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
 - [x] Add passenger trip detail/history and clear empty/error/offline states.
 - [x] Add a printable demo receipt for completed passenger rides, clearly labeled as not proof of payment or a tax invoice.

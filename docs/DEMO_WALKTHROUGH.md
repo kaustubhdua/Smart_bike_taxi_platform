@@ -42,7 +42,7 @@ Use two browser contexts or browsers so the passenger and driver sessions remain
 
 1. In the passenger browser, register a passenger account.
 2. Choose pickup and destination addresses. You can use the current-location action if the browser grants location permission, or enter a pickup address manually.
-3. Wait for the API to return a valid road-route quote. Check the route distance, duration, fare, and quote expiry. If routing fails, the app should show an error instead of inventing a fare.
+3. You can also choose **Choose pickup on map** or **Choose destination on map**, then click the interactive map. The selected point is reverse-geocoded into an address before the route is recalculated. Wait for the API to return a valid road-route quote. Check the route distance, duration, fare, and quote expiry. If routing fails, the app should show an error instead of inventing a fare.
 4. Submit the booking and wait for server confirmation. Refresh the page and verify the persisted ride still appears in trip history.
 5. In the driver browser, sign in with the provisioned driver account. Grant browser geolocation and choose **Use my location and go online**. The demo dispatch policy requires an approved driver, a location updated within five minutes, no other active ride, and pickup coordinates inside the configured great-circle radius (20 km by default).
 6. Refresh the driver queue and accept the ride. If the pickup is outside the radius or another driver wins the race, the API must reject the acceptance.

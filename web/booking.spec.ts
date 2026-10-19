@@ -41,6 +41,27 @@ async function mockRouting(page: import("@playwright/test").Page) {
   await page.route("**://*.tile.openstreetmap.org/**", route => route.abort());
 }
 
+test("passenger can choose a pickup by clicking the map", async ({ page }) => {
+  await mockRouting(page);
+  await page.route("https://nominatim.openstreetmap.org/reverse?**", async route => {
+    const url = new URL(route.request().url());
+    expect(Number(url.searchParams.get("lat"))).toBeGreaterThan(-90);
+    expect(Number(url.searchParams.get("lon"))).toBeGreaterThan(-180);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ display_name: "Map-picked pickup, Noida" }),
+    });
+  });
+  await page.goto("/");
+  await expect(page.locator(".route-map-canvas")).toBeVisible();
+  await page.getByRole("button", { name: "Choose pickup on map" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /Tap the map to choose your pickup/ })).toBeVisible();
+  await page.locator(".route-map-canvas").click({ position: { x: 120, y: 100 } });
+  await expect(page.getByRole("textbox", { name: "Pickup point" })).toHaveValue("Map-picked pickup, Noida");
+  await expect(page.getByText("Pickup selected from the map.")).toBeVisible();
+});
+
 test("passenger can set pickup from a permission-granted current location", async ({ page }) => {
   await mockRouting(page);
   await page.context().grantPermissions(["geolocation"]);

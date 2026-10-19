@@ -34,6 +34,8 @@ export default function App() {
   const [route, setRoute] = useState<{ km: number; mins: number; path: string; geometry: Array<[number, number]>; provider: string } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [locatingPickup, setLocatingPickup] = useState(false);
+  const [mapSelectionTarget, setMapSelectionTarget] = useState<"pickup" | "destination" | null>(null);
+  const [mapFocus, setMapFocus] = useState<{ latitude: number; longitude: number } | null>(null);
   const [supportCategory, setSupportCategory] = useState("technical");
   const [supportSeverity, setSupportSeverity] = useState("normal");
   const [supportDescription, setSupportDescription] = useState("");
@@ -127,6 +129,8 @@ export default function App() {
           AbortSignal.timeout(8000),
         );
         setPickup(label);
+        setMapFocus({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+        setMapSelectionTarget(null);
         setQuote(null);
         setBookingKey(null);
         setRide(null);
@@ -145,6 +149,28 @@ export default function App() {
       setNotice(message);
       setLocatingPickup(false);
     }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+  };
+
+  const chooseMapLocation = async (latitude: number, longitude: number) => {
+    const target = mapSelectionTarget;
+    if (!target) return;
+    setMapFocus({ latitude, longitude });
+    setMapSelectionTarget(null);
+    setNotice("Looking up the address selected on the map…");
+    try {
+      const label = await reverseGeocode(latitude, longitude, AbortSignal.timeout(8000));
+      if (target === "pickup") {
+        setPickup(label);
+        setBookingKey(null);
+      } else {
+        setDestination(label);
+      }
+      setQuote(null);
+      setRide(null);
+      setNotice((target === "pickup" ? "Pickup" : "Destination") + " selected from the map.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "We couldn't resolve that map location. Enter an address instead.");
+    }
   };
 
   useEffect(() => {
@@ -687,12 +713,16 @@ export default function App() {
               <div className="location-fields">
                 <div className="location-rail"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
                 <div className="field-stack">
-                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Pickup point" placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
+                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setMapFocus(null); setMapSelectionTarget(null); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Pickup point" placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
                   <div className="field-separator" />
-                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setRide(null); setNotice(""); }} aria-label="Drop-off point" placeholder="Search destination in Noida" autoComplete="off" /></div></label>
+                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setMapFocus(null); setMapSelectionTarget(null); setQuote(null); setRide(null); setNotice(""); }} aria-label="Drop-off point" placeholder="Search destination in Noida" autoComplete="off" /></div></label>
                 </div>
                 <datalist id="rideforge-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
-                <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
+                <div className="map-pick-actions" aria-label="Choose a location on the map">
+                  <button type="button" className="map-pick-button" aria-pressed={mapSelectionTarget === "pickup"} onClick={() => { setMapSelectionTarget(mapSelectionTarget === "pickup" ? null : "pickup"); setNotice(""); }}>Choose pickup on map</button>
+                  <button type="button" className="map-pick-button" aria-pressed={mapSelectionTarget === "destination"} onClick={() => { setMapSelectionTarget(mapSelectionTarget === "destination" ? null : "destination"); setNotice(""); }}>Choose destination on map</button>
+                </div>
+                <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setMapFocus(null); setMapSelectionTarget(null); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
               </div>
               <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Finding a real road route…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Select different locations to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
               <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? " awaiting server quote" : " server quote"}</span></div></div><div className="fare-note"><Check size={14} /> {quote ? "Quote from API" : "No invented price"}<br /><small>{quote ? (quote.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Check quote expiry before booking") : "A fare appears only after the server responds."}</small></div></div>
@@ -824,10 +854,17 @@ export default function App() {
               <div className="route-card-top"><div><span className="card-eyebrow">THE SHORT VERSION</span><h3>Your route, at a glance.</h3></div><span className="compass-chip"><Compass size={16} /></span></div>
               <div className="mini-map" role="group" aria-label={route ? `Route map from ${pickup} to ${destination}` : "Route map"}>
                 <Suspense fallback={<div className="route-map-empty" role="status">Loading interactive map…</div>}>
-                  {route
-                    ? <RouteMap geometry={route.geometry} pickup={pickup} destination={destination} driverLocation={tripDriverLocation} />
-                    : <div className="route-map-empty" role="status">A real road route will appear here when routing succeeds.</div>}
+                  <RouteMap
+                    geometry={route?.geometry ?? null}
+                    pickup={pickup}
+                    destination={destination}
+                    driverLocation={tripDriverLocation}
+                    selectionTarget={mapSelectionTarget}
+                    focusCoordinates={mapFocus}
+                    onSelectCoordinates={chooseMapLocation}
+                  />
                 </Suspense>
+                {mapSelectionTarget && <p className="map-selection-hint" role="status">Tap the map to choose your {mapSelectionTarget}. The address will be looked up before the route is recalculated.</p>}
                 <button className="locate-button" onClick={useCurrentLocation} disabled={locatingPickup} aria-label="Use my current location" title="Use my current location">{locatingPickup ? <span className="sr-only">Finding location…</span> : null}<LocateFixed size={17} /></button>
               </div>
               <div className="route-stats"><div><span><Route size={15} /> DISTANCE</span><strong>{route ? route.km.toFixed(1) : "—"} <small>km</small></strong></div><div><span><Clock3 size={15} /> EST. TIME</span><strong>{route ? route.mins : "—"} <small>min</small></strong></div><div><span><Gauge size={15} /> ROUTE TYPE</span><strong>{route ? "Road" : "—"} <small>{route ? "route" : "unavailable"}</small></strong></div></div>
