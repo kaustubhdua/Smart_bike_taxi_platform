@@ -152,6 +152,24 @@ public:
             throw std::runtime_error("Database unavailable: " + error);
         }
     }
+    bool schema_ready() {
+        PGresult* result = PQexec(connection_,
+            "SELECT to_regclass('public.accounts') IS NOT NULL,"
+            "to_regclass('public.rides') IS NOT NULL,"
+            "to_regclass('public.ride_event_outbox') IS NOT NULL,"
+            "to_regclass('public.schema_migrations') IS NOT NULL");
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
+            PQntuples(result) != 1 || PQnfields(result) != 4) {
+            if (result != nullptr) PQclear(result);
+            return false;
+        }
+        bool ready = true;
+        for (int column = 0; column < 4; ++column) {
+            ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
+        }
+        PQclear(result);
+        return ready;
+    }
     ~Database() { if (connection_ != nullptr) PQfinish(connection_); }
     Database(const Database&) = delete;
     Database& operator=(const Database&) = delete;
@@ -1373,6 +1391,19 @@ void handle_request(tcp::socket socket) {
         } catch (const std::exception&) {
             result = response(http::status::service_unavailable,
                               {{"status", "degraded"}, {"database", "unavailable"}}, request);
+        }
+    } else if (request.method() == http::verb::get && path == "/api/v1/ready") {
+        try {
+            Database database(env_or("DATABASE_URL", ""));
+            if (!database.schema_ready()) {
+                result = response(http::status::service_unavailable,
+                                  {{"status", "not_ready"}, {"reason", "schema_incomplete"}}, request);
+            } else {
+                result = response(http::status::ok, {{"status", "ready"}}, request);
+            }
+        } catch (const std::exception&) {
+            result = response(http::status::service_unavailable,
+                              {{"status", "not_ready"}, {"reason", "database_unavailable"}}, request);
         }
     } else if (request.method() == http::verb::post && path == "/api/v1/rides") {
         result = handle_booking(request);
