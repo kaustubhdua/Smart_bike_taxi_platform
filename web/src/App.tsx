@@ -422,6 +422,7 @@ export default function App() {
         typeof (item as { pickup?: unknown }).pickup === "string" &&
         typeof (item as { destination?: unknown }).destination === "string" &&
         typeof (item as { farePaise?: unknown }).farePaise === "number" &&
+        typeof (item as { currency?: unknown }).currency === "string" &&
         typeof (item as { createdAt?: unknown }).createdAt === "string");
       setRideHistory(validRides);
       setNotice("Trip history refreshed from the server.");
