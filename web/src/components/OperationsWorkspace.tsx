@@ -13,7 +13,7 @@ type RideRequest = {
 type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number; pendingOutboxEvents?: number; deadLetteredOutboxEvents?: number; oldestPendingOutboxAgeSeconds?: number };
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
-type DriverHistory = { rides: Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string; completedAt: string | null }>; completedTrips: number; totalEarningsPaise: number; currency: string };
+type DriverHistory = { rides: Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string; completedAt: string | null }>; completedTrips: number; totalCompletedFarePaise: number; currency: string };
 
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [email, setEmail] = useState("");
@@ -284,7 +284,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     try {
       const data = await request("/api/v1/driver/history");
       if (!Array.isArray(data.rides) || typeof data.completedTrips !== "number" ||
-          typeof data.totalEarningsPaise !== "number" || data.currency !== "INR") {
+          typeof data.totalCompletedFarePaise !== "number" || data.currency !== "INR") {
         throw new Error("The API returned invalid driver history.");
       }
       setDriverHistory(data as unknown as DriverHistory);
@@ -406,8 +406,8 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               </div>
               <button className="outline-button" onClick={refreshDriverHistory} disabled={busy}><RefreshCw size={15} /> Refresh trip history and earnings</button>
               {driverHistory && <div className="driver-queue">
-                <h3>Completed trips and earnings</h3>
-                <p>Lifetime completed trips: <strong>{driverHistory.completedTrips}</strong> · lifetime earnings: <strong>₹{(driverHistory.totalEarningsPaise / 100).toFixed(2)}</strong></p>
+                <h3>Completed trips and gross fares</h3>
+                <p>Lifetime completed trips: <strong>{driverHistory.completedTrips}</strong> · gross completed-trip fares (not a payout statement): <strong>₹{(driverHistory.totalCompletedFarePaise / 100).toFixed(2)}</strong></p>
                 <h4>Recent trips</h4>
                 {driverHistory.rides.length === 0 ? <p>No trips recorded yet.</p> : driverHistory.rides.map(ride => <div className="ride-confirmation" key={ride.rideId}>
                   <div><strong>{ride.pickup} → {ride.destination}</strong><span>{ride.status.replaceAll("_", " ")} · ₹{(ride.farePaise / 100).toFixed(2)}</span><small>{ride.completedAt ? new Date(ride.completedAt).toLocaleString() : "Requested " + new Date(ride.createdAt).toLocaleString()}</small></div>
