@@ -20,6 +20,7 @@ docker compose up --build
 
 ```sh
 curl --fail --show-error http://localhost:8080/api/v1/health
+curl --fail --show-error http://localhost:8080/api/v1/ready
 ```
 
 The migration service applies all ordered SQL files in backend/migrations and exits only after pending migrations succeed. The API waits for migration completion and database readiness. The web app is exposed on port 5173 and the API on port 8080.
@@ -57,21 +58,6 @@ unset RIDEFORGE_ADMIN_PASSWORD
 ```
 
 Use a unique password and replace the example email. The command refuses to overwrite an existing email. Keep shell history and terminal transcripts private; for production, provision administrators through a reviewed operator process with a least-privilege database credential.
-
-## Bootstrap the first local administrator
-
-After the API container is healthy, open an interactive shell in the API container and read the password without putting it in shell history:
-
-```sh
-docker compose exec api sh
-read -r -s ADMIN_PASSWORD
-printf '\n'
-printf '%s\n' "$ADMIN_PASSWORD" | rideforge_admin_bootstrap admin@example.test "Local Demo Admin"
-unset ADMIN_PASSWORD
-exit
-```
-
-Use a unique password of at least 12 characters. The bootstrap tool refuses to overwrite an existing account. Do not use this example email/password pattern for a public environment; create and store real credentials securely.
 
 ## Driver provisioning
 
