@@ -110,6 +110,14 @@ jobs:
           grep -q '"event":"http_request_completed"' /tmp/rideforge-api.log
           grep -q '"requestId":' /tmp/rideforge-api.log
           grep -q '"durationMs":' /tmp/rideforge-api.log
+          kill -TERM "$worker_pid"
+          if ! wait "$worker_pid"; then
+            echo "Outbox worker did not stop cleanly:"
+            cat /tmp/rideforge-outbox.log
+            exit 1
+          fi
+          worker_pid=""
+          grep -q '"event":"outbox_worker_stopped"' /tmp/rideforge-outbox.log
           kill -TERM "$api_pid"
           if ! wait "$api_pid"; then
             echo "API did not shut down cleanly:"
