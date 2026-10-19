@@ -110,3 +110,8 @@ DATABASE_URL="$RESTORE_DATABASE_URL" sh backend/scripts/restore.sh ./secure-back
 ```
 
 After restoration, run migration/readiness checks and verify representative account, ride, event, and idempotency counts before considering a recovery successful. Store backups encrypted at rest in a separate access-controlled location, define retention/deletion, and periodically perform a timed restore drill. CI runs a disposable-database backup/restore smoke test; that is not evidence of a production backup schedule or recovery-time objective.
+
+
+## Request logs and correlation
+
+The API emits one-line JSON completion records with event name, generated request ID, HTTP method, path without query parameters, response status, elapsed milliseconds, and whether the response write succeeded. It never logs request bodies, bearer tokens, precise coordinates, passwords, or raw provider/database exception messages. Use the response `X-Request-ID` to correlate a client report with server logs. SSE requests have a separate long-lived lifecycle and should be monitored through the outbox/SSE counters and connection-level logs.
