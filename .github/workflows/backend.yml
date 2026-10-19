@@ -66,6 +66,13 @@ jobs:
         run: cmake --build build-backend --parallel
       - name: Run C++ unit tests
         run: ctest --test-dir build-backend --output-on-failure
+      - name: Validate shell test syntax
+        run: |
+          bash -n backend/tests/http_smoke.sh
+          sh -n backend/scripts/migrate-if-needed.sh
+          sh -n backend/scripts/backup.sh
+          sh -n backend/scripts/restore.sh
+          sh -n backend/tests/backup_restore_smoke.sh
       - name: Reject invalid dispatch radius configuration
         shell: bash
         run: |
