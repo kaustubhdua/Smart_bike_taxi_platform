@@ -100,7 +100,10 @@ See [the local deployment guide](docs/local-deployment.md) for the web/API/Postg
 
 The design is original and may incorporate licensed open-source components selectively. Review each upstream package's license and retain its notices before copying or vendoring code. Reference libraries include [React Bits](https://github.com/DavidHDev/react-bits), [Magic UI](https://github.com/magicuidesign/magicui), [Radix UI](https://www.radix-ui.com/), [Motion](https://motion.dev/) and [Lucide](https://lucide.dev/). No third-party proprietary ride-hailing source or branding is copied.
 
-## Overview
+## Original C++17 terminal simulation (legacy DSA component)
+
+The following sections document the original academic command-line simulation. Its local-file persistence and synchronous/manual workflows are separate from the RideForge full-stack API, PostgreSQL database, and web application described above.
+
 
 Smart Bike Taxi Platform is an interactive terminal application that demonstrates how core DSA concepts can support a simplified ride-hailing workflow. It uses a small, illustrative Noida road network and lets users register riders and drivers, request and cancel rides, dispatch requests, estimate fares, and review ride history.
 
@@ -256,7 +259,7 @@ The built-in map includes JIIT 128, Sector 62, Botanical Garden, Noida City Cent
 
 Fare estimate = ₹20 + (shortest trip distance in km × ₹10). This is a demonstration formula, not a real-world fare quote.
 
-## Limitations
+## Legacy terminal simulation limitations
 
 - Dispatch, ride start, and trip completion are synchronous simulations; the operator manually advances ride states.
 - No live GPS, map provider, traffic data, OTP, authentication, database server, payment gateway, or buyer/operator network is connected.
@@ -264,7 +267,7 @@ Fare estimate = ₹20 + (shortest trip distance in km × ₹10). This is a demon
 - The custom hash table has a fixed capacity of 101 records per table; when full, new records are rejected.
 - Saves write a temporary snapshot and retain the previous snapshot as a backup during replacement; sudden power loss and filesystem-specific rename behavior can still affect recovery.
 
-## Further development
+## Legacy simulation extension ideas
 
 Possible extensions include a configurable map, a larger/resizing hash table, broader dispatch/cancellation integration tests, cancellation of already-assigned rides, and a real backend. Production use would also require authentication, privacy controls, secure storage, operational monitoring, and real service integrations.
 
