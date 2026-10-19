@@ -23,7 +23,7 @@ Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local 
 
 ## Run the complete verification suite
 
-The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) runs the C++/sanitizer/benchmark, API integration, PostgreSQL migration and backup/restore, web/Playwright/accessibility, and container/Compose suites against the selected branch commit. Use **Run workflow** on the feature branch before asking for review; record the exact tested SHA. The full suite passed on `64e3286c98f2ce9a61055b1d5511253076ebe3c0`; the configurable dispatch-radius hardening is newer and must pass the full suite again before release.
+The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) runs the C++/sanitizer/benchmark, API integration, PostgreSQL migration and backup/restore, web/Playwright/accessibility, and container/Compose suites against the selected branch commit. Use **Run workflow** on the feature branch before asking for review; record the exact tested SHA. PR #4 is the active release candidate. Treat the latest head SHA and its GitHub Actions checks as the source of truth; do not merge unless all eight CI/security suites pass on the same current SHA.
 
 ## Full-stack roadmap status
 
@@ -36,86 +36,23 @@ This repository is being extended from its original C++17 academic simulation in
 | Area | Current evidence | Status |
 |---|---|---|
 | C++ DSA baseline | Existing C++ build/tests and GCC/Clang/sanitizer CI | Existing baseline |
-| Route algorithm | Deterministic equal-distance predecessor selection, zero-weight parent-cycle guard, and overflow handling; disconnected/extreme-weight tests | GCC, Clang and ASan/UBSan passed on an earlier feature-branch commit (not the current head) |
-| Ride lifecycle/dispatch | Cancellation releases drivers; tests cover cancellation/reassignment, deterministic driver ties and unreachable drivers | GCC, Clang and ASan/UBSan passed on `3703d665ce6794af1148371a903883c9201bd2d2`; rerun the full suite on the current head |
-| Benchmarking | Deterministic 1,000-node / 1,000-query benchmark; CI publishes a CSV artifact with environment notes | Download the artifact from the [C++ workflow runs](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/cpp.yml); no benchmark sample is currently checked into this branch, and one run is not a general performance claim |
+| Route algorithm | Deterministic equal-distance predecessor selection, zero-weight parent-cycle guard, and overflow handling; disconnected/extreme-weight tests | GCC, Clang and ASan/UBSan run on the current PR head; check PR #4 for the latest result |
+| Ride lifecycle/dispatch | Cancellation releases drivers; tests cover cancellation/reassignment, deterministic driver ties and unreachable drivers | GCC, Clang and ASan/UBSan are required on every release-candidate head; check PR #4 for the latest result |
+| Benchmarking | Deterministic 1,000-node / 1,000-query benchmark; CI publishes a CSV artifact with environment notes | A sample is checked into [`benchmarks/results/ubuntu-latest-2026-10-18.csv`](benchmarks/results/ubuntu-latest-2026-10-18.csv), and CI publishes fresh CSV artifacts; one run is not a general performance claim |
 | Web UI | React + TypeScript + Vite; lazy-loaded Leaflet map; Nominatim geocoding + OSRM road geometry; pickup/drop autocomplete; quote expiry validation | CI covers typecheck/build, high-severity npm audit, gzip budgets, desktop/mobile Playwright E2E and axe accessibility audit; dependency installation is lockfile-backed with `npm ci` |
 | API service | C++17 Boost.Beast HTTP server; database liveness and schema readiness probes, quote, passenger auth/booking/history/cancellation, driver queue/accept/status/availability, admin driver provisioning/approval/suspension, and metrics routes | CI builds with warnings as errors and smoke-tests API/database behavior, including request size limits and booking validation; public routing providers are not exercised by CI |
 | PostgreSQL | Versioned migrations include accounts, driver profiles, rides, quotes, idempotency, active-driver uniqueness, explicit driver approval, admin audit events and a transactional ride-event outbox | CI is configured to apply all migrations twice and check schema/outbox invariants; no production database is configured |
 | Authentication and passenger booking | PBKDF2 password hashing, short-lived signed access tokens, role/ownership checks, quote consumption, transactional idempotency, ride history and cancellation | API implemented with smoke coverage; expand authorization and concurrency tests before release |
 | Driver/admin operations | Driver queue is restricted to approved online drivers with a fresh location and configurable pickup radius (20 km default); acceptance rechecks approval, freshness and distance transactionally; admin can provision/approve/suspend, review audit history, and actions are audited | Connected driver/admin workspaces and API smoke coverage; real identity/vehicle verification remains out of scope |
 | Realtime, payments and safety operations | Durable outbox worker publishes through PostgreSQL NOTIFY with retry/dead-letter handling; API exposes authenticated SSE with persisted-event replay and the passenger UI consumes ride-status frames | SSE fallback/resync needs broader load/reconnect verification; payments and safety operations remain release blockers |
-| Reproducible installs | `web/package-lock.json` is committed and web CI uses `npm ci` | CI validates lockfile-backed installation; re-run on the current head before release |
+| Reproducible installs | `web/package-lock.json` is committed and web CI uses `npm ci` | CI validates lockfile-backed installation on the PR head; check the latest result before release |
 | Deployment and screenshots | No live full-stack deployment verified | Planned |
 
-### Last full release-candidate code verification
+### CI and release evidence
 
-All eight GitHub Actions suites passed on exact code commit `a779dd8bf0949dab453af90a1cd8ba50d30890e7` (2026-10-19). This revision includes a regression test proving SSE reconnect replay returns more than 100 persisted ride events rather than silently truncating history, plus a visible keyboard skip link and a Playwright keyboard-focus regression test.
-- [C++ build/tests, sanitizers and benchmark](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726585)
-- [API/HTTP smoke and paginated SSE replay](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726029)
-- [PostgreSQL migrations, invariants and restore smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726160)
-- [Web build, typecheck, Playwright and axe](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726151)
-- [Full Compose startup smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321725925)
-- [Dependency audit](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726453)
-- [CodeQL C++/TypeScript analysis](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726288)
-- [Container vulnerability scan](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321725956)
+PR #4 runs the eight release suites: C++ builds/tests/sanitizers/benchmark, API and HTTP integration, PostgreSQL migrations/invariants/restore, web typecheck/build/Playwright/axe, Compose startup, dependency audit, CodeQL, and container vulnerability scanning. Use the latest [PR #4 checks](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/4) and verify they all pass on the same head SHA. Historical green runs do not validate later commits.
 
-These runs are evidence for that exact code commit, not a guarantee about future code. See [PR #4](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/4) for the current release-candidate branch and require all applicable workflows to pass again after code changes. A live full-stack deployment is not yet verified; this is a portfolio MVP, not a commercial transport service.
-
-### Frontend development
-
-```bash
-cd web
-npm install
-npm run dev
-npm run typecheck
-npm run build
-```
-
-The web CI workflow runs typechecking, production builds, Playwright desktop/mobile E2E, axe accessibility checks, high-severity dependency audit and gzip budgets. The web interface requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. Passengers can request their current pickup through browser geolocation and reverse geocoding; permission denial, unavailable location and provider failures are shown without inventing an address. The API calculates and persists a five-minute demo quote in PostgreSQL; the UI supports passenger registration/sign-in, persisted booking, cancellation and ride history. Approved drivers can go online with browser geolocation, refresh their location approximately once per minute, discover eligible nearby requests and manually accept them; acceptance is transactional and enforces the active-ride invariant. Passenger and driver ride-state updates use authenticated SSE with persisted replay and REST resynchronization. This is not autonomous dispatch or continuous high-frequency GPS tracking. Public demo routing endpoints are for evaluation only. Lockfile-backed installs use the committed `web/package-lock.json` and `npm ci`; deployment verification remains tracked in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
-
-### C++ tests and benchmark
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-
-cmake -S . -B build-bench -DSMART_BIKE_TAXI_BUILD_BENCHMARKS=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build build-bench --target smart_bike_taxi_benchmark --parallel
-./build-bench/smart_bike_taxi_benchmark 1000 1000
-```
-
-The benchmark prints CSV timing data for route queries and custom-versus-standard hash lookup. Results are hardware/compiler/dataset dependent; do not claim one structure is faster until results are recorded under a reproducible environment.
-
-### Backend contract and schema
-
-See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.yaml), [initial PostgreSQL migration](backend/migrations/001_initial_schema.sql), and [driver approval/outbox migration](backend/migrations/002_driver_approval_and_outbox.sql), plus [outbox retry/dead-letter migration](backend/migrations/003_outbox_dead_letters.sql) and [support-report migration](backend/migrations/004_support_reports.sql). The native service supports database-backed quotes, passenger registration/login, signed access tokens, idempotent booking transactions, ride history/detail reads, cancellation, driver queue/availability/acceptance/lifecycle-transition endpoints, audited admin driver provisioning/approval/suspension, admin metrics, bounded recent admin-audit history, authenticated support report creation, and audited admin report resolution. The driver workspace requests browser geolocation, refreshes location/queue while online, and signs out by attempting to mark the driver offline. Authenticated SSE ride-status updates and a fresh driver-location marker are implemented for active rides; the marker is refreshed from the authorized ride-detail API and disappears when location becomes stale. Use the one-time [admin bootstrap utility](backend/src/bootstrap_admin.cpp) and [operations runbook](docs/OPERATIONS_RUNBOOK.md) to create the first local administrator. Backend CI covers API compilation, auth/booking smoke behavior, and clean PostgreSQL migrations. Real-world identity/vehicle verification, broader concurrency/authorization tests, broader SSE reconnect/load verification, and production deployment remain release gates. Track the remaining work in [issue #2](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/2).
-
-Security automation includes scheduled CodeQL analysis for C++/TypeScript, a lockfile-backed npm audit, and scheduled high-severity container vulnerability scans; those checks must pass on the release SHA before merge. License-policy review remains a manual release gate until GitHub's dependency graph is enabled for this repository. The API also emits redacted JSON request-completion logs and provides a schema-aware readiness endpoint.
-
-See also the [implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md), [security model and release checklist](docs/SECURITY_MODEL.md), and [operations runbook](docs/OPERATIONS_RUNBOOK.md), plus the [driver verification policy](docs/DRIVER_VERIFICATION_POLICY.md). These documents separate implemented behavior from release blockers and do not claim commercial readiness.
-
-### Run the API and PostgreSQL locally
-
-With Docker Compose installed, copy `.env.example` to `.env`, replace the local database password in both `POSTGRES_PASSWORD` and `DATABASE_URL`, set a contact-bearing `RIDEFORGE_USER_AGENT`, and generate a random `RIDEFORGE_JWT_SECRET` of at least 32 characters. Optional provider URL overrides are documented in the template. Then run:
-
-```bash
-docker compose up --build
-curl http://localhost:8080/api/v1/health
-curl --fail http://localhost:8080/api/v1/ready
-```
-
-Compose applies all ordered migrations to the local PostgreSQL volume before starting the API and outbox worker. Use a strong local password and do not reuse development values in a public deployment. The quote endpoint depends on public Nominatim/OSRM demo services; configure a real provider/contact identifier before use and do not treat these endpoints as production infrastructure.
-
-### Container deployment
-
-See [the local deployment guide](docs/local-deployment.md) for the web/API/PostgreSQL Compose stack, health checks, and operational limits.
-
-### UI libraries and attribution
-
-The design is original and may incorporate licensed open-source components selectively. Review each upstream package's license and retain its notices before copying or vendoring code. Reference libraries include [React Bits](https://github.com/DavidHDev/react-bits), [Magic UI](https://github.com/magicuidesign/magicui), [Radix UI](https://www.radix-ui.com/), [Motion](https://motion.dev/) and [Lucide](https://lucide.dev/). No third-party proprietary ride-hailing source or branding is copied.
-
+The API integration suite validates the configurable dispatch radius using a non-default value and confirms invalid radius configuration fails before the listener starts. A live full-stack deployment, genuine deployed screenshots, manual accessibility review, and production operational/legal gates remain open.
 ## Overview
 
 Smart Bike Taxi Platform is an interactive terminal application that demonstrates how core DSA concepts can support a simplified ride-hailing workflow. It uses a small, illustrative Noida road network and lets users register riders and drivers, request and cancel rides, dispatch requests, estimate fares, and review ride history.

@@ -30,7 +30,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Compose starts PostgreSQL, applies ordered migrations, starts the API and outbox worker, then starts the web container after API readiness.
+Compose starts PostgreSQL, applies ordered migrations, starts the API and outbox worker, then starts the web container after API readiness. The great-circle dispatch radius can be configured with `RIDEFORGE_DISPATCH_RADIUS_METERS` (default 20,000 m; accepted range 1,000–100,000 m). See [the end-to-end demo walkthrough](DEMO_WALKTHROUGH.md) for passenger, driver and admin steps.
 
 ## Verify readiness
 

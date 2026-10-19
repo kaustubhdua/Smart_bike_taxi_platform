@@ -34,7 +34,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Add a reproducible frontend lockfile install (npm ci).
 - [x] Add explicit driver approval and a transactional event outbox foundation.
 - [x] Add smoke tests for offline queue privacy and unapproved driver rejection.
-- [x] Run all eight CI/security workflows on the exact pre-hardening release-candidate SHA `64e3286c98f2ce9a61055b1d5511253076ebe3c0`; rerun them after the dispatch-policy change.
+- [x] Wire automatic PR checks for the eight CI/security suites and a manual full release-readiness workflow; the current head's checks are tracked in PR #4.
 - [ ] Reconcile README, this roadmap, OpenAPI, PR description and issue tracker after the final release SHA is established.
 - [x] CI starts the complete Compose stack from a clean database, waits for schema readiness, checks API health and web HTML, then tears the stack down.
 
