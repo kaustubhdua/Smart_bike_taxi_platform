@@ -107,5 +107,8 @@ jobs:
             cat /tmp/rideforge-outbox.log
             exit 1
           fi
+          grep -q '"event":"http_request_completed"' /tmp/rideforge-api.log
+          grep -q '"requestId":' /tmp/rideforge-api.log
+          grep -q '"durationMs":' /tmp/rideforge-api.log
       - name: Verify migration invariants
         run: psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
