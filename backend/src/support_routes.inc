@@ -135,6 +135,44 @@ http::response<http::string_body> handle_support_reports(
                 return response(http::status::not_found, {{"error", "ride_not_found"}}, request);
             }
         }
+        PGresult* begun = PQexec(connection, "BEGIN");
+        if (begun == nullptr || PQresultStatus(begun) != PGRES_COMMAND_OK) {
+            if (begun != nullptr) PQclear(begun);
+            PQfinish(connection);
+            return response(http::status::service_unavailable, {{"error", "support_unavailable"}}, request);
+        }
+        PQclear(begun);
+        const char* rate_params[] = {claims->subject.c_str()};
+        PGresult* locked = PQexecParams(connection,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", 1, nullptr,
+            rate_params, nullptr, nullptr, 0);
+        if (locked == nullptr || PQresultStatus(locked) != PGRES_TUPLES_OK) {
+            if (locked != nullptr) PQclear(locked);
+            PGresult* rollback = PQexec(connection, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            PQfinish(connection);
+            return response(http::status::service_unavailable, {{"error", "support_unavailable"}}, request);
+        }
+        PQclear(locked);
+        PGresult* count = PQexecParams(connection,
+            "SELECT count(*)::integer FROM support_reports WHERE reporter_id=$1::uuid "
+            "AND created_at>now()-interval '1 hour'",
+            1, nullptr, rate_params, nullptr, nullptr, 0);
+        if (count == nullptr || PQresultStatus(count) != PGRES_TUPLES_OK || PQntuples(count) != 1) {
+            if (count != nullptr) PQclear(count);
+            PGresult* rollback = PQexec(connection, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            PQfinish(connection);
+            return response(http::status::service_unavailable, {{"error", "support_unavailable"}}, request);
+        }
+        const bool rate_limited = std::stoi(PQgetvalue(count, 0, 0)) >= 5;
+        PQclear(count);
+        if (rate_limited) {
+            PGresult* rollback = PQexec(connection, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            PQfinish(connection);
+            return response(http::status::too_many_requests, {{"error", "support_rate_limited"}}, request);
+        }
         const char* params[] = {claims->subject.c_str(), ride_id.c_str(), category.c_str(), description.c_str()};
         PGresult* inserted = PQexecParams(connection,
             "INSERT INTO support_reports (reporter_id,ride_id,category,description) "
@@ -144,11 +182,20 @@ http::response<http::string_body> handle_support_reports(
             4, nullptr, params, nullptr, nullptr, 0);
         if (inserted == nullptr || PQresultStatus(inserted) != PGRES_TUPLES_OK || PQntuples(inserted) != 1) {
             if (inserted != nullptr) PQclear(inserted);
+            PGresult* rollback = PQexec(connection, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
             PQfinish(connection);
             return response(http::status::service_unavailable, {{"error", "support_unavailable"}}, request);
         }
         const auto report = support_row(inserted, 0, false);
         PQclear(inserted);
+        PGresult* committed = PQexec(connection, "COMMIT");
+        if (committed == nullptr || PQresultStatus(committed) != PGRES_COMMAND_OK) {
+            if (committed != nullptr) PQclear(committed);
+            PQfinish(connection);
+            return response(http::status::service_unavailable, {{"error", "support_unavailable"}}, request);
+        }
+        PQclear(committed);
         PQfinish(connection);
         return response(http::status::created, report, request);
     }
