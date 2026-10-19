@@ -405,9 +405,13 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
   await page.getByRole("button", { name: /Use my location and go online/ }).click();
   await expect(page.getByRole("button", { name: "Go offline" })).toBeVisible();
   expect(availability[0]).toMatchObject({ online: true, latitude: 28.53, longitude: 77.35 });
+  await page.context().setGeolocation({ latitude: 28.531, longitude: 77.351 });
+  await expect.poll(() => availability.some(item =>
+    item.online && item.latitude === 28.531 && item.longitude === 77.351
+  ), { timeout: 5000 }).toBe(true);
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("button", { name: /Sign in securely/ })).toBeVisible();
-  expect(availability.at(-1)).toMatchObject({ online: false, latitude: 28.53, longitude: 77.35 });
+  expect(availability.at(-1)).toMatchObject({ online: false, latitude: 28.531, longitude: 77.351 });
 });
 
 
