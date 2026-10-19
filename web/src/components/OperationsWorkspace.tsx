@@ -339,7 +339,8 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       const params = new URLSearchParams();
       if (rideSearch.trim()) params.set("q", rideSearch.trim());
       if (rideStatusFilter) params.set("status", rideStatusFilter);
-      const data = await request("/api/v1/admin/rides" + (params.size ? "?" + params.toString() : ""));
+      const queryString = params.toString();
+      const data = await request("/api/v1/admin/rides" + (queryString ? "?" + queryString : ""));
       if (!Array.isArray(data.rides)) throw new Error("The API returned an invalid ride search result.");
       setAdminRideResults(data.rides as AdminRideSearchItem[]);
       setError("Ride search refreshed from PostgreSQL.");
