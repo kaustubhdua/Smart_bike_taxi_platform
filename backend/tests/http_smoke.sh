@@ -305,6 +305,10 @@ status="$(curl --silent --show-error --output "$tmp_dir/support-list.json" --wri
   --header "Authorization: Bearer $token" "$base_url/api/v1/support/reports")"
 test "$status" = "200"
 grep -q "\"id\":\"$support_report_id\"" "$tmp_dir/support-list.json"
+status="$(curl --silent --show-error --output "$tmp_dir/support-other-list.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $other_token" "$base_url/api/v1/support/reports")"
+test "$status" = "200"
+! grep -q "$support_report_id" "$tmp_dir/support-other-list.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/support-cross-account.json" --write-out '%{http_code}' \
   --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $other_token" \
@@ -327,6 +331,10 @@ status="$(curl --silent --show-error --output "$tmp_dir/support-resolve.json" --
   "$base_url/api/v1/admin/support-reports/$support_report_id")"
 test "$status" = "200"
 grep -q '"status":"resolved"' "$tmp_dir/support-resolve.json"
+status="$(curl --silent --show-error --output "$tmp_dir/support-terminal-update.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
+  --data '{"status":"in_review"}' "$base_url/api/v1/admin/support-reports/$support_report_id")"
+test "$status" = "409"
 test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM admin_audit_events WHERE actor_id='$admin_id' AND action='support_report.status_changed' AND target_id='$support_report_id'")" = "2"
 
 grep -q '"status":"requested"' "$tmp_dir/booking.json"
