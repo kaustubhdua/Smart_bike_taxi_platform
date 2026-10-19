@@ -73,3 +73,8 @@ docker compose down
 The named PostgreSQL volume is preserved. To deliberately destroy local demo data, use `docker compose down --volumes` only after confirming that you no longer need it.
 
 For backup/restore guidance and release blockers, see [the operations runbook](OPERATIONS_RUNBOOK.md).
+
+
+## Dispatch configuration
+
+Set `RIDEFORGE_DISPATCH_RADIUS_KM` in `.env` to an integer from `1` to `100`; the default is `20`. The same value controls both driver queue visibility and transactional acceptance. Invalid values fail API startup. This is a configurable great-circle demo radius, not a road-ETA guarantee.
