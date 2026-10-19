@@ -48,7 +48,7 @@ export default function App() {
   const [authName, setAuthName] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
-  const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
+  const [ride, setRide] = useState<{ rideId: string; status: string; driverName?: string; vehicleRegistration?: string } | null>(null);
   const [rideHistory, setRideHistory] = useState<PassengerRide[] | null>(null);
   const [receipt, setReceipt] = useState<PassengerRide | null>(null);
   const [tripDriverLocation, setTripDriverLocation] = useState<{ latitude: number; longitude: number; updatedAt: string } | null>(null);
@@ -262,18 +262,26 @@ export default function App() {
       in_progress: 4, completed: 5, cancelled: 5, failed: 5,
     };
 
-    const applyStatus = (data: { rideId?: string; status?: string }) => {
+    const applyStatus = (data: { rideId?: string; status?: string; driverName?: string; vehicleRegistration?: string }) => {
       if (disposed || data.rideId !== ride.rideId || typeof data.status !== "string" ||
-          data.status === lastKnownStatus || terminal() ||
           statusRank[data.status] === undefined || statusRank[lastKnownStatus] === undefined ||
           statusRank[data.status] < statusRank[lastKnownStatus]) return;
-      lastKnownStatus = data.status;
+      const statusChanged = data.status !== lastKnownStatus;
+      if (statusChanged && terminal()) return;
+      if (statusChanged) lastKnownStatus = data.status;
       setRide(current => {
         if (!current || current.rideId !== data.rideId) return current;
-        return { rideId: current.rideId, status: data.status! };
+        return {
+          ...current,
+          status: data.status!,
+          ...(typeof data.driverName === "string" ? { driverName: data.driverName } : {}),
+          ...(typeof data.vehicleRegistration === "string" ? { vehicleRegistration: data.vehicleRegistration } : {}),
+        };
       });
-      setNotice("Ride status updated to " + data.status + ".");
-      if (terminal()) { setTripDriverLocation(null); streamAbort.abort(); }
+      if (statusChanged) {
+        setNotice("Ride status updated to " + data.status + ".");
+        if (terminal()) { setTripDriverLocation(null); streamAbort.abort(); }
+      }
     };
 
     const refreshRide = async () => {
@@ -285,7 +293,7 @@ export default function App() {
           signal: AbortSignal.timeout(8000),
         });
         if (!response.ok) return;
-        const data = await response.json() as { rideId?: string; status?: string; driverLocation?: { latitude?: number; longitude?: number; updatedAt?: string } };
+        const data = await response.json() as { rideId?: string; status?: string; driverName?: string; vehicleRegistration?: string; driverLocation?: { latitude?: number; longitude?: number; updatedAt?: string } };
         applyStatus(data);
         if (data.rideId === ride.rideId && data.driverLocation &&
             typeof data.driverLocation.latitude === "number" && Number.isFinite(data.driverLocation.latitude) &&
@@ -763,7 +771,10 @@ export default function App() {
               {ride && (
                 <div className="ride-confirmation" role="status">
                   <span className="confirmation-icon"><Check size={17} /></span>
-                  <div><strong>Ride request created</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status}. Updates refresh while this page is visible.</small></div>
+                  <div><strong>Ride request created</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status}. Updates refresh while this page is visible.</small>
+                    {["assigned", "driver_arriving", "in_progress"].includes(ride.status) && ride.driverName && ride.vehicleRegistration &&
+                      <small>Driver: {ride.driverName} · Vehicle: {ride.vehicleRegistration}</small>}
+                  </div>
                   {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && (
                     <button className="text-action" onClick={cancelRide}>Cancel request</button>
                   )}
