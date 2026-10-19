@@ -64,6 +64,12 @@ export default function RouteMap({ geometry, pickup, destination, driverLocation
     return <div className="route-map-empty" role="status">A real road route will appear here when routing succeeds.</div>;
   }
 
-  return <div ref={elementRef} className="route-map-canvas" role="application"
-    aria-label={`Interactive road map from ${pickup} to ${destination}${driverLocation ? ". Includes the driver’s latest reported location" : ""}. Use map controls to zoom and drag to pan.`} />;
+  return <>
+    <div ref={elementRef} className="route-map-canvas" role="application"
+      aria-label={`Interactive road map from ${pickup} to ${destination}${driverLocation ? ". Includes the driver’s latest reported location" : ""}. Use map controls to zoom and drag to pan.`}
+      aria-describedby="route-map-description" />
+    <p id="route-map-description" className="sr-only">
+      Route map from {pickup} to {destination}. The route distance, estimated duration and fare are also provided as text in the booking summary. Use the map's zoom controls or keyboard controls to explore the map. OpenStreetMap attribution is available as a link. {driverLocation ? `The driver's latest reported location was updated at ${new Date(driverLocation.updatedAt).toLocaleString()}.` : "No live driver location is currently shown."}
+    </p>
+  </>;
 }
