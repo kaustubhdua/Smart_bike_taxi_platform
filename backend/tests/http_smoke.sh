@@ -17,6 +17,9 @@ grep -q '"status":"ready"' "$tmp_dir/readiness.json"
 grep -q '"status":"ok"' "$tmp_dir/health.json"
 grep -q '"database":"connected"' "$tmp_dir/health.json"
 grep -qi '^X-Request-ID: [A-Za-z0-9_-]\{8,\}' "$tmp_dir/health.headers"
+grep -qi '^Cache-Control: no-store' "$tmp_dir/health.headers"
+grep -qi '^X-Content-Type-Options: nosniff' "$tmp_dir/health.headers"
+grep -qi '^Referrer-Policy: no-referrer' "$tmp_dir/health.headers"
 
 # Readiness must fail closed if the current migration ledger is incomplete.
 psql -v ON_ERROR_STOP=1 -c "DELETE FROM schema_migrations WHERE version = '002_driver_approval_and_outbox'" >/dev/null
