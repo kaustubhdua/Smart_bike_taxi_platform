@@ -133,11 +133,11 @@ paths:
   /rides/{rideId}:
     get:
       summary: Read a ride authorized to the authenticated user
-      description: Includes driverLocation only for assigned, arriving or in-progress rides when the caller is a passenger or assigned driver and the reported location is newer than two minutes.
+      description: Includes fresh driverLocation only for assigned, arriving or in-progress rides when the caller is a passenger or assigned driver; includes driverName and vehicleRegistration only for the owning passenger during an active trip.
       parameters:
         - $ref: "#/components/parameters/RideId"
       responses:
-        "200": { description: Ride details, optionally including a fresh authorized driverLocation }
+        "200": { description: Ride details; active-trip driver details are passenger-only and active-trip location is participant-only and freshness-limited }
         "403": { description: Forbidden }
         "404": { description: Not found }
   /rides/{rideId}/events:
