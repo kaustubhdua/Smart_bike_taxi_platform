@@ -13,6 +13,7 @@ The native C++17 HTTP service now implements:
 - `PUT /api/v1/driver/availability`: role-checked availability/location updates; only profiles explicitly approved by an administrator can go online.
 - Driver queue visibility is restricted to approved drivers who are online with a location updated in the last five minutes and pickup coordinates within the configurable `RIDEFORGE_DISPATCH_RADIUS_KM` great-circle radius (integer 1–100 km, default 20 km). Invalid values fail startup. Queue results are ranked by pickup distance; acceptance rechecks approval, freshness and the same radius inside the transaction. This is not road-ETA ranking.
 - `POST /api/v1/driver/rides/{rideId}/accept` and `PUT /api/v1/driver/rides/{rideId}/status`: transactional driver acceptance, conflict-safe assignment, lifecycle transitions, and event records.
+- `GET /api/v1/driver/rides/history`: recent driver trips and a gross completed-fare total; it is explicitly not a payout or net-earnings ledger.
 - `GET /api/v1/admin/rides?q=...&status=...`: admin-only bounded ride search by ride ID, passenger/driver email, pickup/drop-off and optional valid status.
 - `GET /api/v1/admin/metrics`: role-checked database-backed ride/driver counts plus pending outbox, dead-letter and oldest-pending-age metrics.
 - `POST /api/v1/support/reports` and `GET /api/v1/support/reports`: participant-scoped support/incident reports for passengers and drivers, with optional ride ownership validation and a transactional five-reports-per-hour account limit.
@@ -36,7 +37,7 @@ The current demo fare is ₹20 base + ₹11/km, rounded up to a whole paise. Thi
 
 ## Not yet implemented
 
-The API is an incremental backend foundation, **not a complete ride-hailing service**. The current CI exercises account registration/login, persisted booking, idempotency replay/conflict, quote expiry rejection, health, and basic validation. Remaining gaps include real-world identity/vehicle document verification, production scaling, richer client retry/resynchronization tests, and WebSocket support if bidirectional realtime becomes necessary, production-grade distributed rate limiting, API connection pooling, payment, safety operations, and production deployment. The passenger UI supports sign-in and ride confirmation; the driver workspace calls the protected queue, lifecycle and availability endpoints; the admin workspace can provision, approve and suspend drivers as well as view metrics. A quote does not create a ride.
+The API is a portfolio MVP, **not a complete commercial ride-hailing service**. Current-head CI still must verify the latest changes. Remaining gaps include real-world identity/vehicle document verification, production scaling, production-grade distributed rate limiting, API connection pooling, deadlock/load testing, payment/refund reconciliation, staffed safety operations, data-retention policy, monitoring and production deployment. The passenger UI supports booking, trip history, demo receipts and support reports; the driver workspace supports availability, dispatch, lifecycle actions and trip history; the admin workspace supports driver approval, ride search, metrics, audit history and support triage. A quote does not create a ride, and a demo receipt is not proof of payment.
 
 ## Database invariants
 
