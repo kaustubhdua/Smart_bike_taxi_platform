@@ -187,10 +187,13 @@ http::response<http::string_body> handle_support_reports(
         PQfinish(connection);
         return response(http::status::unprocessable_entity, {{"error", "invalid_report_resolution"}}, request);
     }
-    if (PQexec(connection, "BEGIN") == nullptr) {
+    PGresult* begun = PQexec(connection, "BEGIN");
+    if (begun == nullptr || PQresultStatus(begun) != PGRES_COMMAND_OK) {
+        if (begun != nullptr) PQclear(begun);
         PQfinish(connection);
         return response(http::status::service_unavailable, {{"error", "support_unavailable"}}, request);
     }
+    PQclear(begun);
     const char* update_params[] = {id.c_str(), status.c_str(), resolution_note.c_str(), claims->subject.c_str()};
     PGresult* updated = PQexecParams(connection,
         "UPDATE support_reports SET status=$2,resolution_note=$3,"
