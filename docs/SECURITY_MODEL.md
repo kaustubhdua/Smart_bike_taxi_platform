@@ -37,7 +37,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 
 - Tokens remain valid until expiry; there is no general token revocation/session registry yet.
 - In-process rate limits do not coordinate across multiple API replicas and are not a substitute for edge/WAF limits.
-- There is no shared PostgreSQL connection pool, production monitoring or verified restore drill yet. The API has an authenticated SSE stream backed by PostgreSQL NOTIFY and persisted-event replay, but it has not been load-tested and driver/admin push subscriptions are not implemented. NOTIFY alone is not a durable client-delivery guarantee; REST resynchronization remains necessary.
+- There is no shared PostgreSQL connection pool or production monitoring, and the CI restore smoke test is not a scheduled production restore drill. Authenticated SSE is available to authorized passenger/driver ride participants with persisted-event replay; it has not yet been load-tested under sustained reconnects. Admin dashboards currently refresh by REST rather than SSE. PostgreSQL NOTIFY is a wake-up signal, not a durable client-delivery guarantee; persisted event replay and REST resynchronization remain necessary.
 - Driver approval is an administrative workflow, not identity, licence, insurance or vehicle-document verification.
 - Location updates are user-submitted and freshness-checked, not proof of real GPS provenance.
 - Public routing/geocoding endpoints are for development/evaluation only.
