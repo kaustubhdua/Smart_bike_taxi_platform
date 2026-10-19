@@ -13,6 +13,7 @@ type RideRequest = {
 type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number; pendingOutboxEvents?: number; deadLetteredOutboxEvents?: number; oldestPendingOutboxAgeSeconds?: number };
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
+type DriverHistory = { rides: Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string; completedAt: string | null }>; completedTrips: number; totalEarningsPaise: number; currency: string };
 
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [email, setEmail] = useState("");
@@ -23,6 +24,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [online, setOnline] = useState(false);
   const [rides, setRides] = useState<RideRequest[]>([]);
+  const [driverHistory, setDriverHistory] = useState<DriverHistory | null>(null);
   const [activeRide, setActiveRide] = useState<{ rideId: string; status: string } | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -272,9 +274,24 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     } catch {
       setError("Signed out locally. If the offline request failed, dispatch eligibility expires when the location becomes stale.");
     } finally {
-      setToken(""); setRides([]); setActiveRide(null); setOnline(false); setDriverLocation(null);
+      setToken(""); setRides([]); setDriverHistory(null); setActiveRide(null); setOnline(false); setDriverLocation(null);
       setBusy(false);
     }
+  }
+
+  async function refreshDriverHistory() {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/driver/history");
+      if (!Array.isArray(data.rides) || typeof data.completedTrips !== "number" ||
+          typeof data.totalEarningsPaise !== "number" || data.currency !== "INR") {
+        throw new Error("The API returned invalid driver history.");
+      }
+      setDriverHistory(data as unknown as DriverHistory);
+      setError("Driver trip history and earnings refreshed from PostgreSQL.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Driver history unavailable.");
+    } finally { setBusy(false); }
   }
 
   async function refreshMetrics() {
@@ -387,6 +404,15 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               <div className="driver-queue"><h3>Available requests ({rides.length})</h3>
                 {rides.length === 0 ? <p>Queue is empty or has not been loaded yet.</p> : rides.map(ride => <div className="ride-confirmation" key={ride.rideId}><div><strong>{ride.pickup} → {ride.destination}</strong><span>{typeof ride.pickupDistanceMeters === "number" ? "Pickup " + (ride.pickupDistanceMeters / 1000).toFixed(1) + " km away · " : ""}{ride.distanceMeters ? (ride.distanceMeters / 1000).toFixed(1) + " km trip · " : ""}₹{(ride.farePaise / 100).toFixed(2)}</span><small>{ride.rideId}</small></div><button className="text-action" onClick={() => rideAction(ride.rideId, "accept")} disabled={busy}>Accept</button></div>)}
               </div>
+              <button className="outline-button" onClick={refreshDriverHistory} disabled={busy}><RefreshCw size={15} /> Refresh trip history and earnings</button>
+              {driverHistory && <div className="driver-queue">
+                <h3>Completed trips and earnings</h3>
+                <p>Lifetime completed trips: <strong>{driverHistory.completedTrips}</strong> · lifetime earnings: <strong>₹{(driverHistory.totalEarningsPaise / 100).toFixed(2)}</strong></p>
+                <h4>Recent trips</h4>
+                {driverHistory.rides.length === 0 ? <p>No trips recorded yet.</p> : driverHistory.rides.map(ride => <div className="ride-confirmation" key={ride.rideId}>
+                  <div><strong>{ride.pickup} → {ride.destination}</strong><span>{ride.status.replaceAll("_", " ")} · ₹{(ride.farePaise / 100).toFixed(2)}</span><small>{ride.completedAt ? new Date(ride.completedAt).toLocaleString() : "Requested " + new Date(ride.createdAt).toLocaleString()}</small></div>
+                </div>)}
+              </div>}
             </>
           ) : (
             <>
