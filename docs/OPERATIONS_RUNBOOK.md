@@ -89,3 +89,21 @@ Before any public launch, provide HTTPS, managed secrets, least-privilege databa
 ## Deployment probes
 
 Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable or required account, ride, outbox, or migration-ledger tables are missing. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
+
+
+## Backup and restore
+
+Use the repository scripts only with a deliberate database target. Keep backup files outside the repository and protect them as sensitive data; a database dump contains account and ride data.
+
+```sh
+umask 077
+DATABASE_URL="$DATABASE_URL" sh backend/scripts/backup.sh ./secure-backups/rideforge-$(date -u +%Y%m%dT%H%M%SZ).dump
+```
+
+Restore into a **dedicated empty database** first; the restore script intentionally does not drop or clean existing objects:
+
+```sh
+DATABASE_URL="$RESTORE_DATABASE_URL" sh backend/scripts/restore.sh ./secure-backups/rideforge-backup.dump
+```
+
+After restoration, run migration/readiness checks and verify representative account, ride, event, and idempotency counts before considering a recovery successful. Store backups encrypted at rest in a separate access-controlled location, define retention/deletion, and periodically perform a timed restore drill. CI runs a disposable-database backup/restore smoke test; that is not evidence of a production backup schedule or recovery-time objective.
