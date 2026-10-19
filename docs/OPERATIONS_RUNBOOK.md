@@ -93,11 +93,14 @@ Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for r
 
 ## Backup and restore
 
-Use the repository scripts only with a deliberate database target. Keep backup files outside the repository and protect them as sensitive data; a database dump contains account and ride data.
+Use the repository scripts only with a deliberate database target. Keep backup files outside the repository and protect them as sensitive data; a database dump contains account and ride data. Run these scripts on a trusted host with PostgreSQL client tools (`pg_dump` and `pg_restore`) installed. For local Compose, load the non-secret-placeholder settings from `.env` into the current shell first; do not commit real credentials.
 
 ```sh
+set -a
+. ./.env
+set +a
 umask 077
-DATABASE_URL="$DATABASE_URL" sh backend/scripts/backup.sh ./secure-backups/rideforge-$(date -u +%Y%m%dT%H%M%SZ).dump
+sh backend/scripts/backup.sh ./secure-backups/rideforge-$(date -u +%Y%m%dT%H%M%SZ).dump
 ```
 
 Restore into a **dedicated empty database** first; the restore script intentionally does not drop or clean existing objects:
