@@ -59,7 +59,9 @@ Acceptance: adversarial integration tests pass and no client can read or mutate 
 - [ ] Add driver profile/vehicle fields and a documented demo verification policy.
 - [x] Reject stale or out-of-area offers at both queue and acceptance time (20 km great-circle demo radius).
 - [ ] Add a driver trip history/earnings ledger that is derived from persisted rides.
-- [ ] Add admin ride search, failed dispatch inspection and incident records.
+- [x] Add bounded admin ride search by ride ID, account email, pickup/drop-off and status with server-side role checks.
+- [x] Add persisted support/incident reports, participant-only ride references, per-account rate limiting, admin triage and transactional audit events.
+- [ ] Add failed-dispatch alerting, escalation policy and external support operations.
 
 Acceptance: a newly created driver cannot go online until explicitly approved; suspended drivers lose dispatch eligibility. The API and UI are implemented; CI evidence on the current head is still required.
 
@@ -79,7 +81,9 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 
 - [ ] Finish pickup/destination autocomplete, map selection, accessible map alternatives and quote expiry handling.
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
-- [ ] Add trip detail/history, receipt, support reporting and clear empty/error/offline states.
+- [x] Add passenger trip history with final fare/completion timestamps and a printable demo receipt, plus driver trip history and gross completed-fare summary (not a payout ledger).
+- [x] Add passenger/driver support reporting and admin triage UI.
+- [ ] Finish broader empty/error/offline UX review and manual accessibility sign-off.
 - [ ] Ensure no fabricated success when the API/provider is unavailable.
 - [ ] Complete mobile/browser QA and WCAG 2.2 AA review.
 
