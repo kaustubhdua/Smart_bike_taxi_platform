@@ -1039,7 +1039,9 @@ http::response<http::string_body> response(http::status status, const json& body
                                            const http::request<http::string_body>& request) {
     http::response<http::string_body> result{status, request.version()};
     result.set(http::field::server, "RideForge API");
-    result.set(http::field::content_type, "application/json; charset=utf-8");
+    if (status != http::status::no_content) {
+        result.set(http::field::content_type, "application/json; charset=utf-8");
+    }
     result.set(http::field::cache_control, "no-store");
     result.set("X-Content-Type-Options", "nosniff");
     result.set("Referrer-Policy", "no-referrer");
@@ -1052,8 +1054,14 @@ http::response<http::string_body> response(http::status status, const json& body
         result.set(http::field::access_control_allow_origin, allowed);
         result.set(http::field::vary, "Origin");
     }
-    result.body() = body.dump();
-    result.prepare_payload();
+    if (status == http::status::no_content) {
+        // RFC 9110 forbids a response body on 204. Avoid prepare_payload() on
+        // a non-empty JSON body, which can throw before the CORS response is sent.
+        result.body().clear();
+    } else {
+        result.body() = body.dump();
+        result.prepare_payload();
+    }
     return result;
 }
 
