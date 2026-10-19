@@ -9,6 +9,7 @@ The native C++17 HTTP service now implements:
 - `POST /api/v1/auth/register` and `POST /api/v1/auth/login`: passenger accounts, PBKDF2-HMAC-SHA-256 password hashes using 600,000 iterations for new hashes, short-lived HMAC-signed access tokens, duplicate-email handling, and per-IP authentication throttling.
 - `POST /api/v1/rides`: authenticated quote consumption and ride creation in a PostgreSQL transaction, with idempotency replay/conflict handling and ride-event history.
 - `GET /api/v1/rides`, `GET /api/v1/rides/{rideId}`, and `POST /api/v1/rides/{rideId}/cancel`: passenger history, ownership-scoped reads, and transactional cancellation.
+- `GET /api/v1/driver/history`: recent driver-owned trips plus lifetime completed-trip count and earnings derived from persisted completed rides.
 - `GET /api/v1/rides/{rideId}/events`: authenticated server-sent events scoped to a ride owner, with persisted-event replay from `Last-Event-ID`, PostgreSQL LISTEN/NOTIFY and heartbeats.
 - `PUT /api/v1/driver/availability`: role-checked availability/location updates; only profiles explicitly approved by an administrator can go online.
 - Driver queue visibility is restricted to approved drivers who are online with a location updated in the last five minutes and pickup coordinates within a 20 km great-circle radius. Queue results are ranked by pickup distance; acceptance rechecks approval, freshness and the radius inside the transaction. This is not road-ETA ranking.
