@@ -1837,7 +1837,13 @@ int main() {
             continue;
         }
         std::thread([socket = std::move(socket)]() mutable {
-            try { handle_request(std::move(socket)); } catch (...) {}
+            try {
+                handle_request(std::move(socket));
+            } catch (const std::exception&) {
+                std::cerr << json{{"event", "request_handler_failed"}}.dump() << '\n';
+            } catch (...) {
+                std::cerr << json{{"event", "request_handler_failed_unknown"}}.dump() << '\n';
+            }
             active_sessions.fetch_sub(1, std::memory_order_relaxed);
         }).detach();
     }
