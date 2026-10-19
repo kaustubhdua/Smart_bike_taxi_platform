@@ -1,7 +1,9 @@
 #include <libpq-fe.h>
 #include <nlohmann/json.hpp>
 
+#include <atomic>
 #include <chrono>
+#include <csignal>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -11,6 +13,14 @@
 using json = nlohmann::json;
 
 namespace {
+std::atomic<bool> shutdown_requested{false};
+static_assert(std::atomic<bool>::is_always_lock_free,
+              "signal handler requires a lock-free atomic boolean");
+
+void request_shutdown(int) {
+    shutdown_requested.store(true, std::memory_order_relaxed);
+}
+
 std::string env_or(const char* name, const char* fallback = "") {
     const char* value = std::getenv(name);
     return value != nullptr && *value != '\0' ? value : fallback;
@@ -113,6 +123,8 @@ bool publish_one(PGconn* connection) {
 } // namespace
 
 int main() {
+    std::signal(SIGINT, request_shutdown);
+    std::signal(SIGTERM, request_shutdown);
     const std::string database_url = env_or("DATABASE_URL");
     if (database_url.empty()) {
         std::cerr << "DATABASE_URL is required\n";
@@ -124,7 +136,7 @@ int main() {
         return 2;
     }
 
-    for (;;) {
+    while (!shutdown_requested.load(std::memory_order_relaxed)) {
         PGconn* connection = PQconnectdb(database_url.c_str());
         if (connection == nullptr || PQstatus(connection) != CONNECTION_OK) {
             std::cerr << "{\"event\":\"outbox_database_unavailable\"}\n";
@@ -133,7 +145,7 @@ int main() {
             continue;
         }
         bool reconnect = false;
-        while (!reconnect) {
+        while (!reconnect && !shutdown_requested.load(std::memory_order_relaxed)) {
             try {
                 if (!publish_one(connection)) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(poll_ms));
@@ -147,4 +159,6 @@ int main() {
         }
         PQfinish(connection);
     }
+    std::cerr << "{\"event\":\"outbox_worker_stopped\"}\n";
+    return 0;
 }
