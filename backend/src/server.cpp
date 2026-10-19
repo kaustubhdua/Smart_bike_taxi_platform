@@ -1419,12 +1419,25 @@ void handle_request(tcp::socket socket) {
         (path == "/api/v1/auth/register" || path == "/api/v1/auth/login")) {
         result = handle_auth(request, path, client_ip(stream.socket()));
     } else if (request.method() == http::verb::options) {
-        result = response(http::status::no_content, json::object(), request);
+        // A 204 response must not run prepare_payload() with a string body: some
+        // Beast versions reject payload metadata for no-content status responses.
+        result = http::response<http::string_body>{http::status::no_content, request.version()};
+        result.set(http::field::server, "RideForge API");
+        result.set(http::field::cache_control, "no-store");
+        result.set("X-Content-Type-Options", "nosniff");
+        result.set("Referrer-Policy", "no-referrer");
+        result.set("X-Request-ID", request_id);
+        const auto origin_view = request[http::field::origin];
+        const std::string origin(origin_view.data(), origin_view.size());
+        const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
+        if (!origin.empty() && origin == allowed) {
+            result.set(http::field::access_control_allow_origin, allowed);
+            result.set(http::field::vary, "Origin");
+        }
         result.set(http::field::access_control_allow_methods, "GET, POST, PUT, OPTIONS");
         result.set(http::field::access_control_allow_headers, "Content-Type, Authorization, Idempotency-Key, Last-Event-ID");
         result.set(http::field::access_control_max_age, "600");
         result.body().clear();
-        result.prepare_payload();
     } else if (request.method() == http::verb::get && path == "/api/v1/health") {
         try {
             Database database(env_or("DATABASE_URL", ""));
