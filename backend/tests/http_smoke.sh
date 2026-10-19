@@ -145,6 +145,43 @@ grep -q 'pendingOutboxEvents' "$tmp_dir/admin-metrics.json"
 grep -q 'deadLetteredOutboxEvents' "$tmp_dir/admin-metrics.json"
 grep -q 'oldestPendingOutboxAgeSeconds' "$tmp_dir/admin-metrics.json"
 
+# A passenger can create and read a support report only for a ride they participated in.
+status="$(curl --silent --show-error --output "$tmp_dir/support-create.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --data "{\"rideId\":\"$ride_id\",\"category\":\"technical\",\"description\":\"The booking status did not refresh after reconnecting.\"}" \
+  "$base_url/api/v1/support/reports")"
+test "$status" = "201"
+support_report_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' < "$tmp_dir/support-create.json")"
+test -n "$support_report_id"
+status="$(curl --silent --show-error --output "$tmp_dir/support-list.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/support/reports")"
+test "$status" = "200"
+grep -q "\"id\":\"$support_report_id\"" "$tmp_dir/support-list.json"
+
+status="$(curl --silent --show-error --output "$tmp_dir/support-cross-account.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $other_token" \
+  --data "{\"rideId\":\"$ride_id\",\"category\":\"other\",\"description\":\"Trying to report a ride owned by someone else.\"}" \
+  "$base_url/api/v1/support/reports")"
+test "$status" = "404"
+
+status="$(curl --silent --show-error --output "$tmp_dir/admin-support-list.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $admin_token" "$base_url/api/v1/admin/support-reports")"
+test "$status" = "200"
+grep -q "$support_report_id" "$tmp_dir/admin-support-list.json"
+
+status="$(curl --silent --show-error --output "$tmp_dir/support-review.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
+  --data '{"status":"in_review"}' "$base_url/api/v1/admin/support-reports/$support_report_id")"
+test "$status" = "200"
+status="$(curl --silent --show-error --output "$tmp_dir/support-resolve.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
+  --data '{"status":"resolved","resolutionNote":"Confirmed issue and documented a workaround for the passenger."}' \
+  "$base_url/api/v1/admin/support-reports/$support_report_id")"
+test "$status" = "200"
+grep -q '"status":"resolved"' "$tmp_dir/support-resolve.json"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM admin_audit_events WHERE actor_id='$admin_id' AND action='support_report.status_changed' AND target_id='$support_report_id'")" = "2"
+
+
 
 status="$(curl --silent --show-error --output "$tmp_dir/admin-provision.json" --write-out '%{http_code}' \
   --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
