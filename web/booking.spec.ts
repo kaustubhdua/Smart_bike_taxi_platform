@@ -45,7 +45,7 @@ test("passenger can set pickup from a permission-granted current location", asyn
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Use my current location" }).click();
-  await expect(page.getByRole("textbox", { name: "Pickup point" }))
+  await expect(page.getByRole("combobox", { name: "Pickup point" }))
     .toHaveValue("123 Test Road, Sector 128, Noida, Uttar Pradesh, India");
   await expect(page.getByText("Pickup updated to your current location.")).toBeVisible();
 });
