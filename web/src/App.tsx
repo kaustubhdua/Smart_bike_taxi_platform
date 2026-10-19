@@ -156,6 +156,14 @@ export default function App() {
     if (!target) return;
     setMapFocus({ latitude, longitude });
     setMapSelectionTarget(null);
+    // Invalidate the old quote immediately so a slow reverse-geocode request
+    // cannot leave a bookable fare for the previously selected journey.
+    setRoute(null);
+    setRouteLoading(false);
+    setRouteError("");
+    setQuote(null);
+    setBookingKey(null);
+    setRide(null);
     setNotice("Looking up the address selected on the map…");
     try {
       const label = await reverseGeocode(latitude, longitude, AbortSignal.timeout(8000));
