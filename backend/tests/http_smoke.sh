@@ -372,7 +372,7 @@ test "$status" = "200"
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-online.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
 test "$status" = "200"
-python3 -c 'import json,sys; ids={r["rideId"] for r in json.load(sys.stdin)["rides"]}; assert sys.argv[1] in ids and sys.argv[2] in ids and sys.argv[3] not in ids' "$ride_id" "$busy_ride_id" "$far_ride_id" < "$tmp_dir/driver-queue-online.json"
+python3 -c 'import json,sys; rides=json.load(sys.stdin)["rides"]; ids={r["rideId"] for r in rides}; assert sys.argv[1] in ids and sys.argv[2] in ids and sys.argv[3] not in ids; assert all(0 <= r["pickupDistanceMeters"] <= 20000 for r in rides); assert all(r["farePaise"] > 0 for r in rides)' "$ride_id" "$busy_ride_id" "$far_ride_id" < "$tmp_dir/driver-queue-online.json"
 status="$(curl --silent --show-error --output "$tmp_dir/far-accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST "$base_url/api/v1/driver/rides/$far_ride_id/accept")"
 test "$status" = "409"
