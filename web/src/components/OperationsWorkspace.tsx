@@ -13,6 +13,7 @@ type RideRequest = {
 type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number; pendingOutboxEvents?: number; deadLetteredOutboxEvents?: number; oldestPendingOutboxAgeSeconds?: number };
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
+type AdminRide = { rideId: string; status: string; passengerEmail: string; driverEmail: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string };
 type DriverHistory = { rides: Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string; completedAt: string | null }>; completedTrips: number; totalCompletedFarePaise: number; currency: string };
 
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
@@ -29,6 +30,9 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [adminRideSearch, setAdminRideSearch] = useState("");
+  const [adminRideStatus, setAdminRideStatus] = useState("");
+  const [adminRides, setAdminRides] = useState<AdminRide[] | null>(null);
   const [driverEmail, setDriverEmail] = useState("");
   const [driverName, setDriverName] = useState("");
   const [driverPassword, setDriverPassword] = useState("");
@@ -319,6 +323,32 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  async function searchAdminRides() {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/admin/rides/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: adminRideSearch.trim(), status: adminRideStatus, limit: 50 }),
+      });
+      if (!Array.isArray(data.rides)) throw new Error("The API returned invalid ride search results.");
+      const rows = data.rides.filter((item): item is AdminRide => Boolean(item && typeof item === "object" &&
+        typeof (item as { rideId?: unknown }).rideId === "string" &&
+        typeof (item as { status?: unknown }).status === "string" &&
+        typeof (item as { passengerEmail?: unknown }).passengerEmail === "string" &&
+        typeof (item as { driverEmail?: unknown }).driverEmail === "string" &&
+        typeof (item as { pickup?: unknown }).pickup === "string" &&
+        typeof (item as { destination?: unknown }).destination === "string" &&
+        typeof (item as { farePaise?: unknown }).farePaise === "number" &&
+        typeof (item as { currency?: unknown }).currency === "string" &&
+        typeof (item as { createdAt?: unknown }).createdAt === "string"));
+      setAdminRides(rows);
+      setError("Ride search refreshed from PostgreSQL.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Ride search unavailable.");
+    } finally { setBusy(false); }
+  }
+
   async function refreshAudit() {
     setBusy(true);
     try {
@@ -417,6 +447,19 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           ) : (
             <>
               <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); }}>Sign out</button></div>
+              <div className="admin-ride-search" aria-label="Ride search">
+                <h3>Search rides</h3>
+                <div className="button-row">
+                  <label className="auth-field"><span>Ride ID, email or address</span><input value={adminRideSearch} onChange={event => setAdminRideSearch(event.target.value)} maxLength={120} placeholder="Search recent rides" /></label>
+                  <label className="auth-field"><span>Status</span><select value={adminRideStatus} onChange={event => setAdminRideStatus(event.target.value)}><option value="">All statuses</option><option value="requested">Requested</option><option value="matching">Matching</option><option value="assigned">Assigned</option><option value="driver_arriving">Driver arriving</option><option value="in_progress">In progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="failed">Failed</option></select></label>
+                  <button className="outline-button" onClick={searchAdminRides} disabled={busy}>Search rides</button>
+                </div>
+                {adminRides && <div className="driver-queue" aria-live="polite"><h4>Matching rides ({adminRides.length})</h4>
+                  {adminRides.length === 0 ? <p>No rides match these filters.</p> : adminRides.map(item => <div className="ride-confirmation" key={item.rideId}>
+                    <div><strong>{item.pickup} → {item.destination}</strong><span>{item.status.replaceAll("_", " ")} · ₹{(item.farePaise / 100).toFixed(2)}</span><small>Passenger: {item.passengerEmail} · Driver: {item.driverEmail || "Unassigned"} · {item.rideId}</small></div>
+                  </div>)}
+                </div>}
+              </div>
               <div className="button-row">
                 <button className="book-button" onClick={refreshMetrics} disabled={busy}>Refresh metrics <ArrowRight size={18} /></button>
                 <button className="outline-button" onClick={refreshDrivers} disabled={busy}><RefreshCw size={15} /> Refresh drivers</button>
