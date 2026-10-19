@@ -1305,24 +1305,30 @@ bool stream_ride_events(beast::tcp_stream& stream,
         return send_chunk(frame);
     };
 
-    // Replay persisted events after LISTEN is active, avoiding a lost-event race.
-    const std::string after = std::to_string(last_event_id);
-    const char* values[] = {ride_id.c_str(), after.c_str()};
-    PGresult* replay = PQexecParams(connection,
-        "SELECT id::text,new_status::text,created_at::text FROM ride_events "
-        "WHERE ride_id=$1::uuid AND id>$2::bigint ORDER BY id LIMIT 100",
-        2, nullptr, values, nullptr, nullptr, 0);
-    if (replay == nullptr || PQresultStatus(replay) != PGRES_TUPLES_OK) {
-        if (replay != nullptr) PQclear(replay);
-        asio::write(stream, http::make_chunk_last(), ec);
-        PQfinish(connection);
-        return true;
+    // Replay in bounded pages after LISTEN is active, avoiding a lost-event race
+    // without silently skipping events when a client reconnects after a long outage.
+    bool replay_complete = false;
+    while (!replay_complete && !ec) {
+        const std::string after = std::to_string(last_event_id);
+        const char* values[] = {ride_id.c_str(), after.c_str()};
+        PGresult* replay = PQexecParams(connection,
+            "SELECT id::text,new_status::text,created_at::text FROM ride_events "
+            "WHERE ride_id=$1::uuid AND id>$2::bigint ORDER BY id LIMIT 100",
+            2, nullptr, values, nullptr, nullptr, 0);
+        if (replay == nullptr || PQresultStatus(replay) != PGRES_TUPLES_OK) {
+            if (replay != nullptr) PQclear(replay);
+            asio::write(stream, http::make_chunk_last(), ec);
+            PQfinish(connection);
+            return true;
+        }
+        const int rows = PQntuples(replay);
+        for (int i = 0; i < rows && !ec; ++i) {
+            const auto id = static_cast<std::uint64_t>(std::stoull(PQgetvalue(replay, i, 0)));
+            if (!emit_event(id, PQgetvalue(replay, i, 1), PQgetvalue(replay, i, 2))) break;
+        }
+        PQclear(replay);
+        replay_complete = rows < 100;
     }
-    for (int i = 0; i < PQntuples(replay) && !ec; ++i) {
-        const auto id = static_cast<std::uint64_t>(std::stoull(PQgetvalue(replay, i, 0)));
-        if (!emit_event(id, PQgetvalue(replay, i, 1), PQgetvalue(replay, i, 2))) break;
-    }
-    PQclear(replay);
 
     const auto started = std::chrono::steady_clock::now();
     auto heartbeat = started;
