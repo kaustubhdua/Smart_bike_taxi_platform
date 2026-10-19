@@ -1248,6 +1248,7 @@ private:
 
 RateLimiter quote_limiter{30};
 RateLimiter auth_limiter{10};
+RateLimiter support_report_limiter{10};
 std::atomic<unsigned> active_sessions{0};
 std::atomic<bool> shutdown_requested{false};
 static_assert(std::atomic<bool>::is_always_lock_free,
@@ -2000,6 +2001,8 @@ void handle_request(tcp::socket socket) {
         const auto claims = bearer_claims(request);
         if (!claims) {
             result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (!support_report_limiter.allow(claims->subject)) {
+            result = response(http::status::too_many_requests, {{"error", "rate_limited"}}, request);
         } else {
             try {
                 if (request.body().size() > 8192) throw std::invalid_argument("request_too_large");
