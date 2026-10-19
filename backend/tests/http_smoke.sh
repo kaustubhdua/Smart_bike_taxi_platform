@@ -118,6 +118,13 @@ status="$(curl --silent --show-error --output "$tmp_dir/admin-login.json" --writ
 test "$status" = "200"
 admin_token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/admin-login.json")"
 
+status="$(curl --silent --show-error --output "$tmp_dir/admin-metrics.json" --write-out '%{http_code}' --header "Authorization: Bearer $admin_token" "$base_url/api/v1/admin/metrics")"
+test "$status" = "200"
+grep -q 'pendingOutboxEvents' "$tmp_dir/admin-metrics.json"
+grep -q 'deadLetteredOutboxEvents' "$tmp_dir/admin-metrics.json"
+grep -q 'oldestPendingOutboxAgeSeconds' "$tmp_dir/admin-metrics.json"
+
+
 status="$(curl --silent --show-error --output "$tmp_dir/admin-provision.json" --write-out '%{http_code}' \
   --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
   --data '{"email":"smoke-provisioned-driver@example.test","displayName":"Provisioned Driver","password":"driver-ci-password-123","vehicleRegistration":"CI-PROVISIONED-001"}' \
