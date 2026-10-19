@@ -252,7 +252,12 @@ paths:
       summary: Read operational metrics
       description: Includes ride counts by status, online drivers, pending outbox backlog, dead-letter count and age of the oldest pending outbox event.
       responses:
-        "200": { description: Metrics returned }
+        "200":
+          description: Metrics returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMetricsResponse"
         "403": { description: Admin role required }
 components:
   parameters:
@@ -262,6 +267,17 @@ components:
       required: true
       schema: { type: string, format: uuid }
   schemas:
+    AdminMetricsResponse:
+      type: object
+      required: [ridesByStatus, onlineDrivers, pendingOutboxEvents, deadLetteredOutboxEvents, oldestPendingOutboxAgeSeconds]
+      properties:
+        ridesByStatus:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+        onlineDrivers: { type: integer, minimum: 0 }
+        pendingOutboxEvents: { type: integer, minimum: 0 }
+        deadLetteredOutboxEvents: { type: integer, minimum: 0 }
+        oldestPendingOutboxAgeSeconds: { type: integer, minimum: 0 }
     DriverQueueItem:
       type: object
       required: [rideId, pickup, destination, farePaise, currency, createdAt, pickupDistanceMeters]
