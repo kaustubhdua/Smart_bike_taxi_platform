@@ -239,6 +239,7 @@ paths:
   /admin/metrics:
     get:
       summary: Read operational metrics
+      description: Includes ride counts by status, online drivers, pending outbox backlog, dead-letter count and age of the oldest pending outbox event.
       responses:
         "200": { description: Metrics returned }
         "403": { description: Admin role required }
