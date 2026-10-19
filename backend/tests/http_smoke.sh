@@ -139,6 +139,30 @@ status="$(curl --silent --show-error --output "$tmp_dir/admin-login.json" --writ
 test "$status" = "200"
 admin_token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])' < "$tmp_dir/admin-login.json")"
 
+# Support reports persist for authenticated users; only admins may inspect and resolve them.
+status="$(curl --silent --show-error --output "$tmp_dir/support-report.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --data '{"category":"technical","severity":"normal","description":"The booking page did not load my ride history."}' \
+  "$base_url/api/v1/support/reports")"
+test "$status" = "201"
+support_report_id="$(python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["status"]=="open"; print(d["reportId"])' < "$tmp_dir/support-report.json")"
+test -n "$support_report_id"
+status="$(curl --silent --show-error --output "$tmp_dir/support-passenger-forbidden.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/admin/support/reports")"
+test "$status" = "403"
+status="$(curl --silent --show-error --output "$tmp_dir/support-admin-list.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $admin_token" "$base_url/api/v1/admin/support/reports")"
+test "$status" = "200"
+grep -q "$support_report_id" "$tmp_dir/support-admin-list.json"
+status="$(curl --silent --show-error --output "$tmp_dir/support-resolve.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
+  --data '{"status":"resolved","resolutionNote":"Reviewed in the test environment."}' \
+  "$base_url/api/v1/admin/support/reports/$support_report_id")"
+test "$status" = "200"
+grep -q '"status":"resolved"' "$tmp_dir/support-resolve.json"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM support_reports WHERE id='$support_report_id' AND status='resolved' AND resolved_at IS NOT NULL AND resolution_note='Reviewed in the test environment.'")" = "1"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM admin_audit_events WHERE actor_id='$admin_id' AND target_id='$support_report_id' AND action='support.report.updated'")" = "1"
+
 status="$(curl --silent --show-error --output "$tmp_dir/admin-metrics.json" --write-out '%{http_code}' --header "Authorization: Bearer $admin_token" "$base_url/api/v1/admin/metrics")"
 test "$status" = "200"
 grep -q 'pendingOutboxEvents' "$tmp_dir/admin-metrics.json"
