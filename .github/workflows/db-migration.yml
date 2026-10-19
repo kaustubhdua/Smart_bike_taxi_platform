@@ -63,5 +63,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '002_driver_approval_and_outbox'" | grep -Fx '002_driver_approval_and_outbox'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_trigger WHERE tgname = 'ride_event_notification_outbox' AND NOT tgisinternal" | grep -Fx '1'
+      - name: Verify deadlock detection and transaction recovery under row-lock contention
+        run: bash backend/tests/transaction_contention_smoke.sh
       - name: Verify backup and restore into a fresh database
         run: sh backend/tests/backup_restore_smoke.sh
