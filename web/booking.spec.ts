@@ -250,7 +250,7 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await expect.poll(() => reads).toBeGreaterThan(0);
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
-  const driverMap = page.getByRole("application", { name: /Includes the driver’s latest reported location/ });
+  const driverMap = page.getByRole("application", { name: /Includes the driver's latest reported location/ });
   await page.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; });
   await driverMap.evaluate(el => el.scrollIntoView({ block: "center", behavior: "auto" }));
   await expect(driverMap).toBeVisible();
