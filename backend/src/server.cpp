@@ -1996,6 +1996,121 @@ void handle_request(tcp::socket socket) {
                 result = response(http::status::service_unavailable, {{"error", "ride_search_unavailable"}}, request);
             }
         }
+    } else if (request.method() == http::verb::post && path == "/api/v1/support/reports") {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else {
+            try {
+                if (request.body().size() > 8192) throw std::invalid_argument("request_too_large");
+                const auto body = json::parse(request.body());
+                if (!body.is_object() ||
+                    (body.contains("rideId") && !body["rideId"].is_string()) ||
+                    !body.contains("category") || !body["category"].is_string() ||
+                    (body.contains("severity") && !body["severity"].is_string()) ||
+                    !body.contains("description") || !body["description"].is_string()) {
+                    throw std::invalid_argument("category and description are required");
+                }
+                const std::string ride_id = body.value("rideId", std::string{});
+                const std::string category = body["category"].get<std::string>();
+                const std::string severity = body.value("severity", std::string("normal"));
+                std::string description = body["description"].get<std::string>();
+                trim_in_place(description);
+                const std::vector<std::string> categories = {
+                    "booking", "driver", "safety", "payment_demo", "technical", "other"
+                };
+                const std::vector<std::string> severities = {"low", "normal", "high", "urgent"};
+                if (ride_id.size() > 64 || description.size() < 10 || description.size() > 2000 ||
+                    std::find(categories.begin(), categories.end(), category) == categories.end() ||
+                    std::find(severities.begin(), severities.end(), severity) == severities.end()) {
+                    throw std::invalid_argument("invalid_support_report");
+                }
+                Database database(env_or("DATABASE_URL", ""));
+                result = response(http::status::created,
+                    database.create_support_report(claims->subject, claims->role, ride_id,
+                                                   category, severity, description), request);
+            } catch (const std::domain_error& error) {
+                result = response(http::status::forbidden, {{"error", error.what()}}, request);
+            } catch (const std::invalid_argument& error) {
+                result = response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
+            } catch (const json::exception&) {
+                result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "support_report_unavailable"}}, request);
+            }
+        }
+    } else if (request.method() == http::verb::get &&
+               (path == "/api/v1/admin/support/reports" ||
+                path.rfind("/api/v1/admin/support/reports?", 0) == 0)) {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "admin") {
+            result = response(http::status::forbidden, {{"error", "admin_role_required"}}, request);
+        } else {
+            try {
+                int limit = 50;
+                const auto query = request.target().find("?limit=");
+                if (query != beast::string_view::npos) {
+                    const std::string raw(request.target().substr(query + 7));
+                    if (raw.empty() || raw.find_first_not_of("0123456789") != std::string::npos ||
+                        raw.size() > 3) {
+                        result = response(http::status::bad_request, {{"error", "invalid_limit"}}, request);
+                    } else {
+                        limit = std::stoi(raw);
+                        if (limit < 1 || limit > 100) {
+                            result = response(http::status::bad_request, {{"error", "invalid_limit"}}, request);
+                        } else {
+                            Database database(env_or("DATABASE_URL", ""));
+                            result = response(http::status::ok, database.admin_support_reports(limit), request);
+                        }
+                    }
+                } else {
+                    Database database(env_or("DATABASE_URL", ""));
+                    result = response(http::status::ok, database.admin_support_reports(limit), request);
+                }
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "support_reports_unavailable"}}, request);
+            }
+        }
+    } else if (request.method() == http::verb::put &&
+               path.rfind("/api/v1/admin/support/reports/", 0) == 0) {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "admin") {
+            result = response(http::status::forbidden, {{"error", "admin_role_required"}}, request);
+        } else {
+            const std::string prefix = "/api/v1/admin/support/reports/";
+            const std::string report_id = path.substr(prefix.size());
+            try {
+                if (report_id.empty() || report_id.size() > 64 || request.body().size() > 4096) {
+                    throw std::invalid_argument("invalid_support_report_update");
+                }
+                const auto body = json::parse(request.body());
+                if (!body.is_object() || !body.contains("status") || !body["status"].is_string() ||
+                    (body.contains("resolutionNote") && !body["resolutionNote"].is_string())) {
+                    throw std::invalid_argument("status is required");
+                }
+                const std::string status = body["status"].get<std::string>();
+                const std::string note = body.value("resolutionNote", std::string{});
+                const std::vector<std::string> statuses = {"open", "in_review", "resolved"};
+                if (std::find(statuses.begin(), statuses.end(), status) == statuses.end() || note.size() > 500) {
+                    throw std::invalid_argument("invalid_support_report_update");
+                }
+                Database database(env_or("DATABASE_URL", ""));
+                result = response(http::status::ok,
+                    database.update_support_report(claims->subject, report_id, status, note), request);
+            } catch (const std::domain_error& error) {
+                result = response(http::status::not_found, {{"error", error.what()}}, request);
+            } catch (const std::invalid_argument& error) {
+                result = response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
+            } catch (const json::exception&) {
+                result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "support_report_update_unavailable"}}, request);
+            }
+        }
     } else if (request.method() == http::verb::get && path == "/api/v1/admin/metrics") {
         const auto claims = bearer_claims(request);
         if (!claims) {
