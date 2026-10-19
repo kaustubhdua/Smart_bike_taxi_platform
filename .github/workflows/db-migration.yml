@@ -37,6 +37,7 @@ jobs:
           --health-retries 10
     env:
       PGHOST: localhost
+      DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
       PGPORT: 5432
       PGDATABASE: rideforge_test
       PGUSER: rideforge
@@ -61,3 +62,5 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '002_driver_approval_and_outbox'" | grep -Fx '002_driver_approval_and_outbox'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_trigger WHERE tgname = 'ride_event_notification_outbox' AND NOT tgisinternal" | grep -Fx '1'
+      - name: Verify backup and restore into a fresh database
+        run: sh backend/tests/backup_restore_smoke.sh
