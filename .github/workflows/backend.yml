@@ -1,0 +1,130 @@
+name: C++ API build and smoke tests
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: rideforge_test
+          POSTGRES_USER: rideforge
+          POSTGRES_PASSWORD: rideforge_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rideforge -d rideforge_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: rideforge_test
+      PGUSER: rideforge
+      PGPASSWORD: rideforge_test_password
+      RIDEFORGE_ALLOWED_ORIGIN: http://localhost:5173
+      RIDEFORGE_USER_AGENT: RideForgeGithubActionsSmoke/0.1 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)
+      RIDEFORGE_GEOCODING_URL: http://127.0.0.1:8090/search
+      RIDEFORGE_ROUTING_URL: http://127.0.0.1:8090/route/v1/driving
+      RIDEFORGE_JWT_SECRET: not-a-production-secret-please-override-32chars
+      PORT: 8080
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes cmake g++ libboost-dev libcurl4-openssl-dev libpq-dev libssl-dev nlohmann-json3-dev postgresql-client curl
+      - name: Configure API
+        run: cmake -S backend -B build-backend -DCMAKE_BUILD_TYPE=Debug
+      - name: Build API with warnings as errors
+        run: cmake --build build-backend --parallel
+      - name: Run C++ unit tests
+        run: ctest --test-dir build-backend --output-on-failure
+      - name: Apply versioned database migration
+        env:
+          RIDEFORGE_MIGRATIONS_DIR: backend/migrations
+        run: sh backend/scripts/migrate-if-needed.sh
+      - name: Verify migration runner idempotency
+        env:
+          RIDEFORGE_MIGRATIONS_DIR: backend/migrations
+        run: sh backend/scripts/migrate-if-needed.sh
+      - name: Seed deterministic quote fixtures
+        run: psql -v ON_ERROR_STOP=1 -f backend/tests/seed_quotes.sql
+      - name: Start API and verify HTTP behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 backend/tests/mock_routing_provider.py > /tmp/rideforge-provider.log 2>&1 &
+          provider_pid=$!
+          for attempt in $(seq 1 10); do
+            if curl --silent --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --silent --show-error --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null
+          ./build-backend/rideforge_api > /tmp/rideforge-api.log 2>&1 &
+          api_pid=$!
+          worker_pid=""
+          trap 'kill "$api_pid" "$provider_pid" "$worker_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8080/api/v1/health >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              cat /tmp/rideforge-api.log
+              exit 1
+            fi
+            sleep 1
+          done
+          ./build-backend/rideforge_outbox_worker > /tmp/rideforge-outbox.log 2>&1 &
+          worker_pid=$!
+          if ! RIDEFORGE_TEST_BASE_URL=http://127.0.0.1:8080 bash -x backend/tests/http_smoke.sh; then
+            echo "API server log:"
+            cat /tmp/rideforge-api.log
+            echo "Mock provider log:"
+            cat /tmp/rideforge-provider.log
+            cat /tmp/rideforge-outbox.log
+            exit 1
+          fi
+          grep -q '"event":"http_request_completed"' /tmp/rideforge-api.log
+          grep -q '"requestId":' /tmp/rideforge-api.log
+          grep -q '"durationMs":' /tmp/rideforge-api.log
+          kill -TERM "$api_pid"
+          if ! wait "$api_pid"; then
+            echo "API did not shut down cleanly:"
+            cat /tmp/rideforge-api.log
+            exit 1
+          fi
+          api_pid=""
+          grep -q '"event":"api_shutdown".*"graceful":true' /tmp/rideforge-api.log
+          kill -TERM "$worker_pid"
+          if ! wait "$worker_pid"; then
+            echo "Outbox worker did not shut down cleanly:"
+            cat /tmp/rideforge-outbox.log
+            exit 1
+          fi
+          worker_pid=""
+          grep -q '"event":"outbox_worker_shutdown"' /tmp/rideforge-outbox.log
+      - name: Verify migration invariants
+        run: psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
