@@ -61,6 +61,18 @@ jobs:
         run: cmake -S backend -B build-backend -DCMAKE_BUILD_TYPE=Debug
       - name: Build API with warnings as errors
         run: cmake --build build-backend --parallel
+      - name: Reject invalid dispatch-radius configuration at startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          for radius in 999 100001 invalid; do
+            if RIDEFORGE_DISPATCH_RADIUS_METERS="$radius" PORT=0 ./build-backend/rideforge_api > /tmp/invalid-dispatch-radius.log 2>&1; then
+              echo "API unexpectedly accepted dispatch radius: $radius"
+              exit 1
+            fi
+            grep -q '"event":"invalid_configuration"' /tmp/invalid-dispatch-radius.log
+            grep -q '"setting":"RIDEFORGE_DISPATCH_RADIUS_METERS"' /tmp/invalid-dispatch-radius.log
+          done
       - name: Run C++ unit tests
         run: ctest --test-dir build-backend --output-on-failure
       - name: Apply versioned database migration
