@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         dispatch_radius_km: [5, 20]
-    name: API smoke (dispatch radius $\{{ matrix.dispatch_radius_km }} km)
+    name: API smoke (dispatch radius ${{ matrix.dispatch_radius_km }} km)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -52,7 +52,7 @@ jobs:
       RIDEFORGE_GEOCODING_URL: http://127.0.0.1:8090/search
       RIDEFORGE_ROUTING_URL: http://127.0.0.1:8090/route/v1/driving
       RIDEFORGE_JWT_SECRET: not-a-production-secret-please-override-32chars
-      RIDEFORGE_DISPATCH_RADIUS_KM: $\{{ matrix.dispatch_radius_km }}
+      RIDEFORGE_DISPATCH_RADIUS_KM: ${{ matrix.dispatch_radius_km }}
       PORT: 8080
     steps:
       - uses: actions/checkout@v4
