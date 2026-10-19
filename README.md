@@ -53,13 +53,13 @@ This repository is being extended from its original C++17 academic simulation in
 PR #4 runs the eight release suites: C++ builds/tests/sanitizers/benchmark, API and HTTP integration, PostgreSQL migrations/invariants/restore, web typecheck/build/Playwright/axe, Compose startup, dependency audit, CodeQL, and container vulnerability scanning. Use the latest [PR #4 checks](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/4) and verify they all pass on the same head SHA. Historical green runs do not validate later commits.
 
 The API integration suite validates the configurable dispatch radius using a non-default value and confirms invalid radius configuration fails before the listener starts. A live full-stack deployment, genuine deployed screenshots, manual accessibility review, and production operational/legal gates remain open.
-## Overview
+## Original C++17 terminal simulation (DSA lab)
 
 Smart Bike Taxi Platform is an interactive terminal application that demonstrates how core DSA concepts can support a simplified ride-hailing workflow. It uses a small, illustrative Noida road network and lets users register riders and drivers, request and cancel rides, dispatch requests, estimate fares, and review ride history.
 
 > The C++ console application is an academic simulation. The separate web/API stack supports persisted passenger bookings, protected driver acceptance/lifecycle operations, browser-geolocation-based driver availability, and admin driver approval. Live ride-status events and an active-trip driver-location marker are supported; real payments, verified driver identity, and real safety operations are not available.
 
-## Workflow
+### Workflow
 
 ```mermaid
 flowchart TD
@@ -81,7 +81,7 @@ flowchart TD
     O --> N
 ```
 
-## Features
+### Features
 
 | Feature | Description |
 | --- | --- |
@@ -97,7 +97,7 @@ flowchart TD
 | Persistence | Saves riders, drivers, pending requests, history, and ID counters to a local file |
 | Automated checks | GitHub Actions compiles the app and tests with warnings treated as errors |
 
-## DSA concepts
+### DSA concepts
 
 | Use case | Implementation | Complexity |
 | --- | --- | --- |
@@ -109,7 +109,7 @@ flowchart TD
 
 V = locations, E = roads, D = eligible drivers. Hash table performance depends on load factor and collisions.
 
-## Project structure
+### Project structure
 
 ```text
 .
@@ -124,12 +124,12 @@ V = locations, E = roads, D = eligible drivers. Hash table performance depends o
 └── README.md
 ```
 
-## Requirements
+### Requirements
 
 - C++17-compatible compiler (g++ recommended)
 - Terminal / PowerShell
 
-## Build and run
+### Build and run
 
 Run from the repository root. CMake is the recommended cross-platform build path.
 
@@ -176,7 +176,7 @@ g++ -std=c++17 -Wall -Wextra -Wpedantic main.cpp -o smart_bike_taxi
 
 Enter location names exactly as listed by **Show locations**.
 
-## Run tests
+### Run tests
 
 **Windows**
 
@@ -194,7 +194,7 @@ g++ -std=c++17 -Wall -Wextra -Wpedantic tests.cpp -o tests
 
 Tests cover graph and hash-table behavior, invalid road weights, persistence save/load, malformed-file rejection without partial mutation, driver dispatch selection, ride lifecycle transitions, and rejection of zero-length ride requests. GitHub Actions builds with GCC and Clang and runs the tests; a separate job enables AddressSanitizer and UndefinedBehaviorSanitizer. Run locally with `cmake -S . -B build`, `cmake --build build --parallel`, then `ctest --test-dir build --output-on-failure`.
 
-## Local data
+### Local data
 
 The application writes `smart_bike_taxi_data.txt` in the current working directory and saves after each menu action. Keep this file in the same directory when restarting the application to restore the demo state.
 
@@ -203,13 +203,13 @@ The application writes `smart_bike_taxi_data.txt` in the current working directo
 - The file is excluded from Git by `.gitignore`.
 - The save format is versioned; incompatible or malformed data causes startup to stop with an error rather than silently overwrite it.
 
-## Sample map and fare
+### Sample map and fare
 
 The built-in map includes JIIT 128, Sector 62, Botanical Garden, Noida City Centre, and Sector 18. Distances are illustrative values defined in the source, not official road distances.
 
 Fare estimate = ₹20 + (shortest trip distance in km × ₹10). This is a demonstration formula, not a real-world fare quote.
 
-## Limitations
+### Limitations of the terminal simulation
 
 - Dispatch, ride start, and trip completion are synchronous simulations; the operator manually advances ride states.
 - No live GPS, map provider, traffic data, OTP, authentication, database server, payment gateway, or buyer/operator network is connected.
@@ -217,19 +217,18 @@ Fare estimate = ₹20 + (shortest trip distance in km × ₹10). This is a demon
 - The custom hash table has a fixed capacity of 101 records per table; when full, new records are rejected.
 - Saves write a temporary snapshot and retain the previous snapshot as a backup during replacement; sudden power loss and filesystem-specific rename behavior can still affect recovery.
 
-## Further development
+### Further development of the terminal simulation
 
-Possible extensions include a configurable map, a larger/resizing hash table, broader dispatch/cancellation integration tests, cancellation of already-assigned rides, and a real backend. Production use would also require authentication, privacy controls, secure storage, operational monitoring, and real service integrations.
+The terminal simulator remains a deliberately small, local-only DSA exercise. Possible improvements to that component include a configurable sample graph, a resizing hash table, and additional algorithm edge-case tests. For the separate full-stack product, use the RideForge roadmap and release gates above; do not infer production readiness from the terminal simulator.
 
 ---
 
 <div align="center">
 
-Built as a C++17 DSA academic project.
+RideForge full-stack portfolio MVP · C++17 DSA simulator
 
 **[View repository](https://github.com/kaustubhdua/Smart_bike_taxi_platform)**
 
 </div>
 
 
-PostgreSQL recovery helpers: `backend/scripts/backup.sh` and `backend/scripts/restore.sh`. Read the [operations runbook](docs/OPERATIONS_RUNBOOK.md#backup-and-restore) before use. CI configuration includes a disposable-database restore smoke test; this does not replace scheduled encrypted production backups.
