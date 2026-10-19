@@ -14,6 +14,7 @@ type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number; p
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
 type SupportReport = { id: string; rideId: string | null; category: string; description: string; status: string; resolutionNote: string; createdAt: string; updatedAt: string; resolvedAt: string | null; reporterEmail: string; reporterName: string };
+type DriverHistory = { rides: Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; finalFarePaise?: number; createdAt: string; completedAt?: string }>; grossCompletedFarePaise: number; currency: string; note: string };
 
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [email, setEmail] = useState("");
@@ -25,6 +26,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [online, setOnline] = useState(false);
   const [rides, setRides] = useState<RideRequest[]>([]);
   const [activeRide, setActiveRide] = useState<{ rideId: string; status: string } | null>(null);
+  const [driverHistory, setDriverHistory] = useState<DriverHistory | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
@@ -103,6 +105,19 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       setRides(Array.isArray(data.rides) ? data.rides as RideRequest[] : []);
       setError("Ride queue refreshed from the API.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Queue unavailable."); }
+    finally { setBusy(false); }
+  }
+
+  async function refreshDriverHistory() {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/driver/rides/history");
+      if (!Array.isArray(data.rides) || typeof data.grossCompletedFarePaise !== "number" || typeof data.note !== "string") {
+        throw new Error("The API returned an invalid driver history.");
+      }
+      setDriverHistory(data as unknown as DriverHistory);
+      setError("Driver trip history refreshed.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Driver history unavailable."); }
     finally { setBusy(false); }
   }
 
@@ -406,6 +421,16 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               </div>}
               <div className="driver-queue"><h3>Available requests ({rides.length})</h3>
                 {rides.length === 0 ? <p>Queue is empty or has not been loaded yet.</p> : rides.map(ride => <div className="ride-confirmation" key={ride.rideId}><div><strong>{ride.pickup} → {ride.destination}</strong><span>{typeof ride.pickupDistanceMeters === "number" ? "Pickup " + (ride.pickupDistanceMeters / 1000).toFixed(1) + " km away · " : ""}{ride.distanceMeters ? (ride.distanceMeters / 1000).toFixed(1) + " km trip · " : ""}₹{(ride.farePaise / 100).toFixed(2)}</span><small>{ride.rideId}</small></div><button className="text-action" onClick={() => rideAction(ride.rideId, "accept")} disabled={busy}>Accept</button></div>)}
+              </div>
+              <div className="driver-queue">
+                <div className="driver-panel-head"><h3>Trip history</h3><button className="outline-button" onClick={refreshDriverHistory} disabled={busy}><RefreshCw size={15} /> Refresh trip history</button></div>
+                {driverHistory && <>
+                  <p>Gross completed fares: <strong>₹{(driverHistory.grossCompletedFarePaise / 100).toFixed(2)}</strong></p>
+                  <p className="auth-caption">{driverHistory.note}</p>
+                  {driverHistory.rides.length === 0 ? <p>No trips recorded yet.</p> : driverHistory.rides.map(item => <div className="ride-confirmation" key={item.rideId}>
+                    <div><strong>{item.pickup} → {item.destination}</strong><span>{item.status.replaceAll("_", " ")} · ₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()} · {item.rideId}</small></div>
+                  </div>)}
+                </>}
               </div>
             </>
           ) : (
