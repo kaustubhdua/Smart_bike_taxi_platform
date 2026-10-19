@@ -98,7 +98,9 @@ export default function App() {
           ? "Your session expired. Sign in again before reporting an issue."
           : response.status === 403
             ? "This report is not associated with a ride you can access."
-            : data.error ?? "The report could not be saved. Please try again.");
+            : response.status === 429
+              ? "Too many reports were submitted from this account. Wait a minute before trying again."
+              : data.error ?? "The report could not be saved. Please try again.");
         return;
       }
       setSupportDescription("");
