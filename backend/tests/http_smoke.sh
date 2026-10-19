@@ -519,6 +519,14 @@ status="$(curl --silent --show-error --output "$tmp_dir/second-accept.json" --wr
   "$base_url/api/v1/driver/rides/$second_ride_id/accept")"
 test "$status" = "200"
 
+status="$(curl --silent --show-error --output "$tmp_dir/driver-history.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides/history")"
+test "$status" = "200"
+python3 -c 'import json,sys; d=json.load(sys.stdin); assert int(d["grossCompletedFarePaise"]) > 0 and any(r["rideId"] == sys.argv[1] and r["status"] == "completed" for r in d["rides"]); assert "not a payout" in d["note"]' "$ride_id" < "$tmp_dir/driver-history.json"
+status="$(curl --silent --show-error --output "$tmp_dir/driver-history-forbidden.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/driver/rides/history")"
+test "$status" = "403"
+
 status="$(curl --silent --show-error --output "$tmp_dir/history.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides")"
 test "$status" = "200"
