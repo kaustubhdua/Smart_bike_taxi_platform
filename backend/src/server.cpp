@@ -1355,6 +1355,7 @@ bool stream_ride_events(beast::tcp_stream& stream,
 }
 
 void handle_request(tcp::socket socket) {
+    const auto request_started = std::chrono::steady_clock::now();
     // Bound memory and connection occupancy before any route handler runs. Checking
     // request.body().size() after http::read is too late: Beast has already buffered it.
     beast::tcp_stream stream(std::move(socket));
@@ -1386,7 +1387,8 @@ void handle_request(tcp::socket socket) {
         return;
     }
     auto request = parser.release();
-    request.set("X-Request-ID", make_request_id());
+    const std::string request_id = make_request_id();
+    request.set("X-Request-ID", request_id);
 
     const std::string path(request.target().data(), request.target().size());
     if (stream_ride_events(stream, request, path)) return;
@@ -1777,6 +1779,14 @@ void handle_request(tcp::socket socket) {
     result.keep_alive(false);
     stream.expires_after(std::chrono::seconds(5));
     http::write(stream, result, ec);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - request_started).count();
+    const auto query_pos = path.find('?');
+    const std::string log_path = path.substr(0, query_pos);
+    std::cerr << json{{"event", "http_request_completed"}, {"requestId", request_id},
+        {"method", std::string(request.method_string())}, {"path", log_path},
+        {"status", result.result_int()}, {"durationMs", elapsed},
+        {"responseWritten", !ec}}.dump() << '\n';
     stream.socket().shutdown(tcp::socket::shutdown_send, ec);
 }
 
