@@ -296,6 +296,12 @@ grep -q '"status":"requested"' "$tmp_dir/booking.json"
 status="$(curl --silent --show-error --output "$tmp_dir/events-unauthorized.json" --write-out '%{http_code}' \
   "$base_url/api/v1/rides/$ride_id/events")"
 test "$status" = "401"
+
+status="$(curl --silent --show-error --output "$tmp_dir/events-invalid-cursor.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" --header 'Last-Event-ID: -1' \
+  "$base_url/api/v1/rides/$ride_id/events")"
+test "$status" = "400"
+grep -q 'invalid_last_event_id' "$tmp_dir/events-invalid-cursor.json"
 if curl --silent --show-error --no-buffer --max-time 2 \
   --header "Authorization: Bearer $token" \
   "$base_url/api/v1/rides/$ride_id/events" > "$tmp_dir/events-sse.txt"; then
