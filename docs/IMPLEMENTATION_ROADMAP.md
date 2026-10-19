@@ -95,8 +95,8 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [ ] Add explicit PostgreSQL connection timeouts/pooling and broader SSE connection observability.
 - [ ] Document and test backup/restore; verify schema upgrade and rollback/recovery procedures.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
-- [x] Add scheduled CodeQL analysis for C++/TypeScript and dependency-review checks for high-severity/disallowed-license changes.
-- [ ] Execute those security scans on the release SHA, add container image scanning, and review data retention/deletion.
+- [x] Add scheduled CodeQL analysis for C++/TypeScript, lockfile-backed npm audit, and scheduled high-severity container image scans.
+- [ ] Execute all security scans on the release SHA, enable GitHub dependency graph for license/dependency review, and review data retention/deletion.
 - [ ] Select a suitable contracted or self-hosted routing/geocoding provider for any public service.
 - [ ] Deploy frontend/API/database using protected secrets and HTTPS; verify the exact release SHA.
 - [ ] Capture genuine desktop/mobile screenshots, record the deployment URL and publish a demo walkthrough.
