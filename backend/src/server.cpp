@@ -160,17 +160,19 @@ public:
             "SELECT to_regclass('public.accounts') IS NOT NULL,"
             "to_regclass('public.rides') IS NOT NULL,"
             "to_regclass('public.ride_event_outbox') IS NOT NULL,"
+            "to_regclass('public.support_reports') IS NOT NULL,"
             "to_regclass('public.schema_migrations') IS NOT NULL,"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='001_initial_schema'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='002_driver_approval_and_outbox'),"
-            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters')");
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 7) {
+            PQntuples(result) != 1 || PQnfields(result) != 9) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 7; ++column) {
+        for (int column = 0; column < 9; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
@@ -357,6 +359,153 @@ public:
             command("COMMIT");
             return json{{"driverId", driver_id}, {"approved", approved},
                         {"online", false}};
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
+    json create_support_report(const std::string& reporter_id, const std::string& role,
+                              const std::string& ride_id, const std::string& category,
+                              const std::string& severity, const std::string& description) {
+        PGresult* begin = PQexec(connection_, "BEGIN");
+        if (begin == nullptr || PQresultStatus(begin) != PGRES_COMMAND_OK) {
+            if (begin != nullptr) PQclear(begin);
+            throw std::runtime_error("Could not begin support report transaction");
+        }
+        PQclear(begin);
+        try {
+            if (!ride_id.empty()) {
+                const char* access_params[] = {ride_id.c_str(), role.c_str(), reporter_id.c_str()};
+                PGresult* access = PQexecParams(connection_,
+                    "SELECT 1 FROM rides WHERE id=$1::uuid AND "
+                    "($2='admin' OR passenger_id=$3::uuid OR driver_id=$3::uuid) FOR SHARE",
+                    3, nullptr, access_params, nullptr, nullptr, 0);
+                if (access == nullptr || PQresultStatus(access) != PGRES_TUPLES_OK) {
+                    if (access != nullptr) PQclear(access);
+                    throw std::runtime_error("Could not verify support report ride access");
+                }
+                const bool allowed = PQntuples(access) == 1;
+                PQclear(access);
+                if (!allowed) throw std::domain_error("ride_not_accessible");
+            }
+            const char* params[] = {
+                reporter_id.c_str(), ride_id.c_str(), category.c_str(),
+                severity.c_str(), description.c_str()
+            };
+            PGresult* result = PQexecParams(connection_,
+                "INSERT INTO support_reports (reporter_id,ride_id,category,severity,description) "
+                "VALUES ($1::uuid,NULLIF($2,'')::uuid,$3,$4,$5) "
+                "RETURNING id::text,status,created_at::text",
+                5, nullptr, params, nullptr, nullptr, 0);
+            if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
+                PQntuples(result) != 1) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Could not create support report");
+            }
+            json report = {
+                {"reportId", PQgetvalue(result, 0, 0)},
+                {"status", PQgetvalue(result, 0, 1)},
+                {"createdAt", PQgetvalue(result, 0, 2)}
+            };
+            PQclear(result);
+            PGresult* commit = PQexec(connection_, "COMMIT");
+            if (commit == nullptr || PQresultStatus(commit) != PGRES_COMMAND_OK) {
+                if (commit != nullptr) PQclear(commit);
+                throw std::runtime_error("Could not commit support report");
+            }
+            PQclear(commit);
+            return report;
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
+    json admin_support_reports(int requested_limit) {
+        const std::string limit = std::to_string(std::max(1, std::min(requested_limit, 100)));
+        const char* params[] = {limit.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "SELECT s.id::text,a.email,a.role,s.ride_id::text,s.category,s.severity,"
+            "s.description,s.status,COALESCE(s.resolution_note,''),s.created_at::text,"
+            "s.updated_at::text,COALESCE(s.resolved_at::text,'') "
+            "FROM support_reports s JOIN accounts a ON a.id=s.reporter_id "
+            "ORDER BY CASE s.severity WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 ELSE 2 END,"
+            "s.created_at DESC LIMIT $1::integer",
+            1, nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not list support reports");
+        }
+        json reports = json::array();
+        for (int row = 0; row < PQntuples(result); ++row) {
+            reports.push_back({
+                {"reportId", PQgetvalue(result, row, 0)},
+                {"reporterEmail", PQgetvalue(result, row, 1)},
+                {"reporterRole", PQgetvalue(result, row, 2)},
+                {"rideId", PQgetvalue(result, row, 3)},
+                {"category", PQgetvalue(result, row, 4)},
+                {"severity", PQgetvalue(result, row, 5)},
+                {"description", PQgetvalue(result, row, 6)},
+                {"status", PQgetvalue(result, row, 7)},
+                {"resolutionNote", PQgetvalue(result, row, 8)},
+                {"createdAt", PQgetvalue(result, row, 9)},
+                {"updatedAt", PQgetvalue(result, row, 10)},
+                {"resolvedAt", PQgetvalue(result, row, 11)}
+            });
+        }
+        PQclear(result);
+        return json{{"reports", reports}};
+    }
+
+    json update_support_report(const std::string& admin_id, const std::string& report_id,
+                               const std::string& status, const std::string& resolution_note) {
+        PGresult* begin = PQexec(connection_, "BEGIN");
+        if (begin == nullptr || PQresultStatus(begin) != PGRES_COMMAND_OK) {
+            if (begin != nullptr) PQclear(begin);
+            throw std::runtime_error("Could not begin support update transaction");
+        }
+        PQclear(begin);
+        try {
+            const char* params[] = {report_id.c_str(), status.c_str(), resolution_note.c_str()};
+            PGresult* result = PQexecParams(connection_,
+                "UPDATE support_reports SET status=$2,"
+                "resolution_note=NULLIF($3,''),updated_at=now(),"
+                "resolved_at=CASE WHEN $2='resolved' THEN now() ELSE NULL END "
+                "WHERE id=$1::uuid RETURNING id::text,status,updated_at::text",
+                3, nullptr, params, nullptr, nullptr, 0);
+            if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Could not update support report");
+            }
+            if (PQntuples(result) != 1) {
+                PQclear(result);
+                throw std::domain_error("support_report_not_found");
+            }
+            const std::string updated_id = PQgetvalue(result, 0, 0);
+            const std::string updated_status = PQgetvalue(result, 0, 1);
+            const std::string updated_at = PQgetvalue(result, 0, 2);
+            PQclear(result);
+            const char* audit_params[] = {admin_id.c_str(), updated_id.c_str(), updated_status.c_str()};
+            PGresult* audit = PQexecParams(connection_,
+                "INSERT INTO admin_audit_events (actor_id,action,target_type,target_id,details) "
+                "VALUES ($1::uuid,'support.report.updated','support_report',$2::uuid,"
+                "jsonb_build_object('status',$3))",
+                3, nullptr, audit_params, nullptr, nullptr, 0);
+            if (audit == nullptr || PQresultStatus(audit) != PGRES_COMMAND_OK) {
+                if (audit != nullptr) PQclear(audit);
+                throw std::runtime_error("Could not audit support report update");
+            }
+            PQclear(audit);
+            PGresult* commit = PQexec(connection_, "COMMIT");
+            if (commit == nullptr || PQresultStatus(commit) != PGRES_COMMAND_OK) {
+                if (commit != nullptr) PQclear(commit);
+                throw std::runtime_error("Could not commit support report update");
+            }
+            PQclear(commit);
+            return json{{"reportId", updated_id}, {"status", updated_status}, {"updatedAt", updated_at}};
         } catch (...) {
             PGresult* rollback = PQexec(connection_, "ROLLBACK");
             if (rollback != nullptr) PQclear(rollback);
