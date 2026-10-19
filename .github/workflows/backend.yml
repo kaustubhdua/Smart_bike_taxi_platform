@@ -60,6 +60,15 @@ jobs:
         run: cmake --build build-backend --parallel
       - name: Run C++ unit tests
         run: ctest --test-dir build-backend --output-on-failure
+      - name: Reject invalid dispatch radius configuration
+        shell: bash
+        run: |
+          set +e
+          RIDEFORGE_DISPATCH_RADIUS_KM=0 ./build-backend/rideforge_api > /tmp/rideforge-invalid-radius.log 2>&1
+          status=$?
+          set -e
+          test "$status" -eq 2
+          grep -q 'invalid_dispatch_radius_configuration' /tmp/rideforge-invalid-radius.log
       - name: Apply versioned database migration
         env:
           RIDEFORGE_MIGRATIONS_DIR: backend/migrations
