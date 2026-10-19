@@ -294,7 +294,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     } catch {
       setError("Signed out locally. If the offline request failed, dispatch eligibility expires when the location becomes stale.");
     } finally {
-      setToken(""); setRides([]); setActiveRide(null); setOnline(false); setDriverLocation(null);
+      setToken(""); setRides([]); setActiveRide(null); setDriverHistory(null); setOnline(false); setDriverLocation(null);
       setBusy(false);
     }
   }
