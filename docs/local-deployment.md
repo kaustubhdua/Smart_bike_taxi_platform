@@ -40,7 +40,7 @@ curl --fail --show-error http://localhost:8080/api/v1/ready
 ```
 
 - `/api/v1/health` checks database connectivity.
-- `/api/v1/ready` also checks the required account, ride, outbox, and migration-ledger tables.
+- `/api/v1/ready` also checks the required account, ride and outbox tables plus all three recorded migration versions.
 - Open the web app at http://localhost:5173.
 
 If readiness fails, inspect the API, migration and database logs before retrying:
