@@ -350,6 +350,18 @@ status="$(curl --silent --show-error --output "$tmp_dir/support-terminal-update.
 test "$status" = "409"
 test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM admin_audit_events WHERE actor_id='$admin_id' AND action='support_report.status_changed' AND target_id='$support_report_id'")" = "2"
 
+# Admin ride search is bounded, filtered and inaccessible to passenger identities.
+status="$(curl --silent --show-error --output "$tmp_dir/admin-ride-search.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $admin_token" "$base_url/api/v1/admin/rides?q=$ride_id")"
+test "$status" = "200"
+grep -q "$ride_id" "$tmp_dir/admin-ride-search.json"
+status="$(curl --silent --show-error --output "$tmp_dir/admin-ride-search-forbidden.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/admin/rides?q=$ride_id")"
+test "$status" = "403"
+status="$(curl --silent --show-error --output "$tmp_dir/admin-ride-search-invalid.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $admin_token" "$base_url/api/v1/admin/rides?status=not-a-status")"
+test "$status" = "400"
+
 grep -q '"status":"requested"' "$tmp_dir/booking.json"
 
 # SSE must authorize the ride owner and replay persisted events before live notifications.
