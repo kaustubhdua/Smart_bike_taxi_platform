@@ -48,7 +48,17 @@ This repository is being extended from its original C++17 academic simulation in
 
 ### Current release-candidate verification
 
-The latest full workflow batch ran on `3703d665ce6794af1148371a903883c9201bd2d2`. C++ tests, API smoke, PostgreSQL migration smoke, container/Compose validation, container vulnerability scan, dependency audit and CodeQL passed. The web workflow passed 23 Playwright tests but failed two browser projects on an ambiguous admin ride-status locator. The locator was corrected on `91583df612085756d0016c1d88f85597cc8ff04c`; no new workflow run has verified that exact head yet, so **current-head CI is not yet green/verified**. Follow [PR #4](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/4) and [the web workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39249227931) for the latest evidence.
+All eight GitHub Actions suites passed on release-candidate commit `1a30947f07e6efec382a49b30b36c5be9f52a436`, including the corrected Playwright admin ride-status locator:
+- [C++ build/tests and sanitizers](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39295182002)
+- [API build and HTTP smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39295182337)
+- [PostgreSQL migration smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39295182403)
+- [Web build, typecheck, Playwright and axe](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39295182324)
+- [Container build and Compose validation](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39295182378)
+- [Dependency audit](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39295182053)
+- [CodeQL C++/TypeScript analysis](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39295182255)
+- [Container vulnerability scan](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39295182241)
+
+This status is tied to that exact SHA. The README update itself is a new commit, so rerun all suites against the resulting head before merge. The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) now runs all eight suites from one checkout.
 
 ### Frontend development
 
