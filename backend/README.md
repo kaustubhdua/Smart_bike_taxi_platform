@@ -4,7 +4,7 @@
 
 The native C++17 HTTP service now implements:
 
-- `GET /api/v1/health`: checks whether PostgreSQL is reachable. `GET /api/v1/ready` additionally checks required schema tables and all three recorded migration versions for deployment rollout probes.
+- `GET /api/v1/health`: checks whether PostgreSQL is reachable. `GET /api/v1/ready` additionally checks required schema tables and all four recorded migration versions for deployment rollout probes.
 - `POST /api/v1/routes/quote`: validates labels, geocodes through Nominatim, routes through OSRM, calculates a server-side demo fare, and persists a five-minute quote.
 - `POST /api/v1/auth/register` and `POST /api/v1/auth/login`: passenger accounts, PBKDF2-HMAC-SHA-256 password hashes using 600,000 iterations for new hashes, short-lived HMAC-signed access tokens, duplicate-email handling, and per-IP authentication throttling.
 - `POST /api/v1/rides`: authenticated quote consumption and ride creation in a PostgreSQL transaction, with idempotency replay/conflict handling and ride-event history.
