@@ -492,7 +492,7 @@ public:
             PGresult* audit = PQexecParams(connection_,
                 "INSERT INTO admin_audit_events (actor_id,action,target_type,target_id,details) "
                 "VALUES ($1::uuid,'support.report.updated','support_report',$2::uuid,"
-                "jsonb_build_object('status',$3))",
+                "jsonb_build_object('status',$3::text))",
                 3, nullptr, audit_params, nullptr, nullptr, 0);
             if (audit == nullptr || PQresultStatus(audit) != PGRES_COMMAND_OK) {
                 if (audit != nullptr) PQclear(audit);
