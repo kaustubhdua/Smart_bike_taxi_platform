@@ -76,11 +76,18 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.route("http://api.test/api/v1/rides", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer test-access-token");
     if (route.request().method() === "GET") {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [{
-        rideId: "30000000-0000-4000-8000-000000000001", status: "cancelled",
-        pickup: "JIIT Sector 128", destination: "Sector 18 Market", farePaise: 4750,
-        currency: "INR", createdAt: new Date().toISOString(),
-      }] }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [
+        {
+          rideId: "30000000-0000-4000-8000-000000000001", status: "cancelled",
+          pickup: "JIIT Sector 128", destination: "Sector 18 Market", farePaise: 4750,
+          currency: "INR", createdAt: new Date().toISOString(),
+        },
+        {
+          rideId: "30000000-0000-4000-8000-000000000002", status: "completed",
+          pickup: "Botanical Garden Metro", destination: "Noida City Centre", farePaise: 6250,
+          currency: "INR", createdAt: new Date().toISOString(),
+        },
+      ] }) });
       return;
     }
     const key = route.request().headers()["idempotency-key"] ?? "";
@@ -123,6 +130,10 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await expect(page.getByRole("heading", { name: "Your trip history" })).toBeVisible();
   await expect(page.getByText("JIIT Sector 128 → Sector 18 Market", { exact: true })).toBeVisible();
   await expect(page.getByText(/cancelled · ₹47\.50/)).toBeVisible();
+  await page.getByRole("button", { name: "View receipt" }).click();
+  await expect(page.getByRole("heading", { name: "Ride receipt" })).toBeVisible();
+  await expect(page.getByText("₹62.50 INR", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Print receipt" })).toBeVisible();
 });
 
 test("passenger ride status refreshes from persisted API state", async ({ page }) => {
