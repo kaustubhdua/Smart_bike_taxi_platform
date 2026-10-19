@@ -27,6 +27,8 @@ The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_
 
 ## Full-stack roadmap status
 
+For a complete local passenger → driver → admin walkthrough, see [docs/DEMO_WALKTHROUGH.md](docs/DEMO_WALKTHROUGH.md). The walkthrough uses demo fares and local/test accounts; it does not represent a commercial service.
+
 See [`docs/DEEP_IMPROVEMENT_RESEARCH.md`](docs/DEEP_IMPROVEMENT_RESEARCH.md) for the research-backed priority order, security/reliability recommendations, acceptance criteria, and release gates. The implementation status below is not a production-readiness claim.
 
 This repository is being extended from its original C++17 academic simulation into **RideForge**, an original bike-taxi booking product. The C++ API now exposes PostgreSQL-backed quotes, passenger authentication and persisted booking, cancellation, history, driver lifecycle, audited admin driver provisioning/approval/suspension, and admin metrics and persisted support/incident-report endpoints with admin review/resolution. This is still an incremental portfolio build—not a live commercial ride service.
