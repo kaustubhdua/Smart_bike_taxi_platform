@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-10-19. This document describes the feature branch, not a claim that the service is commercially ready.
+Last reconciled: 2026-10-20. This document describes the feature branch, not a claim that the service is commercially ready.
 
 ## Product goal
 
@@ -21,8 +21,8 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 
 - Driver provisioning, approval and suspension API/UI are implemented with an audit trail and the demo-versus-real-world boundary is documented in [the driver verification policy](DRIVER_VERIFICATION_POLICY.md). Real identity/vehicle document verification remains outside this demo.
 - The ride-event outbox publisher is implemented with PostgreSQL NOTIFY, retry/backoff and dead-letter handling. The API exposes an authenticated SSE stream with persisted-event replay; passenger and driver workspaces consume ride-status frames and REST polling remains the recovery path. Ride detail exposes a fresh driver location only to authorized ride participants during an active ride; the passenger map displays that marker and hides it when the location is stale/offline or the ride becomes terminal.
-- Dispatch queue filters approved, online drivers with a fresh location and a 20 km great-circle pickup radius; it is not yet ranked by road ETA, and the radius is a demo policy rather than a configurable operating rule.
-- Admin workspace exposes operational metrics (including outbox backlog/dead-letter health), driver provisioning/approval/suspension, recent privileged-action audit history and bounded ride search. Support/incident records, explicit failed-dispatch investigation and a documented safety-response workflow remain future work.
+- Dispatch queue filters approved, online drivers with a fresh location and a configurable great-circle pickup radius (20 km default, bounded to 1–100 km); it is ranked by pickup distance, not road ETA.
+- Admin workspace exposes operational metrics (including outbox backlog/dead-letter health), driver provisioning/approval/suspension, recent privileged-action audit history, bounded ride search, and persisted support/incident records with audited status resolution. Automated failed-dispatch diagnosis and a staffed safety-response workflow remain future work.
 - No real payment processing, refund/reconciliation, net driver payout/commission ledger, real SMS delivery, production safety response or commercial fleet operations.
 - No live production deployment, production provider contract, tested production backup/restore, or legal authorization for commercial rides is claimed.
 - No production-grade distributed rate limiting or shared connection pool is claimed.
@@ -34,11 +34,11 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Add a reproducible frontend lockfile install (npm ci).
 - [x] Add explicit driver approval and a transactional event outbox foundation.
 - [x] Add smoke tests for offline queue privacy and unapproved driver rejection.
-- [ ] Re-run every workflow against the latest exact commit SHA; fix all failures.
-- [ ] Ensure README, this roadmap, OpenAPI, PR description and issue tracker agree.
+- [x] Run all eight CI/security workflows on the exact pre-hardening release-candidate SHA `64e3286c98f2ce9a61055b1d5511253076ebe3c0`; rerun them after the dispatch-policy change.
+- [ ] Reconcile README, this roadmap, OpenAPI, PR description and issue tracker after the final release SHA is established.
 - [x] CI starts the complete Compose stack from a clean database, waits for schema readiness, checks API health and web HTML, then tears the stack down.
 
-Acceptance: every current-head check is green, migrations 001–003 apply in order and a second migration run is a no-op.
+Acceptance: every current-head check is green, migrations 001–004 apply in order and a second migration run is a no-op.
 
 ## Phase 1 — transactional API and security
 
@@ -60,7 +60,8 @@ Acceptance: adversarial integration tests pass and no client can read or mutate 
 - [x] Add driver profile/vehicle fields and a documented demo verification policy.
 - [x] Reject stale or out-of-area offers at both queue and acceptance time (20 km great-circle demo radius).
 - [x] Add driver trip history and lifetime gross completed-trip fare totals derived from persisted rides; this is not a net payout ledger.
-- [ ] Add admin ride search, failed dispatch inspection and incident records.
+- [x] Add bounded admin ride search and persisted support/incident records with audited admin resolution.
+- [ ] Add automated failed-dispatch diagnosis and a staffed safety-response workflow.
 
 Acceptance: a newly created driver cannot go online until explicitly approved; suspended drivers lose dispatch eligibility. The API and UI are implemented; CI evidence on the current head is still required.
 
@@ -97,10 +98,12 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [x] Add structured redacted request-completion logs, correlation IDs, SIGTERM/SIGINT handling, and bounded graceful draining.
 - [x] Bound routing-provider HTTP connect/total timeouts and HTTP socket read/write deadlines.
 - [ ] Add explicit PostgreSQL connection timeouts/pooling and broader SSE connection observability.
-- [ ] Document and test backup/restore; verify schema upgrade and rollback/recovery procedures.
+- [x] Document backup/restore and verify a disposable-database restore smoke test in CI.
+- [ ] Perform a timed recovery drill and document production migration rollback/recovery procedures.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
 - [x] Add scheduled CodeQL analysis for C++/TypeScript, lockfile-backed npm audit, and scheduled high-severity container image scans.
-- [ ] Execute all security scans on the release SHA, enable GitHub dependency graph for license/dependency review, and review data retention/deletion.
+- [x] Execute dependency audit, CodeQL, and container vulnerability scanning on the pre-hardening release SHA; rerun on the final release SHA.
+- [ ] Verify GitHub dependency graph/license-review settings and document location/support-data retention/deletion.
 - [ ] Select a suitable contracted or self-hosted routing/geocoding provider for any public service.
 - [ ] Deploy frontend/API/database using protected secrets and HTTPS; verify the exact release SHA.
 - [ ] Capture genuine desktop/mobile screenshots, record the deployment URL and publish a demo walkthrough.
