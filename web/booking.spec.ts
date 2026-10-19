@@ -38,6 +38,9 @@ test("calculates road route and shows a fare only after a valid server quote", a
   });
   await page.goto("/");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("application", { name: /Interactive road map from/ })).toBeVisible();
+  await expect(page.locator("#route-map-description")).toContainText("route distance, estimated duration and fare");
+  await expect(page.locator(".leaflet-control-attribution a[href*='openstreetmap.org/copyright']")).toBeVisible();
   await expect(page.getByText("No invented price")).toBeVisible();
   await expect(page.locator(".fare-amount")).toContainText("—");
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
