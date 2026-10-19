@@ -369,6 +369,68 @@ paths:
         "401": { description: Unauthenticated }
         "403": { description: Administrator role required }
         "422": { description: Invalid query, status or limit }
+  /support/reports:
+    post:
+      summary: Create an authenticated support or incident report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportReportRequest"
+      responses:
+        "201":
+          description: Report persisted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportReportCreated"
+        "401": { description: Authentication required }
+        "403": { description: Supplied ride is not accessible to this account }
+        "422": { description: Invalid report fields }
+        "503": { description: Report service unavailable }
+  /admin/support/reports:
+    get:
+      summary: List support reports (admin only)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Reports ordered by severity and recency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportReportList"
+        "401": { description: Authentication required }
+        "403": { description: Admin role required }
+  /admin/support/reports/{reportId}:
+    put:
+      summary: Update report status and resolution note (admin only)
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportReportUpdateRequest"
+      responses:
+        "200":
+          description: Report updated and administrative action audited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportReportUpdateResponse"
+        "401": { description: Authentication required }
+        "403": { description: Admin role required }
+        "404": { description: Report not found }
+        "422": { description: Invalid update }
   /admin/metrics:
     get:
       summary: Read operational metrics
@@ -389,6 +451,59 @@ components:
       required: true
       schema: { type: string, format: uuid }
   schemas:
+    SupportReportRequest:
+      type: object
+      additionalProperties: false
+      required: [category, description]
+      properties:
+        rideId: { type: string, format: uuid }
+        category: { type: string, enum: [booking, driver, safety, payment_demo, technical, other] }
+        severity: { type: string, enum: [low, normal, high, urgent], default: normal }
+        description: { type: string, minLength: 10, maxLength: 2000 }
+    SupportReportCreated:
+      type: object
+      required: [reportId, status, createdAt]
+      properties:
+        reportId: { type: string, format: uuid }
+        status: { type: string, const: open }
+        createdAt: { type: string }
+    SupportReport:
+      type: object
+      required: [reportId, reporterEmail, reporterRole, category, severity, description, status, resolutionNote, createdAt, updatedAt, resolvedAt]
+      properties:
+        reportId: { type: string, format: uuid }
+        reporterEmail: { type: string, format: email }
+        reporterRole: { type: string, enum: [passenger, driver, admin] }
+        rideId: { type: string, format: uuid, nullable: true }
+        category: { type: string, enum: [booking, driver, safety, payment_demo, technical, other] }
+        severity: { type: string, enum: [low, normal, high, urgent] }
+        description: { type: string }
+        status: { type: string, enum: [open, in_review, resolved] }
+        resolutionNote: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        resolvedAt: { type: string }
+    SupportReportList:
+      type: object
+      required: [reports]
+      properties:
+        reports:
+          type: array
+          items: { $ref: "#/components/schemas/SupportReport" }
+    SupportReportUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [open, in_review, resolved] }
+        resolutionNote: { type: string, maxLength: 500 }
+    SupportReportUpdateResponse:
+      type: object
+      required: [reportId, status, updatedAt]
+      properties:
+        reportId: { type: string, format: uuid }
+        status: { type: string, enum: [open, in_review, resolved] }
+        updatedAt: { type: string }
     AdminMetricsResponse:
       type: object
       required: [ridesByStatus, onlineDrivers, pendingOutboxEvents, deadLetteredOutboxEvents, oldestPendingOutboxAgeSeconds]
