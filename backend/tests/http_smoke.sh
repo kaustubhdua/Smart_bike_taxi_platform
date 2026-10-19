@@ -243,6 +243,34 @@ status="$(curl --silent --show-error --output "$tmp_dir/other-booking.json" --wr
   --data '{"quoteId":"40000000-0000-4000-8000-000000000014"}' "$base_url/api/v1/rides")"
 test "$status" = "201"
 other_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/other-booking.json")"
+
+# Ride-linked reports must be scoped to the passenger/driver that owns the ride.
+status="$(curl --silent --show-error --output "$tmp_dir/support-cross-account.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --data "{\"rideId\":\"$other_ride_id\",\"category\":\"booking\",\"description\":\"I cannot access this other passenger ride.\"}" \
+  "$base_url/api/v1/support/reports")"
+test "$status" = "403"
+
+# A user can file reports for their own ride, but repeated submissions are bounded.
+status="$(curl --silent --show-error --output "$tmp_dir/other-support-report.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $other_token" \
+  --data "{\"rideId\":\"$other_ride_id\",\"category\":\"booking\",\"description\":\"I need help with my own ride booking.\"}" \
+  "$base_url/api/v1/support/reports")"
+test "$status" = "201"
+for attempt in $(seq 1 9); do
+  status="$(curl --silent --show-error --output "$tmp_dir/support-rate-loop.json" --write-out '%{http_code}' \
+    --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $other_token" \
+    --data '{"category":"technical","description":"Repeated test report for rate limiting."}' \
+    "$base_url/api/v1/support/reports")"
+  test "$status" = "201"
+done
+status="$(curl --silent --show-error --output "$tmp_dir/support-rate-limited.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $other_token" \
+  --data '{"category":"technical","description":"This report should exceed the per-account limit."}' \
+  "$base_url/api/v1/support/reports")"
+test "$status" = "429"
+grep -q '"error":"rate_limited"' "$tmp_dir/support-rate-limited.json"
+
 status="$(curl --silent --show-error --output "$tmp_dir/events-unauthenticated.json" --write-out '%{http_code}' \
   "$base_url/api/v1/rides/$other_ride_id/events")"
 test "$status" = "401"
