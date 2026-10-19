@@ -22,3 +22,12 @@ jobs:
   containers:
     name: Container and Compose validation
     uses: ./.github/workflows/container.yml
+  dependencies:
+    name: Dependency audit
+    uses: ./.github/workflows/dependency-review.yml
+  codeql:
+    name: CodeQL security analysis
+    uses: ./.github/workflows/codeql.yml
+  container_scan:
+    name: Container vulnerability scan
+    uses: ./.github/workflows/container-scan.yml
