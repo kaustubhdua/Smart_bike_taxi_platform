@@ -7,6 +7,9 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 status="$(curl --silent --show-error --output "$tmp_dir/health.json" --write-out '%{http_code}' "$base_url/api/v1/health")"
 test "$status" = "200"
+status="$(curl --silent --show-error --output "$tmp_dir/readiness.json" --write-out '%{http_code}' "$base_url/api/v1/ready")"
+test "$status" = "200"
+grep -q '"status":"ready"' "$tmp_dir/readiness.json"
 grep -q '"status":"ok"' "$tmp_dir/health.json"
 grep -q '"database":"connected"' "$tmp_dir/health.json"
 
