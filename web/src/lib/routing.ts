@@ -6,6 +6,7 @@ export type RouteResult = {
 };
 
 type GeocodingResult = { lat: string; lon: string; display_name: string };
+type ReverseGeocodingResult = { display_name?: string };
 type OsrmRouteResponse = {
   code: string;
   routes?: Array<{
@@ -19,6 +20,39 @@ const geocodingBase = (import.meta.env.VITE_GEOCODING_BASE_URL as string | undef
   ?? "https://nominatim.openstreetmap.org/search";
 const routingBase = (import.meta.env.VITE_ROUTING_BASE_URL as string | undefined)
   ?? "https://router.project-osrm.org/route/v1/driving";
+
+/**
+ * Resolves a user-authorized browser position to a human-readable pickup label.
+ * The public Nominatim endpoint is suitable only for low-volume evaluation use.
+ */
+export async function reverseGeocode(
+  latitude: number,
+  longitude: number,
+  signal: AbortSignal,
+): Promise<string> {
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+      !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    throw new Error("Your device returned invalid coordinates.");
+  }
+  const reverseBase = (import.meta.env.VITE_REVERSE_GEOCODING_URL as string | undefined)
+    ?? "https://nominatim.openstreetmap.org/reverse";
+  const query = new URLSearchParams({
+    lat: String(latitude),
+    lon: String(longitude),
+    format: "jsonv2",
+    zoom: "18",
+    addressdetails: "1",
+  });
+  const response = await fetch(`${reverseBase}?${query}`, {
+    signal,
+    headers: { "Accept-Language": "en" },
+  });
+  if (!response.ok) throw new Error("Address lookup is temporarily unavailable.");
+  const result = await response.json() as ReverseGeocodingResult;
+  const label = result.display_name?.trim();
+  if (!label) throw new Error("We couldn't determine an address for your current location.");
+  return label.slice(0, 240);
+}
 
 async function geocode(place: string, signal: AbortSignal): Promise<[number, number]> {
   const query = new URLSearchParams({
