@@ -9,7 +9,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 ## Current implemented foundations
 
 - C++17 DSA application, graph routing, deterministic selection/lifecycle tests and an opt-in benchmark.
-- React + TypeScript + Vite passenger experience with a lazy-loaded map and configurable geocoding/routing adapter.
+- React + TypeScript + Vite passenger experience with a lazy-loaded map, configurable geocoding/routing adapter, persisted trip history and printable demo receipts.
 - C++17 Boost.Beast API for database liveness (`/api/v1/health`) and schema readiness (`/api/v1/ready`), server-authoritative route quotes, passenger registration/login, persisted idempotent bookings, history/detail, cancellation, driver availability/queue/acceptance/status and protected admin metrics.
 - PostgreSQL migration 001 for accounts, profiles, rides, quotes, ride events and idempotency; migration 002 adds explicit driver approval and a transactional event notification outbox.
 - Driver queue reads are limited to approved profiles online with a location updated in the last five minutes. Availability and acceptance enforce approval.
@@ -21,7 +21,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - Driver provisioning, approval and suspension API/UI are implemented with an audit trail. Real-world identity/vehicle document verification remains outside this demo.
 - The ride-event outbox publisher is implemented with PostgreSQL NOTIFY, retry/backoff and dead-letter handling. The API exposes an authenticated SSE stream with persisted-event replay; passenger and driver workspaces consume ride-status frames and REST polling remains the recovery path. Ride detail exposes a fresh driver location only to authorized ride participants during an active ride; the passenger map displays that marker and hides it when the location is stale/offline or the ride becomes terminal.
 - Dispatch queue filters approved, online drivers with a fresh location and a configurable `RIDEFORGE_DISPATCH_RADIUS_KM` great-circle pickup radius (1–100 km; default 20 km); it is not yet ranked by road ETA, and the radius remains a demo policy rather than a calibrated operating rule.
-- Admin workspace exposes operational metrics, driver provisioning/approval/suspension, privileged-action audit history, and support-report triage with transactional audit records. Real-time paging, external support tooling and operational incident escalation remain future work.
+- Admin workspace exposes operational metrics, bounded ride search, driver provisioning/approval/suspension, privileged-action audit history, and support-report triage with transactional audit records. Real-time paging, external support tooling and operational incident escalation remain future work.
 - No real payment processing, refund/reconciliation, real SMS delivery, production safety response or commercial fleet operations.
 - No live production deployment, production provider contract, tested production backup/restore, or legal authorization for commercial rides is claimed.
 - No production-grade distributed rate limiting or shared connection pool is claimed.
