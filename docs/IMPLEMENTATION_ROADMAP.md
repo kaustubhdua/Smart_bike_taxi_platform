@@ -10,18 +10,18 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 
 - C++17 DSA application, graph routing, deterministic selection/lifecycle tests and an opt-in benchmark.
 - React + TypeScript + Vite passenger experience with a lazy-loaded map and configurable geocoding/routing adapter.
-- C++17 Boost.Beast API for database liveness (`/api/v1/health`) and schema readiness (`/api/v1/ready`), server-authoritative route quotes, passenger registration/login, persisted idempotent bookings, history/detail, cancellation, driver availability/queue/acceptance/status and protected admin metrics.
-- PostgreSQL migration 001 for accounts, profiles, rides, quotes, ride events and idempotency; migration 002 adds explicit driver approval and a transactional event notification outbox.
+- C++17 Boost.Beast API for database liveness (`/api/v1/health`) and schema readiness (`/api/v1/ready`), server-authoritative route quotes, passenger registration/login, persisted idempotent bookings, history/detail, cancellation, driver availability/queue/acceptance/status/history, authenticated SSE, and protected admin metrics, driver management, ride search and audit history.
+- PostgreSQL migrations 001–003 cover accounts, profiles, rides, quotes, ride events, idempotency, explicit driver approval, a transactional event notification outbox and dead-letter tracking.
 - Driver queue reads are limited to approved profiles online with a location updated in the last five minutes. Availability and acceptance enforce approval.
 - Migration runner applies ordered SQL files and fails closed on an existing unversioned schema.
-- CI covers C++ builds/tests, API HTTP smoke behavior, PostgreSQL migration/invariant checks, frontend typecheck/build/E2E/accessibility checks, and container/Compose validation. Only runs on the exact head SHA count as release evidence.
+- CI covers C++ builds/tests, API HTTP smoke behavior, PostgreSQL migration/invariant checks, frontend typecheck/build/E2E/accessibility checks, container/Compose validation, dependency audit, CodeQL and container vulnerability scanning. The manual Full release readiness workflow now invokes all eight suites against one workflow checkout; only a successful run on the exact release SHA counts as release evidence.
 
 ## Known gaps — do not represent as complete
 
 - Driver provisioning, approval and suspension API/UI are implemented with an audit trail and the demo-versus-real-world boundary is documented in [the driver verification policy](DRIVER_VERIFICATION_POLICY.md). Real identity/vehicle document verification remains outside this demo.
 - The ride-event outbox publisher is implemented with PostgreSQL NOTIFY, retry/backoff and dead-letter handling. The API exposes an authenticated SSE stream with persisted-event replay; passenger and driver workspaces consume ride-status frames and REST polling remains the recovery path. Ride detail exposes a fresh driver location only to authorized ride participants during an active ride; the passenger map displays that marker and hides it when the location is stale/offline or the ride becomes terminal.
 - Dispatch queue filters approved, online drivers with a fresh location and a 20 km great-circle pickup radius; it is not yet ranked by road ETA, and the radius is a demo policy rather than a configurable operating rule.
-- Admin workspace exposes operational metrics, driver provisioning/approval/suspension, and recent privileged-action audit history. Incident response and audit search/filtering remain future work.
+- Admin workspace exposes operational metrics (including outbox backlog/dead-letter health), driver provisioning/approval/suspension, recent privileged-action audit history and bounded ride search. Support/incident records, explicit failed-dispatch investigation and a documented safety-response workflow remain future work.
 - No real payment processing, refund/reconciliation, net driver payout/commission ledger, real SMS delivery, production safety response or commercial fleet operations.
 - No live production deployment, production provider contract, tested production backup/restore, or legal authorization for commercial rides is claimed.
 - No production-grade distributed rate limiting or shared connection pool is claimed.
@@ -37,7 +37,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [ ] Ensure README, this roadmap, OpenAPI, PR description and issue tracker agree.
 - [ ] Verify the Compose startup path applies all migrations from a clean database and is repeatable.
 
-Acceptance: every current-head check is green, migration 001 and 002 apply in order and the second migration run is a no-op.
+Acceptance: every current-head check is green, migrations 001–003 apply in order and a second migration run is a no-op.
 
 ## Phase 1 — transactional API and security
 
