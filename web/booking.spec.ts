@@ -239,6 +239,8 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       rideId: "30000000-0000-4000-8000-000000000099", status,
       ...(status === "assigned" || status === "in_progress" ? {
+        driverName: "Alex Driver",
+        vehicleRegistration: "HR-01-RF-1234",
         driverLocation: { latitude: 28.54, longitude: 77.34, updatedAt: new Date().toISOString() },
       } : {}),
     }) });
@@ -256,6 +258,7 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await expect.poll(() => reads).toBeGreaterThan(0);
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
+  await expect(page.locator(".ride-confirmation")).toContainText("Driver: Alex Driver · Vehicle: HR-01-RF-1234");
   const driverMap = page.getByRole("application", { name: /Includes the driver's latest reported location/ });
   await page.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; });
   await driverMap.evaluate(el => el.scrollIntoView({ block: "center", behavior: "auto" }));
