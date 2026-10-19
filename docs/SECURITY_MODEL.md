@@ -29,6 +29,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - Ride creation, idempotency reservation, quote consumption and ride-event insertion occur in a database transaction.
 - A partial unique index prevents one driver from having multiple active rides.
 - Admin driver provisioning, approval and suspension are transactionally audited.
+- Support reports are scoped to their creator; ride references are validated against passenger/driver participation. Admin resolution and its audit event commit together, and report creation is limited to five per account per hour with a PostgreSQL transaction lock.
 - Driver profiles default to unapproved; suspension forces the driver offline.
 - The API bounds request bodies/headers, applies socket timeouts and rate-limits auth/quote requests in-process.
 - Ride-event insertion automatically creates a durable outbox row in the same transaction.
@@ -41,7 +42,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - Driver approval is an administrative workflow, not identity, licence, insurance or vehicle-document verification.
 - Location updates are user-submitted and freshness-checked, not proof of real GPS provenance.
 - Public routing/geocoding endpoints are for development/evaluation only.
-- No payment processing, refunds, safety dispatch or emergency-service integration is implemented.
+- No payment processing, refunds, safety dispatch or emergency-service integration is implemented. Support reports are an internal demo queue only; they do not promise response times or contact emergency services.
 
 ## Release review
 
