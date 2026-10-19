@@ -9,6 +9,7 @@
 #include <array>
 #include <openssl/rand.h>
 #include <atomic>
+#include <csignal>
 #include <chrono>
 #include <cctype>
 #include <cmath>
@@ -1017,6 +1018,13 @@ private:
 RateLimiter quote_limiter{30};
 RateLimiter auth_limiter{10};
 std::atomic<unsigned> active_sessions{0};
+std::atomic<bool> shutdown_requested{false};
+static_assert(std::atomic<bool>::is_always_lock_free,
+              "signal handler requires a lock-free atomic boolean");
+
+void request_shutdown(int) {
+    shutdown_requested.store(true, std::memory_order_relaxed);
+}
 
 std::string make_request_id() {
     std::array<unsigned char, 16> bytes{};
@@ -1794,14 +1802,34 @@ void handle_request(tcp::socket socket) {
 
 int main() {
     curl_global_init(CURL_GLOBAL_DEFAULT);
+    std::signal(SIGINT, request_shutdown);
+    std::signal(SIGTERM, request_shutdown);
     const auto address = asio::ip::make_address(env_or("RIDEFORGE_BIND_ADDRESS", "0.0.0.0"));
     const unsigned short port = static_cast<unsigned short>(std::stoul(env_or("PORT", "8080")));
     asio::io_context context{1};
     tcp::acceptor acceptor{context, {address, port}};
-    std::cout << "RideForge API listening on " << address.to_string() << ':' << port << '\n';
-    for (;;) {
+    boost::system::error_code acceptor_error;
+    acceptor.non_blocking(true, acceptor_error);
+    if (acceptor_error) {
+        std::cerr << json{{"event", "listener_setup_failed"}, {"reason", acceptor_error.message()}}.dump() << '\n';
+        return 1;
+    }
+    std::cerr << json{{"event", "api_started"}, {"address", address.to_string()}, {"port", port}}.dump() << '\n';
+    while (!shutdown_requested.load(std::memory_order_relaxed)) {
         tcp::socket socket{context};
-        acceptor.accept(socket);
+        boost::system::error_code accept_error;
+        acceptor.accept(socket, accept_error);
+        if (accept_error) {
+            if (accept_error == asio::error::would_block ||
+                accept_error == asio::error::try_again ||
+                accept_error == asio::error::interrupted) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                continue;
+            }
+            if (shutdown_requested.load(std::memory_order_relaxed)) break;
+            std::cerr << json{{"event", "listener_accept_failed"}, {"reason", accept_error.message()}}.dump() << '\n';
+            break;
+        }
         if (active_sessions.fetch_add(1, std::memory_order_relaxed) >= 64) {
             active_sessions.fetch_sub(1, std::memory_order_relaxed);
             boost::system::error_code close_error;
@@ -1813,4 +1841,14 @@ int main() {
             active_sessions.fetch_sub(1, std::memory_order_relaxed);
         }).detach();
     }
+
+    const auto drain_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (active_sessions.load(std::memory_order_relaxed) != 0 &&
+           std::chrono::steady_clock::now() < drain_deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    const unsigned remaining = active_sessions.load(std::memory_order_relaxed);
+    std::cerr << json{{"event", "api_shutdown"}, {"remainingSessions", remaining},
+        {"graceful", remaining == 0}}.dump() << '\n';
+    return remaining == 0 ? 0 : 1;
 }
