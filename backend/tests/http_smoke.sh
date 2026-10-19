@@ -456,6 +456,13 @@ test "$status" = "200"
 grep -q '"status":"completed"' "$tmp_dir/detail.json"
 python3 -c 'import json,sys; assert "driverLocation" not in json.load(sys.stdin)' < "$tmp_dir/detail.json"
 
+# Going offline must erase the persisted coordinates and freshness marker, not merely hide them.
+status="$(curl --silent --show-error --output "$tmp_dir/driver-offline.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $driver_token" \
+  --data '{"online":false,"latitude":28.53,"longitude":77.35}' "$base_url/api/v1/driver/availability")"
+test "$status" = "200"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM driver_profiles WHERE account_id='$driver_id' AND is_online=false AND current_latitude IS NULL AND current_longitude IS NULL AND last_location_at IS NULL")" = "1"
+
 status="$(curl --silent --show-error --output "$tmp_dir/cancel.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" --request POST "$base_url/api/v1/rides/$second_ride_id/cancel")"
 test "$status" = "200"
