@@ -261,6 +261,17 @@ test("driver workspace uses protected API routes for availability and ride lifec
       rideId: "30000000-0000-4000-8000-000000000001", status,
     }) });
   });
+  await page.route("http://api.test/api/v1/driver/history", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer driver-access-token");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      rides: [{
+        rideId: "30000000-0000-4000-8000-000000000001", status: "completed",
+        pickup: "Pickup", destination: "Destination", farePaise: 4750, currency: "INR",
+        createdAt: new Date().toISOString(), completedAt: new Date().toISOString(),
+      }],
+      completedTrips: 1, totalEarningsPaise: 4750, currency: "INR",
+    }) });
+  });
 
   await page.goto("/");
   const openDriverNav = page.getByRole("button", { name: "Open navigation" });
@@ -283,6 +294,9 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await expect(page.getByText("Status: in_progress")).toBeVisible();
   await page.getByRole("button", { name: "Complete trip" }).click();
   await expect(page.getByText("Status: completed")).toBeVisible();
+  await page.getByRole("button", { name: "Refresh trip history and earnings" }).click();
+  await expect(page.getByText(/Lifetime completed trips: 1/)).toBeVisible();
+  await expect(page.getByText("Pickup → Destination", { exact: true })).toHaveCount(2);
 });
 
 test("admin workspace reads metrics from the protected API", async ({ page }) => {
