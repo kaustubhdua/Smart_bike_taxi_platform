@@ -562,6 +562,48 @@ public:
         return json{{"rides", rides}};
     }
 
+    json driver_history(const std::string& driver_id) {
+        const char* params[] = {driver_id.c_str()};
+        PGresult* summary = PQexecParams(connection_,
+            "SELECT count(*)::text,COALESCE(sum(final_fare_paise),0)::text "
+            "FROM rides WHERE driver_id=$1::uuid AND status='completed'",
+            1, nullptr, params, nullptr, nullptr, 0);
+        if (summary == nullptr || PQresultStatus(summary) != PGRES_TUPLES_OK ||
+            PQntuples(summary) != 1) {
+            if (summary != nullptr) PQclear(summary);
+            throw std::runtime_error("Could not read driver earnings");
+        }
+        const int completed_trips = std::stoi(PQgetvalue(summary, 0, 0));
+        const int total_earnings_paise = std::stoi(PQgetvalue(summary, 0, 1));
+        PQclear(summary);
+
+        PGresult* result = PQexecParams(connection_,
+            "SELECT id::text,status::text,pickup_label,destination_label,"
+            "COALESCE(final_fare_paise,quoted_fare_paise)::text,created_at::text,completed_at::text "
+            "FROM rides WHERE driver_id=$1::uuid ORDER BY created_at DESC LIMIT 50",
+            1, nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not list driver trip history");
+        }
+        json rides = json::array();
+        for (int i = 0; i < PQntuples(result); ++i) {
+            rides.push_back({
+                {"rideId", PQgetvalue(result, i, 0)},
+                {"status", PQgetvalue(result, i, 1)},
+                {"pickup", PQgetvalue(result, i, 2)},
+                {"destination", PQgetvalue(result, i, 3)},
+                {"farePaise", std::stoi(PQgetvalue(result, i, 4))},
+                {"currency", "INR"},
+                {"createdAt", PQgetvalue(result, i, 5)},
+                {"completedAt", PQgetisnull(result, i, 6) ? json(nullptr) : json(PQgetvalue(result, i, 6))}
+            });
+        }
+        PQclear(result);
+        return json{{"rides", rides}, {"completedTrips", completed_trips},
+                    {"totalEarningsPaise", total_earnings_paise}, {"currency", "INR"}};
+    }
+
     json cancel_ride(const std::string& ride_id, const std::string& passenger_id) {
         const auto command = [this](const char* sql) {
             PGresult* result = PQexec(connection_, sql);
@@ -1529,6 +1571,20 @@ void handle_request(tcp::socket socket) {
                 result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
             } catch (const std::exception&) {
                 result = response(http::status::service_unavailable, {{"error", "driver_unavailable"}}, request);
+            }
+        }
+    } else if (request.method() == http::verb::get && path == "/api/v1/driver/history") {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "driver") {
+            result = response(http::status::forbidden, {{"error", "driver_role_required"}}, request);
+        } else {
+            try {
+                Database database(env_or("DATABASE_URL", ""));
+                result = response(http::status::ok, database.driver_history(claims->subject), request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "driver_history_unavailable"}}, request);
             }
         }
     } else if (request.method() == http::verb::get && path == "/api/v1/driver/rides") {
