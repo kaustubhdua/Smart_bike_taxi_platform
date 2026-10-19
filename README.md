@@ -46,19 +46,19 @@ This repository is being extended from its original C++17 academic simulation in
 | Reproducible installs | `web/package-lock.json` is committed and web CI uses `npm ci` | CI validates lockfile-backed installation; re-run on the current head before release |
 | Deployment and screenshots | No live full-stack deployment verified | Planned |
 
-### Last full release-candidate verification
+### Last full release-candidate code verification
 
-All eight GitHub Actions suites passed on exact commit `04e9227c01f408b60b5e45038d312d61185cd6c8`, including the fixed admin ride-status Playwright locator:
-- [C++ build/tests and sanitizers](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39296017053)
-- [API build and HTTP smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39296016951)
-- [PostgreSQL migration smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39296016923)
-- [Web build, typecheck, Playwright and axe](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39296017058)
-- [Container build and Compose validation](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39296017050)
-- [Dependency audit](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39296017267)
-- [CodeQL C++/TypeScript analysis](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39296017074)
-- [Container vulnerability scan](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39296017041)
+All eight GitHub Actions suites passed on exact code commit `c8ab087fcb5e8b298618517f708cdf7deba8ab5b` (2026-10-19). This revision includes a regression test proving SSE reconnect replay returns more than 100 persisted ride events rather than silently truncating history.
+- [C++ build/tests, sanitizers and benchmark](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349111)
+- [API/HTTP smoke and paginated SSE replay](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320348983)
+- [PostgreSQL migrations, invariants and restore smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349195)
+- [Web build, typecheck, Playwright and axe](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349010)
+- [Full Compose startup smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349113)
+- [Dependency audit](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349273)
+- [CodeQL C++/TypeScript analysis](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349255)
+- [Container vulnerability scan](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320348969)
 
-This is historical evidence for that exact SHA, not a guarantee about later commits. Check [PR #4](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/4) for the branch head and require all eight suites to pass again before merge. The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) runs all eight suites from one checkout.
+These runs are evidence for that exact code commit, not a guarantee about future code. See [PR #4](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/4) for the current release-candidate branch and require all applicable workflows to pass again after code changes. A live full-stack deployment is not yet verified; this is a portfolio MVP, not a commercial transport service.
 
 ### Frontend development
 
