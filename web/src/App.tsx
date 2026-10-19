@@ -546,6 +546,7 @@ export default function App() {
       }
     }
     setAccount(null);
+    setSupportReports([]);
     setDriverQueue([]);
     setDriverRide(null);
     setNotice(offlineConfirmed
@@ -721,7 +722,7 @@ export default function App() {
                   {account ? (
                     <div className="auth-session">
                       <span><Check size={15} /> Signed in as <strong>{account.email}</strong></span>
-                      <button className="text-action" onClick={() => setAccount(null)}>Sign out</button>
+                      <button className="text-action" onClick={() => { setAccount(null); setSupportReports([]); }}>Sign out</button>
                       <button className="book-button" onClick={createBooking}>Confirm ride request <ArrowRight size={18} /></button>
                     </div>
                   ) : (
@@ -783,7 +784,7 @@ export default function App() {
                   <div className="driver-panel-head">
                     <div><h3 id="admin-console-title">Admin overview</h3><p>Operational counts from PostgreSQL.</p></div>
                     <button className="driver-online" onClick={loadAdminMetrics}>Refresh metrics</button>
-                    <button className="text-action" onClick={() => { setAccount(null); setAdminMetrics(null); }}>Sign out</button>
+                    <button className="text-action" onClick={() => { setAccount(null); setAdminMetrics(null); setSupportReports([]); }}>Sign out</button>
                   </div>
                   {adminMetrics && <div className="admin-metrics">
                     <strong>Online drivers: {adminMetrics.onlineDrivers}</strong>
