@@ -307,6 +307,7 @@ paths:
               schema: { $ref: "#/components/schemas/SupportReport" }
         "404": { description: Ride not found or not accessible to the caller }
         "422": { description: Invalid report fields }
+        "429": { description: Per-account report rate limit exceeded }
   /admin/support-reports:
     get:
       summary: List the 100 most recent support reports (admin only)
