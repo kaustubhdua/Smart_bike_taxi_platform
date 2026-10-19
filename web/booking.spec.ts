@@ -298,7 +298,7 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await expect(page.locator("#operations .driver-queue p")).toContainText("4");
   await expect(page.locator("#operations .driver-queue p")).toContainText("5");
   await expect(page.getByRole("alert")).toContainText("Dead-lettered ride events need operator review");
-  await expect(page.getByText("requested")).toBeVisible();
+  await expect(page.getByText("requested", { exact: true })).toBeVisible();
 });
 
 
