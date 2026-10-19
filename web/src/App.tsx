@@ -844,7 +844,7 @@ export default function App() {
               {account && (account.role === "passenger" || account.role === "driver") && (
                 <section className="driver-panel support-panel" aria-labelledby="support-report-title">
                   <div className="driver-panel-head">
-                    <div><h3 id="support-report-title">Support and incident report</h3><p>Submit a report tied to your current ride, or leave the ride reference blank.</p></div>
+                    <div><h3 id="support-report-title">Support and incident report</h3><p>Submit a report tied to your current ride, or leave the ride reference blank. Reports are visible to authorized administrators; do not include passwords, payment credentials, or unnecessary personal data.</p></div>
                     <button className="text-action" type="button" onClick={loadSupportReports}>Refresh my reports</button>
                   </div>
                   <form className="auth-panel" onSubmit={submitSupportReport}>
