@@ -86,6 +86,20 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
       rideId: "30000000-0000-4000-8000-000000000001", status: "cancelled",
     }) });
   });
+  const report = {
+    id: "42", rideId: "30000000-0000-4000-8000-000000000001", category: "technical",
+    description: "The booking status did not refresh after reconnecting.", status: "open",
+    resolutionNote: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), resolvedAt: null,
+  };
+  await page.route("http://api.test/api/v1/support/reports", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-access-token");
+    if (route.request().method() === "POST") {
+      expect(route.request().postDataJSON()).toMatchObject({ rideId: report.rideId, category: "technical" });
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(report) });
+    } else {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ reports: [report] }) });
+    }
+  });
 
   await page.goto("/");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
@@ -102,6 +116,10 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await expect(page.locator(".ride-confirmation")).toBeVisible();
   await page.getByRole("button", { name: "Cancel request" }).click();
   await expect(page.getByText(/Ride request cancelled/)).toBeVisible();
+  await page.getByLabel(/Describe the issue/).fill(report.description);
+  await page.getByRole("button", { name: /Submit support report/ }).click();
+  await expect(page.locator(".inline-notice")).toContainText(/Support report submitted/);
+  await expect(page.getByText("#42 · technical")).toBeVisible();
 });
 
 test("passenger ride status refreshes from persisted API state", async ({ page }) => {
