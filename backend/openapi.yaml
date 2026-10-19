@@ -18,8 +18,25 @@ paths:
       security: []
       summary: Check database connectivity and required migrated tables
       responses:
-        "200": { description: Application schema is ready }
-        "503": { description: Database unavailable or required schema incomplete }
+        "200":
+          description: Application schema is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ready }
+        "503":
+          description: Database unavailable or required schema incomplete
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, reason]
+                properties:
+                  status: { type: string, const: not_ready }
+                  reason: { type: string, enum: [schema_incomplete, database_unavailable] }
   /auth/register:
     post:
       security: []
