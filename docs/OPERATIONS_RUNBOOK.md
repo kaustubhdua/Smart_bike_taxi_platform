@@ -125,3 +125,8 @@ The current API limits itself to 64 concurrent HTTP/SSE sessions; each active se
 ## Clean-stack verification
 
 The container CI workflow builds the API, outbox worker, admin bootstrap utility and web image, then runs `docker compose up --build` against a disposable database. It waits for `/api/v1/ready`, verifies `/api/v1/health` and the web entry point, captures Compose logs on exit, and removes the disposable volumes. This verifies container startup and readiness, not a public deployment or a production SLA.
+
+
+## Support and incident reports
+
+Authenticated passenger, driver or admin sessions may submit a report through `POST /api/v1/support/reports`. If a report includes a ride ID, the API checks that the reporter is the passenger, assigned driver, or an administrator with access to that ride. Administrators can list reports at `GET /api/v1/admin/support/reports` and update status at `PUT /api/v1/admin/support/reports/{reportId}`; each status change is written to the admin audit log in the same database transaction. The report feature records information for review; it does not contact emergency services or guarantee a human response. Configure a staffed operational process before using it with real passengers.

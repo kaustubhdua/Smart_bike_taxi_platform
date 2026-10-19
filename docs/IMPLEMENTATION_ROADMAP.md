@@ -11,7 +11,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - C++17 DSA application, graph routing, deterministic selection/lifecycle tests and an opt-in benchmark.
 - React + TypeScript + Vite passenger experience with a lazy-loaded map, configurable geocoding/routing adapter, and permission-based current-location pickup with reverse geocoding.
 - C++17 Boost.Beast API for database liveness (`/api/v1/health`) and schema readiness (`/api/v1/ready`), server-authoritative route quotes, passenger registration/login, persisted idempotent bookings, history/detail, cancellation, driver availability/queue/acceptance/status/history, authenticated SSE, and protected admin metrics, driver management, ride search and audit history.
-- PostgreSQL migrations 001–003 cover accounts, profiles, rides, quotes, ride events, idempotency, explicit driver approval, a transactional event notification outbox and dead-letter tracking.
+- PostgreSQL migrations 001–004 cover accounts, profiles, rides, quotes, ride events, idempotency, explicit driver approval, a transactional event notification outbox, dead-letter tracking, and persisted support/incident reports.
 - Driver queue reads are limited to approved profiles online with a location updated in the last five minutes. Availability and acceptance enforce approval.
 - Migration runner applies ordered SQL files and fails closed on an existing unversioned schema.
 - CI covers C++ builds/tests, API HTTP smoke behavior, PostgreSQL migration/invariant checks, frontend typecheck/build/E2E/accessibility checks, container/Compose validation, dependency audit, CodeQL and container vulnerability scanning. The manual Full release readiness workflow now invokes all eight suites against one workflow checkout; only a successful run on the exact release SHA counts as release evidence.
@@ -82,7 +82,7 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
 - [x] Add passenger trip detail/history and clear empty/error/offline states.
 - [x] Add a printable demo receipt for completed passenger rides, clearly labeled as not proof of payment or a tax invoice.
-- [ ] Add support reporting.
+- [x] Add authenticated support reporting, ride ownership checks, admin review/resolution and an audit event for status changes.
 - [x] Ensure no fabricated fare/booking success when the API/provider is unavailable; Playwright covers provider failures and quote errors.
 - [ ] Complete mobile/browser QA and WCAG 2.2 AA review.
 
