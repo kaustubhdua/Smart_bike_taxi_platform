@@ -160,6 +160,37 @@ paths:
       responses:
         "200": { description: Availability updated }
         "403": { description: Driver role required }
+  /driver/history:
+    get:
+      summary: List recent driver trips and lifetime completed-trip earnings
+      responses:
+        "200":
+          description: Driver-owned trip history and aggregate completed earnings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rides, completedTrips, totalEarningsPaise, currency]
+                properties:
+                  rides:
+                    type: array
+                    items:
+                      type: object
+                      required: [rideId, status, pickup, destination, farePaise, currency, createdAt, completedAt]
+                      properties:
+                        rideId: { type: string, format: uuid }
+                        status: { type: string }
+                        pickup: { type: string }
+                        destination: { type: string }
+                        farePaise: { type: integer, minimum: 0 }
+                        currency: { type: string, enum: [INR] }
+                        createdAt: { type: string, format: date-time }
+                        completedAt: { type: [string, "null"], format: date-time }
+                  completedTrips: { type: integer, minimum: 0 }
+                  totalEarningsPaise: { type: integer, minimum: 0 }
+                  currency: { type: string, enum: [INR] }
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
   /driver/rides:
     get:
       summary: List unassigned requests within 20 km for an approved driver with a fresh online location, ranked by pickup distance
