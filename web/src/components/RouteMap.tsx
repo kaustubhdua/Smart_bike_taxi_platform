@@ -109,7 +109,7 @@ export default function RouteMap({
 
   return <>
     <div ref={elementRef} className="route-map-canvas" role="application"
-      aria-label={`${geometry && geometry.length >= 2 ? 'Interactive road map from' : 'Interactive map selection from'} ${pickup} to ${destination}${selectionTarget ? `. Click to select ${selectionTarget}` : ''}${driverLocation ? '. Includes the driver location' : ''}. Use map controls to zoom and drag to pan.`} aria-describedby="route-map-description" />
+      aria-label={`${geometry && geometry.length >= 2 ? 'Interactive road map from' : 'Interactive map selection from'} ${pickup} to ${destination}${selectionTarget ? `. Click to select ${selectionTarget}` : ''}${driverLocation ? ". Includes the driver's latest reported location" : ""}. Use map controls to zoom and drag to pan.`} aria-describedby="route-map-description" />
     <p id="route-map-description" className="sr-only">
       {geometry && geometry.length >= 2
         ? `Route map from ${pickup} to ${destination}. The route distance, estimated duration and fare are also provided as text in the booking summary.`
