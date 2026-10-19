@@ -74,6 +74,18 @@ jobs:
             grep -q '"event":"invalid_configuration"' /tmp/invalid-dispatch-radius.log
             grep -q '"setting":"RIDEFORGE_DISPATCH_RADIUS_METERS"' /tmp/invalid-dispatch-radius.log
           done
+      - name: Reject missing, short and placeholder token secrets at startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          for secret in short-secret replace-with-at-least-32-random-characters; do
+            if RIDEFORGE_JWT_SECRET="$secret" PORT=0 ./build-backend/rideforge_api > /tmp/invalid-jwt-secret.log 2>&1; then
+              echo "API unexpectedly accepted an invalid token secret"
+              exit 1
+            fi
+            grep -q '"event":"invalid_configuration"' /tmp/invalid-jwt-secret.log
+            grep -q '"setting":"RIDEFORGE_JWT_SECRET"' /tmp/invalid-jwt-secret.log
+          done
       - name: Run C++ unit tests
         run: ctest --test-dir build-backend --output-on-failure
       - name: Apply versioned database migration
