@@ -456,6 +456,16 @@ test "$status" = "200"
 grep -q '"status":"completed"' "$tmp_dir/detail.json"
 python3 -c 'import json,sys; assert "driverLocation" not in json.load(sys.stdin)' < "$tmp_dir/detail.json"
 
+status="$(curl --silent --show-error --output "$tmp_dir/admin-ride-search.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
+  --data '{"query":"smoke-passenger@example.test","status":"completed","limit":20}' "$base_url/api/v1/admin/rides/search")"
+test "$status" = "200"
+python3 -c 'import json,sys; d=json.load(sys.stdin); assert any(r["rideId"] == sys.argv[1] and r["passengerEmail"] == "smoke-passenger@example.test" and r["status"] == "completed" for r in d["rides"])' "$ride_id" < "$tmp_dir/admin-ride-search.json"
+status="$(curl --silent --show-error --output "$tmp_dir/passenger-admin-search.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --data '{"query":"smoke","limit":20}' "$base_url/api/v1/admin/rides/search")"
+test "$status" = "403"
+
 status="$(curl --silent --show-error --output "$tmp_dir/cancel.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" --request POST "$base_url/api/v1/rides/$second_ride_id/cancel")"
 test "$status" = "200"
