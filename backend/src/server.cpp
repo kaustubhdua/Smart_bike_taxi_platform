@@ -6,6 +6,8 @@
 #include "security.hpp"
 
 #include <algorithm>
+#include <array>
+#include <openssl/rand.h>
 #include <atomic>
 #include <chrono>
 #include <cctype>
@@ -1015,6 +1017,15 @@ RateLimiter quote_limiter{30};
 RateLimiter auth_limiter{10};
 std::atomic<unsigned> active_sessions{0};
 
+std::string make_request_id() {
+    std::array<unsigned char, 16> bytes{};
+    if (RAND_bytes(bytes.data(), static_cast<int>(bytes.size())) == 1) {
+        return rideforge_security::base64url_encode(bytes.data(), bytes.size());
+    }
+    static std::atomic<std::uint64_t> fallback{0};
+    return "fallback-" + std::to_string(++fallback);
+}
+
 http::response<http::string_body> response(http::status status, const json& body,
                                            const http::request<http::string_body>& request) {
     http::response<http::string_body> result{status, request.version()};
@@ -1023,6 +1034,8 @@ http::response<http::string_body> response(http::status status, const json& body
     result.set(http::field::cache_control, "no-store");
     result.set("X-Content-Type-Options", "nosniff");
     result.set("Referrer-Policy", "no-referrer");
+    const auto request_id = request["X-Request-ID"];
+    if (!request_id.empty()) result.set("X-Request-ID", std::string(request_id.data(), request_id.size()));
     const auto origin_view = request[http::field::origin];
     const std::string origin(origin_view.data(), origin_view.size());
     const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
@@ -1250,6 +1263,8 @@ bool stream_ride_events(beast::tcp_stream& stream,
     header.set(http::field::content_type, "text/event-stream; charset=utf-8");
     header.set(http::field::cache_control, "no-cache, no-transform");
     header.set("X-Accel-Buffering", "no");
+    const auto request_id = request["X-Request-ID"];
+    if (!request_id.empty()) header.set("X-Request-ID", std::string(request_id.data(), request_id.size()));
     header.set(http::field::connection, "keep-alive");
     header.set("X-Content-Type-Options", "nosniff");
     header.set("X-Accel-Buffering", "no");
@@ -1371,6 +1386,7 @@ void handle_request(tcp::socket socket) {
         return;
     }
     auto request = parser.release();
+    request.set("X-Request-ID", make_request_id());
 
     const std::string path(request.target().data(), request.target().size());
     if (stream_ride_events(stream, request, path)) return;
