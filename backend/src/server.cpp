@@ -397,6 +397,43 @@ public:
         return json{{"events", events}};
     }
 
+    json admin_search_rides(const std::string& query, const std::string& status, int limit) {
+        const std::string pattern = query.empty() ? "" : "%" + query + "%";
+        const char* params[] = {pattern.c_str(), status.c_str()};
+        const std::string limit_text = std::to_string(limit);
+        const char* all_params[] = {pattern.c_str(), status.c_str(), limit_text.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "SELECT r.id::text,r.status::text,p.email,COALESCE(d.email,''),"
+            "r.pickup_label,r.destination_label,COALESCE(r.final_fare_paise,r.quoted_fare_paise)::text,"
+            "r.created_at::text FROM rides r JOIN accounts p ON p.id=r.passenger_id "
+            "LEFT JOIN accounts d ON d.id=r.driver_id "
+            "WHERE ($1='' OR r.id::text ILIKE $1 OR p.email ILIKE $1 OR COALESCE(d.email,'') ILIKE $1 "
+            "OR r.pickup_label ILIKE $1 OR r.destination_label ILIKE $1) "
+            "AND ($2='' OR r.status::text=$2) ORDER BY r.created_at DESC LIMIT $3::integer",
+            3, nullptr, all_params, nullptr, nullptr, 0);
+        (void)params;
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not search rides");
+        }
+        json rides = json::array();
+        for (int i = 0; i < PQntuples(result); ++i) {
+            rides.push_back({
+                {"rideId", PQgetvalue(result, i, 0)},
+                {"status", PQgetvalue(result, i, 1)},
+                {"passengerEmail", PQgetvalue(result, i, 2)},
+                {"driverEmail", PQgetvalue(result, i, 3)},
+                {"pickup", PQgetvalue(result, i, 4)},
+                {"destination", PQgetvalue(result, i, 5)},
+                {"farePaise", std::stoll(PQgetvalue(result, i, 6))},
+                {"currency", "INR"},
+                {"createdAt", PQgetvalue(result, i, 7)}
+            });
+        }
+        PQclear(result);
+        return json{{"rides", rides}, {"limit", limit}};
+    }
+
     json admin_metrics() {
         PGresult* result = PQexec(connection_,
             "SELECT status::text,count(*)::text FROM rides GROUP BY status ORDER BY status");
@@ -1772,6 +1809,42 @@ void handle_request(tcp::socket socket) {
                 }
             } catch (const std::exception&) {
                 result = response(http::status::service_unavailable, {{"error", "audit_unavailable"}}, request);
+            }
+        }
+    } else if (request.method() == http::verb::post && path == "/api/v1/admin/rides/search") {
+        const auto claims = bearer_claims(request);
+        if (!claims) {
+            result = response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+        } else if (claims->role != "admin") {
+            result = response(http::status::forbidden, {{"error", "admin_role_required"}}, request);
+        } else {
+            try {
+                const json body = json::parse(request.body());
+                if (!body.is_object() ||
+                    (body.contains("query") && !body["query"].is_string()) ||
+                    (body.contains("status") && !body["status"].is_string()) ||
+                    (body.contains("limit") && !body["limit"].is_number_integer())) {
+                    throw std::invalid_argument("invalid_search_request");
+                }
+                const std::string query = body.value("query", std::string{});
+                const std::string status_filter = body.value("status", std::string{});
+                const int limit = body.value("limit", 50);
+                const std::vector<std::string> allowed_statuses = {
+                    "", "requested", "matching", "assigned", "driver_arriving",
+                    "in_progress", "completed", "cancelled", "failed"
+                };
+                if (query.size() > 120 || limit < 1 || limit > 100 ||
+                    std::find(allowed_statuses.begin(), allowed_statuses.end(), status_filter) == allowed_statuses.end()) {
+                    throw std::invalid_argument("invalid_search_request");
+                }
+                Database database(env_or("DATABASE_URL", ""));
+                result = response(http::status::ok, database.admin_search_rides(query, status_filter, limit), request);
+            } catch (const std::invalid_argument& error) {
+                result = response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
+            } catch (const json::exception&) {
+                result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+            } catch (const std::exception&) {
+                result = response(http::status::service_unavailable, {{"error", "ride_search_unavailable"}}, request);
             }
         }
     } else if (request.method() == http::verb::get && path == "/api/v1/admin/metrics") {
