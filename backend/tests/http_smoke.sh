@@ -543,6 +543,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/history.json" --write-ou
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides")"
 test "$status" = "200"
 grep -q "$ride_id" "$tmp_dir/history.json"
+python3 -c 'import json,sys; rides=json.load(sys.stdin)["rides"]; item=next(r for r in rides if r["rideId"]==sys.argv[1]); assert item["status"]=="completed" and item["finalFarePaise"]>0 and item["completedAt"]' "$ride_id" < "$tmp_dir/history.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/detail.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$ride_id")"
