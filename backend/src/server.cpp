@@ -59,6 +59,22 @@ std::string env_or(const char* key, const char* fallback) {
     return value != nullptr && *value != '\0' ? value : fallback;
 }
 
+int dispatch_radius_meters() {
+    const char* configured = std::getenv("RIDEFORGE_DISPATCH_RADIUS_METERS");
+    if (configured == nullptr || *configured == '\0') return 20000;
+    try {
+        const std::string value(configured);
+        std::size_t consumed = 0;
+        const long radius = std::stol(value, &consumed, 10);
+        if (consumed != value.size() || radius < 1000 || radius > 100000) {
+            throw std::invalid_argument("outside allowed range");
+        }
+        return static_cast<int>(radius);
+    } catch (...) {
+        throw std::runtime_error("Invalid RIDEFORGE_DISPATCH_RADIUS_METERS; use an integer from 1000 to 100000");
+    }
+}
+
 size_t append_body(char* data, size_t size, size_t count, void* target) {
     const auto bytes = size * count;
     static_cast<std::string*>(target)->append(data, bytes);
@@ -686,7 +702,8 @@ public:
     json list_available_rides(const std::string& driver_id) {
         // Do not expose pickup/drop-off data to drivers who are offline or whose
         // last location is stale. Dispatch eligibility is checked again when accepting.
-        const char* params[] = {driver_id.c_str()};
+        const std::string radius_text = std::to_string(dispatch_radius_meters());
+        const char* params[] = {driver_id.c_str(), radius_text.c_str()};
         PGresult* result = PQexecParams(connection_,
             "WITH eligible AS ("
             "SELECT r.id::text AS ride_id,r.pickup_label,r.destination_label,"
@@ -704,9 +721,9 @@ public:
             "AND NOT EXISTS (SELECT 1 FROM rides active WHERE active.driver_id=d.account_id "
             "AND active.status IN ('assigned','driver_arriving','in_progress'))) "
             "SELECT ride_id,pickup_label,destination_label,route_distance_m,fare_paise,created_at,"
-            "pickup_distance_m::integer FROM eligible WHERE pickup_distance_m<=20000 "
+            "pickup_distance_m::integer FROM eligible WHERE pickup_distance_m<=$2::double precision "
             "ORDER BY pickup_distance_m ASC,created_at ASC LIMIT 100",
-            1, nullptr, params, nullptr, nullptr, 0);
+            2, nullptr, params, nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
             if (result != nullptr) PQclear(result);
             throw std::runtime_error("Could not list available rides");
@@ -949,7 +966,7 @@ public:
                 std::cos(lat1) * std::cos(lat2) *
                 std::sin(delta_lon / 2.0) * std::sin(delta_lon / 2.0), 0.0, 1.0);
             const double pickup_distance_m = 2.0 * earth_radius_m * std::asin(std::sqrt(haversine));
-            if (pickup_distance_m > 20000.0) {
+            if (pickup_distance_m > static_cast<double>(dispatch_radius_meters())) {
                 throw std::domain_error("ride_outside_dispatch_radius");
             }
 
