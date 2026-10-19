@@ -357,7 +357,7 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await expect(page.getByText("Online drivers: 4")).toBeVisible();
   await expect(page.getByText(/Outbox backlog: 5 pending · 1 dead-lettered · oldest pending 240s/)).toBeVisible();
   await expect(page.getByRole("alert")).toContainText("Dead-lettered ride events need operator review");
-  await expect(page.getByText("requested")).toBeVisible();
+  await expect(page.getByText("requested", { exact: true })).toBeVisible();
   await page.getByLabel("Ride ID, email or address").fill("rider");
   await page.getByLabel("Status").selectOption("completed");
   await page.getByRole("button", { name: "Search rides" }).click();
