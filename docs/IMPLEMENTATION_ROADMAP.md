@@ -90,10 +90,13 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [x] Add a schema-aware `/api/v1/ready` probe and use it for the Compose API healthcheck.
 - [x] Add generated request IDs to API/SSE responses and redact raw quote-provider/database exception text.
 - [x] Add backup/restore scripts, a CI recovery smoke test, and schema-readiness failure-path coverage.
-- [ ] Complete structured redacted logging across all routes, graceful shutdown and dependency timeouts.
+- [x] Add structured redacted request-completion logs, correlation IDs, SIGTERM/SIGINT handling, and bounded graceful draining.
+- [x] Bound routing-provider HTTP connect/total timeouts and HTTP socket read/write deadlines.
+- [ ] Add explicit PostgreSQL connection timeouts/pooling and broader SSE connection observability.
 - [ ] Document and test backup/restore; verify schema upgrade and rollback/recovery procedures.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
-- [ ] Run dependency, container and API security scans; review data retention and deletion.
+- [x] Add scheduled CodeQL analysis for C++/TypeScript and dependency-review checks for high-severity/disallowed-license changes.
+- [ ] Execute those security scans on the release SHA, add container image scanning, and review data retention/deletion.
 - [ ] Select a suitable contracted or self-hosted routing/geocoding provider for any public service.
 - [ ] Deploy frontend/API/database using protected secrets and HTTPS; verify the exact release SHA.
 - [ ] Capture genuine desktop/mobile screenshots, record the deployment URL and publish a demo walkthrough.
