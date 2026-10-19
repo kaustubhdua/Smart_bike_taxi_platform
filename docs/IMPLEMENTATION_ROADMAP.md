@@ -58,7 +58,7 @@ Acceptance: adversarial integration tests pass and no client can read or mutate 
 - [x] Record approval actor/time and audit driver provisioning, approval and suspension.
 - [ ] Add driver profile/vehicle fields and a documented demo verification policy.
 - [x] Reject stale or out-of-area offers at both queue and acceptance time (20 km great-circle demo radius).
-- [ ] Add a driver trip history/earnings ledger that is derived from persisted rides.
+- [ ] Add a real earnings/payout ledger with adjustments, deductions and settlements; current driver history reports gross completed fares only.
 - [x] Add bounded admin ride search by ride ID, account email, pickup/drop-off and status with server-side role checks.
 - [x] Add persisted support/incident reports, participant-only ride references, per-account rate limiting, admin triage and transactional audit events.
 - [ ] Add failed-dispatch alerting, escalation policy and external support operations.
