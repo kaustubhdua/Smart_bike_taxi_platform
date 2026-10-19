@@ -13,6 +13,13 @@ paths:
       security: []
       responses:
         "200": { description: Service healthy }
+  /ready:
+    get:
+      security: []
+      summary: Check database connectivity and required migrated tables
+      responses:
+        "200": { description: Application schema is ready }
+        "503": { description: Database unavailable or required schema incomplete }
   /auth/register:
     post:
       security: []
