@@ -61,6 +61,10 @@ std::string env_or(const char* key, const char* fallback) {
 
 int dispatch_radius_meters() {
     const std::string configured = env_or("RIDEFORGE_DISPATCH_RADIUS_KM", "20");
+    if (configured.empty() || !std::all_of(configured.begin(), configured.end(),
+            [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
+        throw std::runtime_error("RIDEFORGE_DISPATCH_RADIUS_KM must be an integer from 1 to 100");
+    }
     std::size_t parsed = 0;
     unsigned long kilometers = 0;
     try {
