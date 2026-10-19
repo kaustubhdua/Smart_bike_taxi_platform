@@ -15,7 +15,7 @@ cp .env.example .env
 ```
 
 Edit `.env` and set:
-- A strong, unique `POSTGRES_PASSWORD`; keep the password in `DATABASE_URL` consistent.
+- A strong, unique `POSTGRES_PASSWORD`; keep the password in `DATABASE_URL` consistent. If it contains URL-reserved characters such as `@`, `:`, `/`, or `#`, percent-encode the password component in `DATABASE_URL` while keeping `POSTGRES_PASSWORD` unchanged.
 - A random `RIDEFORGE_JWT_SECRET` of at least 32 characters.
 - A contact-bearing `RIDEFORGE_USER_AGENT` for geocoding-provider policy compliance.
 - The appropriate provider URLs for your environment.
