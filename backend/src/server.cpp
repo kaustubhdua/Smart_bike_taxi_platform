@@ -182,14 +182,15 @@ public:
             "to_regclass('public.schema_migrations') IS NOT NULL,"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='001_initial_schema'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='002_driver_approval_and_outbox'),"
-            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters')");
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 7) {
+            PQntuples(result) != 1 || PQnfields(result) != 8) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 7; ++column) {
+        for (int column = 0; column < 8; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
@@ -1223,6 +1224,7 @@ std::optional<rideforge_security::Claims> bearer_claims(
 #include "driver_routes.inc"
 #include "driver_status.inc"
 #include "driver_queue.inc"
+#include "support_routes.inc"
 
 // Authenticated SSE stream. The outbox worker emits PostgreSQL NOTIFY messages only
 // after the corresponding state change and published marker commit together. Clients
@@ -1481,6 +1483,10 @@ void handle_request(tcp::socket socket) {
             result = response(http::status::service_unavailable,
                               {{"status", "not_ready"}, {"reason", "database_unavailable"}}, request);
         }
+    } else if (path == "/api/v1/support/reports" ||
+               path == "/api/v1/admin/support-reports" ||
+               path.rfind("/api/v1/admin/support-reports/", 0) == 0) {
+        result = handle_support_reports(request, path);
     } else if (request.method() == http::verb::post && path == "/api/v1/rides") {
         result = handle_booking(request);
     } else if (request.method() == http::verb::post && path == "/api/v1/routes/quote") {
