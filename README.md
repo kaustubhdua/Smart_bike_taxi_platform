@@ -48,15 +48,15 @@ This repository is being extended from its original C++17 academic simulation in
 
 ### Last full release-candidate code verification
 
-All eight GitHub Actions suites passed on exact code commit `c8ab087fcb5e8b298618517f708cdf7deba8ab5b` (2026-10-19). This revision includes a regression test proving SSE reconnect replay returns more than 100 persisted ride events rather than silently truncating history.
-- [C++ build/tests, sanitizers and benchmark](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349111)
-- [API/HTTP smoke and paginated SSE replay](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320348983)
-- [PostgreSQL migrations, invariants and restore smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349195)
-- [Web build, typecheck, Playwright and axe](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349010)
-- [Full Compose startup smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349113)
-- [Dependency audit](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349273)
-- [CodeQL C++/TypeScript analysis](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320349255)
-- [Container vulnerability scan](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39320348969)
+All eight GitHub Actions suites passed on exact code commit `a779dd8bf0949dab453af90a1cd8ba50d30890e7` (2026-10-19). This revision includes a regression test proving SSE reconnect replay returns more than 100 persisted ride events rather than silently truncating history, plus a visible keyboard skip link and a Playwright keyboard-focus regression test.
+- [C++ build/tests, sanitizers and benchmark](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726585)
+- [API/HTTP smoke and paginated SSE replay](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726029)
+- [PostgreSQL migrations, invariants and restore smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726160)
+- [Web build, typecheck, Playwright and axe](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726151)
+- [Full Compose startup smoke](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321725925)
+- [Dependency audit](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726453)
+- [CodeQL C++/TypeScript analysis](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321726288)
+- [Container vulnerability scan](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39321725956)
 
 These runs are evidence for that exact code commit, not a guarantee about future code. See [PR #4](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/4) for the current release-candidate branch and require all applicable workflows to pass again after code changes. A live full-stack deployment is not yet verified; this is a portfolio MVP, not a commercial transport service.
 
