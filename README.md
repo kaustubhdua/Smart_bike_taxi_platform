@@ -266,3 +266,6 @@ Built as a C++17 DSA academic project.
 **[View repository](https://github.com/kaustubhdua/Smart_bike_taxi_platform)**
 
 </div>
+
+
+PostgreSQL recovery helpers: `backend/scripts/backup.sh` and `backend/scripts/restore.sh`. Read the [operations runbook](docs/OPERATIONS_RUNBOOK.md#backup-and-restore) before use. CI configuration includes a disposable-database restore smoke test; this does not replace scheduled encrypted production backups.
