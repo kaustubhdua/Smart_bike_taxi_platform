@@ -39,7 +39,7 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
-  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number; updatedAt: string } | null>(null);
+  const [tripDriverLocation, setTripDriverLocation] = useState<{ latitude: number; longitude: number; updatedAt: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -100,12 +100,12 @@ export default function App() {
   }, [account?.role]);
 
   useEffect(() => {
-    setDriverLocation(null);
+    setTripDriverLocation(null);
   }, [ride?.rideId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setDriverLocation(current => {
+      setTripDriverLocation(current => {
         if (!current) return current;
         const timestamp = Date.parse(current.updatedAt);
         return !Number.isFinite(timestamp) || Date.now() - timestamp > 120_000 ? null : current;
@@ -141,7 +141,7 @@ export default function App() {
         return { rideId: current.rideId, status: data.status! };
       });
       setNotice("Ride status updated to " + data.status + ".");
-      if (terminal()) { setDriverLocation(null); streamAbort.abort(); }
+      if (terminal()) { setTripDriverLocation(null); streamAbort.abort(); }
     };
 
     const refreshRide = async () => {
@@ -159,8 +159,8 @@ export default function App() {
             typeof data.driverLocation.latitude === "number" && Number.isFinite(data.driverLocation.latitude) &&
             typeof data.driverLocation.longitude === "number" && Number.isFinite(data.driverLocation.longitude) &&
             typeof data.driverLocation.updatedAt === "string") {
-          setDriverLocation({ latitude: data.driverLocation.latitude, longitude: data.driverLocation.longitude, updatedAt: data.driverLocation.updatedAt });
-        } else if (data.rideId === ride.rideId) setDriverLocation(null);
+          setTripDriverLocation({ latitude: data.driverLocation.latitude, longitude: data.driverLocation.longitude, updatedAt: data.driverLocation.updatedAt });
+        } else if (data.rideId === ride.rideId) setTripDriverLocation(null);
       } catch {
         // Transient network errors do not erase persisted status; retry on the next poll.
       } finally {
@@ -654,7 +654,7 @@ export default function App() {
               <div className="mini-map" role="group" aria-label={route ? `Route map from ${pickup} to ${destination}` : "Route map"}>
                 <Suspense fallback={<div className="route-map-empty" role="status">Loading interactive map…</div>}>
                   {route
-                    ? <RouteMap geometry={route.geometry} pickup={pickup} destination={destination} driverLocation={driverLocation} />
+                    ? <RouteMap geometry={route.geometry} pickup={pickup} destination={destination} driverLocation={tripDriverLocation} />
                     : <div className="route-map-empty" role="status">A real road route will appear here when routing succeeds.</div>}
                 </Suspense>
                 <button className="locate-button" onClick={() => setNotice("Device location is not requested in this preview. Choose a pickup from the location list.")} aria-label="About current location"><LocateFixed size={17} /></button>
