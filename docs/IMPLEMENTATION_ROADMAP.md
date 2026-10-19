@@ -10,7 +10,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 
 - C++17 DSA application, graph routing, deterministic selection/lifecycle tests and an opt-in benchmark.
 - React + TypeScript + Vite passenger experience with a lazy-loaded map and configurable geocoding/routing adapter.
-- C++17 Boost.Beast API for health, server-authoritative route quotes, passenger registration/login, persisted idempotent bookings, history/detail, cancellation, driver availability/queue/acceptance/status and protected admin metrics.
+- C++17 Boost.Beast API for database liveness (`/api/v1/health`) and schema readiness (`/api/v1/ready`), server-authoritative route quotes, passenger registration/login, persisted idempotent bookings, history/detail, cancellation, driver availability/queue/acceptance/status and protected admin metrics.
 - PostgreSQL migration 001 for accounts, profiles, rides, quotes, ride events and idempotency; migration 002 adds explicit driver approval and a transactional event notification outbox.
 - Driver queue reads are limited to approved profiles online with a location updated in the last five minutes. Availability and acceptance enforce approval.
 - Migration runner applies ordered SQL files and fails closed on an existing unversioned schema.
@@ -87,7 +87,8 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 
 ## Phase 5 — reliability, privacy and deployment
 
-- [ ] Add request IDs and structured redacted logs, readiness checks, graceful shutdown and dependency timeouts.
+- [x] Add a schema-aware `/api/v1/ready` probe and use it for the Compose API healthcheck.
+- [ ] Add request IDs and structured redacted logs, graceful shutdown and dependency timeouts.
 - [ ] Document and test backup/restore; verify schema upgrade and rollback/recovery procedures.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
 - [ ] Run dependency, container and API security scans; review data retention and deletion.
