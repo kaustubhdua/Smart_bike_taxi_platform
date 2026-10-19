@@ -425,6 +425,14 @@ for next_status in driver_arriving in_progress completed; do
   grep -q "\"status\":\"$next_status\"" "$tmp_dir/status.json"
 done
 
+status="$(curl --silent --show-error --output "$tmp_dir/driver-history.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/history")"
+test "$status" = "200"
+python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["completedTrips"] >= 1 and d["totalEarningsPaise"] >= 0 and any(r["rideId"] == sys.argv[1] and r["status"] == "completed" for r in d["rides"])' "$ride_id" < "$tmp_dir/driver-history.json"
+status="$(curl --silent --show-error --output "$tmp_dir/passenger-driver-history.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/driver/history")"
+test "$status" = "403"
+
 status="$(curl --silent --show-error --output "$tmp_dir/second-booking.json" --write-out '%{http_code}' \
   --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
   --header 'Idempotency-Key: smoke-booking-key-0002' \
