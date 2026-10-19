@@ -59,6 +59,21 @@ std::string env_or(const char* key, const char* fallback) {
     return value != nullptr && *value != '\0' ? value : fallback;
 }
 
+int dispatch_radius_meters() {
+    const std::string configured = env_or("RIDEFORGE_DISPATCH_RADIUS_KM", "20");
+    std::size_t parsed = 0;
+    unsigned long kilometers = 0;
+    try {
+        kilometers = std::stoul(configured, &parsed);
+    } catch (...) {
+        throw std::runtime_error("RIDEFORGE_DISPATCH_RADIUS_KM must be an integer from 1 to 100");
+    }
+    if (parsed != configured.size() || kilometers < 1 || kilometers > 100) {
+        throw std::runtime_error("RIDEFORGE_DISPATCH_RADIUS_KM must be an integer from 1 to 100");
+    }
+    return static_cast<int>(kilometers * 1000UL);
+}
+
 size_t append_body(char* data, size_t size, size_t count, void* target) {
     const auto bytes = size * count;
     static_cast<std::string*>(target)->append(data, bytes);
@@ -721,7 +736,7 @@ public:
                 std::cos(lat1) * std::cos(lat2) *
                 std::sin(delta_lon / 2.0) * std::sin(delta_lon / 2.0), 0.0, 1.0);
             const double pickup_distance_m = 2.0 * earth_radius_m * std::asin(std::sqrt(haversine));
-            if (pickup_distance_m > 20000.0) {
+            if (pickup_distance_m > static_cast<double>(dispatch_radius_meters())) {
                 throw std::domain_error("ride_outside_dispatch_radius");
             }
 
@@ -1838,6 +1853,12 @@ void handle_request(tcp::socket socket) {
 } // namespace
 
 int main() {
+    try {
+        (void)dispatch_radius_meters();
+    } catch (const std::exception&) {
+        std::cerr << "{\"event\":\"invalid_dispatch_radius_configuration\"}\\n";
+        return 2;
+    }
     curl_global_init(CURL_GLOBAL_DEFAULT);
     std::signal(SIGINT, request_shutdown);
     std::signal(SIGTERM, request_shutdown);
