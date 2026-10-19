@@ -35,7 +35,7 @@ This repository is being extended from its original C++17 academic simulation in
 |---|---|---|
 | C++ DSA baseline | Existing C++ build/tests and GCC/Clang/sanitizer CI | Existing baseline |
 | Route algorithm | Deterministic equal-distance predecessor selection, zero-weight parent-cycle guard, and overflow handling; disconnected/extreme-weight tests | GCC, Clang and ASan/UBSan passed on an earlier feature-branch commit (not the current head) |
-| Ride lifecycle/dispatch | Cancellation releases drivers; tests cover cancellation/reassignment, deterministic driver ties and unreachable drivers | GCC, Clang and ASan/UBSan passed on current feature head |
+| Ride lifecycle/dispatch | Cancellation releases drivers; tests cover cancellation/reassignment, deterministic driver ties and unreachable drivers | GCC, Clang and ASan/UBSan passed on `3703d665ce6794af1148371a903883c9201bd2d2`; rerun the full suite on the current head |
 | Benchmarking | Deterministic 1,000-node / 1,000-query benchmark; CI publishes a CSV artifact with environment notes | Download the artifact from the [C++ workflow runs](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/cpp.yml); no benchmark sample is currently checked into this branch, and one run is not a general performance claim |
 | Web UI | React + TypeScript + Vite; lazy-loaded Leaflet map; Nominatim geocoding + OSRM road geometry; pickup/drop autocomplete; quote expiry validation | CI covers typecheck/build, high-severity npm audit, gzip budgets, desktop/mobile Playwright E2E and axe accessibility audit; dependency installation is lockfile-backed with `npm ci` |
 | API service | C++17 Boost.Beast HTTP server; database liveness and schema readiness probes, quote, passenger auth/booking/history/cancellation, driver queue/accept/status/availability, admin driver provisioning/approval/suspension, and metrics routes | CI builds with warnings as errors and smoke-tests API/database behavior, including request size limits and booking validation; public routing providers are not exercised by CI |
@@ -45,6 +45,10 @@ This repository is being extended from its original C++17 academic simulation in
 | Realtime, payments and safety operations | Durable outbox worker publishes through PostgreSQL NOTIFY with retry/dead-letter handling; API exposes authenticated SSE with persisted-event replay and the passenger UI consumes ride-status frames | SSE fallback/resync needs broader load/reconnect verification; payments and safety operations remain release blockers |
 | Reproducible installs | `web/package-lock.json` is committed and web CI uses `npm ci` | CI validates lockfile-backed installation; re-run on the current head before release |
 | Deployment and screenshots | No live full-stack deployment verified | Planned |
+
+### Current release-candidate verification
+
+The latest full workflow batch ran on `3703d665ce6794af1148371a903883c9201bd2d2`. C++ tests, API smoke, PostgreSQL migration smoke, container/Compose validation, container vulnerability scan, dependency audit and CodeQL passed. The web workflow passed 23 Playwright tests but failed two browser projects on an ambiguous admin ride-status locator. The locator was corrected on `91583df612085756d0016c1d88f85597cc8ff04c`; no new workflow run has verified that exact head yet, so **current-head CI is not yet green/verified**. Follow [PR #4](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/4) and [the web workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/39249227931) for the latest evidence.
 
 ### Frontend development
 
