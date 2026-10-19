@@ -22,7 +22,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - The ride-event outbox publisher is implemented with PostgreSQL NOTIFY, retry/backoff and dead-letter handling. The API exposes an authenticated SSE stream with persisted-event replay; passenger and driver workspaces consume ride-status frames and REST polling remains the recovery path. Ride detail exposes a fresh driver location only to authorized ride participants during an active ride; the passenger map displays that marker and hides it when the location is stale/offline or the ride becomes terminal.
 - Dispatch queue filters approved, online drivers with a fresh location and a 20 km great-circle pickup radius; it is not yet ranked by road ETA, and the radius is a demo policy rather than a configurable operating rule.
 - Admin workspace exposes operational metrics, driver provisioning/approval/suspension, and recent privileged-action audit history. Incident response and audit search/filtering remain future work.
-- No real payment processing, refund/reconciliation, real SMS delivery, production safety response or commercial fleet operations.
+- No real payment processing, refund/reconciliation, net driver payout/commission ledger, real SMS delivery, production safety response or commercial fleet operations.
 - No live production deployment, production provider contract, tested production backup/restore, or legal authorization for commercial rides is claimed.
 - No production-grade distributed rate limiting or shared connection pool is claimed.
 - REA research tooling has not been installed/run in this implementation branch unless a later evidence artifact says otherwise.
@@ -58,7 +58,7 @@ Acceptance: adversarial integration tests pass and no client can read or mutate 
 - [x] Record approval actor/time and audit driver provisioning, approval and suspension.
 - [x] Add driver profile/vehicle fields and a documented demo verification policy.
 - [x] Reject stale or out-of-area offers at both queue and acceptance time (20 km great-circle demo radius).
-- [x] Add driver trip history and lifetime completed-trip earnings derived from persisted rides.
+- [x] Add driver trip history and lifetime gross completed-trip fare totals derived from persisted rides; this is not a net payout ledger.
 - [ ] Add admin ride search, failed dispatch inspection and incident records.
 
 Acceptance: a newly created driver cannot go online until explicitly approved; suspended drivers lose dispatch eligibility. The API and UI are implemented; CI evidence on the current head is still required.
@@ -81,7 +81,8 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 - [ ] Add direct map-click pickup/destination selection.
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
 - [x] Add passenger trip detail/history and clear empty/error/offline states.
-- [ ] Add a printable/shareable receipt and support reporting.
+- [x] Add a printable demo receipt for completed passenger rides, clearly labeled as not proof of payment or a tax invoice.
+- [ ] Add support reporting.
 - [x] Ensure no fabricated fare/booking success when the API/provider is unavailable; Playwright covers provider failures and quote errors.
 - [ ] Complete mobile/browser QA and WCAG 2.2 AA review.
 

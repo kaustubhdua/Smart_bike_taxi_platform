@@ -78,7 +78,7 @@ See [backend/README.md](backend/README.md), [OpenAPI contract](backend/openapi.y
 
 Security automation includes scheduled CodeQL analysis for C++/TypeScript, a lockfile-backed npm audit, and scheduled high-severity container vulnerability scans; those checks must pass on the release SHA before merge. License-policy review remains a manual release gate until GitHub's dependency graph is enabled for this repository. The API also emits redacted JSON request-completion logs and provides a schema-aware readiness endpoint.
 
-See also the [implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md), [security model and release checklist](docs/SECURITY_MODEL.md), and [operations runbook](docs/OPERATIONS_RUNBOOK.md). These documents separate implemented behavior from release blockers and do not claim commercial readiness.
+See also the [implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md), [security model and release checklist](docs/SECURITY_MODEL.md), and [operations runbook](docs/OPERATIONS_RUNBOOK.md), plus the [driver verification policy](docs/DRIVER_VERIFICATION_POLICY.md). These documents separate implemented behavior from release blockers and do not claim commercial readiness.
 
 ### Run the API and PostgreSQL locally
 
