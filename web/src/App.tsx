@@ -666,6 +666,7 @@ export default function App() {
         body: JSON.stringify(payload),
       });
       const data = await response.json() as { id?: string; error?: string };
+      if (response.status === 429) throw new Error("You've reached the five-report hourly limit. Try again later.");
       if (!response.ok || !data.id) throw new Error(data.error || "Could not submit support report.");
       setSupportDescription("");
       setNotice("Support report submitted. Reference: " + data.id + ". This demo does not contact emergency services.");
