@@ -179,18 +179,19 @@ public:
             "SELECT to_regclass('public.accounts') IS NOT NULL,"
             "to_regclass('public.rides') IS NOT NULL,"
             "to_regclass('public.ride_event_outbox') IS NOT NULL,"
+            "to_regclass('public.support_reports') IS NOT NULL,"
             "to_regclass('public.schema_migrations') IS NOT NULL,"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='001_initial_schema'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='002_driver_approval_and_outbox'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 8) {
+            PQntuples(result) != 1 || PQnfields(result) != 9) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 8; ++column) {
+        for (int column = 0; column < 9; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
