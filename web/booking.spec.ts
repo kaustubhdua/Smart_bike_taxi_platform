@@ -255,6 +255,13 @@ test("driver workspace uses protected API routes for availability and ride lifec
       farePaise: 4750, distanceMeters: 5200,
     }] }) });
   });
+  await page.route("http://api.test/api/v1/driver/rides/history", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer driver-access-token");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      rides: [{ rideId: "30000000-0000-4000-8000-000000000001", status: "completed", pickup: "Pickup", destination: "Destination", farePaise: 4750, finalFarePaise: 4750, createdAt: new Date().toISOString() }],
+      grossCompletedFarePaise: 4750, currency: "INR", note: "Gross completed fares only; this is not a payout or net-earnings ledger.",
+    }) });
+  });
   await page.route("http://api.test/api/v1/driver/rides/*/accept", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer driver-access-token");
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
@@ -289,6 +296,10 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await expect(page.getByText("Status: in_progress")).toBeVisible();
   await page.getByRole("button", { name: "Complete trip" }).click();
   await expect(page.getByText("Status: completed")).toBeVisible();
+  await page.getByRole("button", { name: /Refresh trip history/ }).click();
+  await expect(page.getByText("Gross completed fares:")).toBeVisible();
+  await expect(page.getByText("₹47.50", { exact: false })).toBeVisible();
+  await expect(page.getByText(/not a payout or net-earnings ledger/)).toBeVisible();
 });
 
 test("admin workspace reads metrics from the protected API", async ({ page }) => {
