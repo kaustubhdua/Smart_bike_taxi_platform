@@ -326,7 +326,11 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
     driverId: string; email: string; displayName: string; vehicleRegistration: string;
     approved: boolean; online: boolean; createdAt: string;
   }> = [];
-  const supportReports = [{
+  const supportReports: Array<{
+    id: string; rideId: string | null; category: string; description: string; status: string;
+    resolutionNote: string; createdAt: string; updatedAt: string; resolvedAt: string | null;
+    reporterId: string; reporterEmail: string; reporterName: string;
+  }> = [{
     id: "42", rideId: null, category: "technical",
     description: "A trip status failed to refresh after reconnecting.",
     status: "open", resolutionNote: "", createdAt: new Date().toISOString(),
