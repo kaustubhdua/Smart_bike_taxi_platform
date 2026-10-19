@@ -77,9 +77,11 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 
 ## Phase 4 — passenger product completeness
 
-- [x] Add pickup/destination autocomplete, accessible text route summary/map fallback, and quote-expiry messaging. Direct map-click selection remains a UX enhancement.
+- [x] Add pickup/destination autocomplete, accessible text route summary/map fallback, and quote-expiry messaging.
+- [ ] Add direct map-click pickup/destination selection.
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
-- [x] Add passenger trip detail/history and clear empty/error/offline states. [ ] Add a printable/shareable receipt and support reporting.
+- [x] Add passenger trip detail/history and clear empty/error/offline states.
+- [ ] Add a printable/shareable receipt and support reporting.
 - [x] Ensure no fabricated fare/booking success when the API/provider is unavailable; Playwright covers provider failures and quote errors.
 - [ ] Complete mobile/browser QA and WCAG 2.2 AA review.
 
