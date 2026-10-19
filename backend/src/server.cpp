@@ -1267,7 +1267,6 @@ bool stream_ride_events(beast::tcp_stream& stream,
     if (!request_id.empty()) header.set("X-Request-ID", std::string(request_id.data(), request_id.size()));
     header.set(http::field::connection, "keep-alive");
     header.set("X-Content-Type-Options", "nosniff");
-    header.set("X-Accel-Buffering", "no");
     const auto origin_view = request[http::field::origin];
     const std::string origin(origin_view.data(), origin_view.size());
     const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
