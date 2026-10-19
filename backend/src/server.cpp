@@ -161,14 +161,15 @@ public:
             "to_regclass('public.ride_event_outbox') IS NOT NULL,"
             "to_regclass('public.schema_migrations') IS NOT NULL,"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='001_initial_schema'),"
-            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='002_driver_approval_and_outbox')");
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='002_driver_approval_and_outbox'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 6) {
+            PQntuples(result) != 1 || PQnfields(result) != 7) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 6; ++column) {
+        for (int column = 0; column < 7; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
