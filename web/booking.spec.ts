@@ -66,6 +66,14 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   let firstIdempotencyKey = "";
   await page.route("http://api.test/api/v1/rides", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer test-access-token");
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [{
+        rideId: "30000000-0000-4000-8000-000000000001", status: "completed",
+        pickup: "JIIT Sector 128", destination: "Sector 18 Market", farePaise: 4750,
+        finalFarePaise: 4750, currency: "INR", createdAt: new Date().toISOString(), completedAt: new Date().toISOString(),
+      }] }) });
+      return;
+    }
     const key = route.request().headers()["idempotency-key"] ?? "";
     expect(key).toContain("saarthi-");
     if (bookingAttempts === 0) {
@@ -120,6 +128,13 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.getByRole("button", { name: /Submit support report/ }).click();
   await expect(page.locator(".inline-notice")).toContainText(/Support report submitted/);
   await expect(page.getByText("#42 · technical")).toBeVisible();
+  await page.getByRole("button", { name: /Refresh trip history/ }).click();
+  await expect(page.getByText("Trip history refreshed from the API.")).toBeVisible();
+  await expect(page.getByText("JIIT Sector 128 → Sector 18 Market")).toBeVisible();
+  await page.getByRole("button", { name: "View demo receipt" }).click();
+  await expect(page.getByRole("heading", { name: "Trip receipt" })).toBeVisible();
+  await expect(page.getByText(/Not a tax invoice/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Print receipt" })).toBeVisible();
 });
 
 test("passenger ride status refreshes from persisted API state", async ({ page }) => {
