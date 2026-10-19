@@ -115,3 +115,8 @@ After restoration, run migration/readiness checks and verify representative acco
 ## Request logs and correlation
 
 The API emits one-line JSON completion records with event name, generated request ID, HTTP method, path without query parameters, response status, elapsed milliseconds, and whether the response write succeeded. It never logs request bodies, bearer tokens, precise coordinates, passwords, or raw provider/database exception messages. Use the response `X-Request-ID` to correlate a client report with server logs. SSE requests have a separate long-lived lifecycle; broader per-connection SSE logging and operational metrics remain a release-hardening task.
+
+
+## Outbox worker shutdown
+
+The outbox worker handles `SIGTERM` and `SIGINT`, finishes the current database operation, closes its PostgreSQL connection, and emits an `outbox_worker_shutdown` JSON log record. Container orchestrators should allow a short grace period for the current transaction to finish. The API integration workflow explicitly verifies this shutdown path; it does not replace a production load/drain test.
