@@ -160,6 +160,17 @@ paths:
       responses:
         "200": { description: Availability updated }
         "403": { description: Driver role required }
+  /driver/rides/history:
+    get:
+      summary: List the authenticated driver's recent trips and gross completed fares
+      responses:
+        "200":
+          description: Driver history and gross completed-fare total (not a payout ledger)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriverHistoryResponse" }
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
   /driver/rides:
     get:
       summary: List unassigned requests within 20 km for an approved driver with a fresh online location, ranked by pickup distance
@@ -393,6 +404,27 @@ components:
         pendingOutboxEvents: { type: integer, minimum: 0 }
         deadLetteredOutboxEvents: { type: integer, minimum: 0 }
         oldestPendingOutboxAgeSeconds: { type: integer, minimum: 0 }
+    DriverHistoryResponse:
+      type: object
+      required: [rides, grossCompletedFarePaise, currency, note]
+      properties:
+        rides:
+          type: array
+          items:
+            type: object
+            required: [rideId, status, pickup, destination, farePaise, currency, createdAt]
+            properties:
+              rideId: { type: string, format: uuid }
+              status: { type: string }
+              pickup: { type: string }
+              destination: { type: string }
+              farePaise: { type: integer, minimum: 0 }
+              finalFarePaise: { type: integer, minimum: 0 }
+              completedAt: { type: string }
+              createdAt: { type: string }
+        grossCompletedFarePaise: { type: integer, minimum: 0 }
+        currency: { type: string, enum: [INR] }
+        note: { type: string }
     DriverQueueItem:
       type: object
       required: [rideId, pickup, destination, farePaise, currency, createdAt, pickupDistanceMeters]
