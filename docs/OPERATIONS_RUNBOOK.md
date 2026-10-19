@@ -120,3 +120,8 @@ The API emits one-line JSON completion records with event name, generated reques
 ## Outbox worker shutdown
 
 The outbox worker handles `SIGTERM` and `SIGINT`, finishes the current database operation, closes its PostgreSQL connection, and emits an `outbox_worker_shutdown` JSON log record. Container orchestrators should allow a short grace period for the current transaction to finish. The API integration workflow explicitly verifies this shutdown path; it does not replace a production load/drain test.
+
+
+## Dispatch radius configuration
+
+The API reads `RIDEFORGE_DISPATCH_RADIUS_KM` at startup (integer 1–100, default 20). The driver queue and acceptance transaction use the same value. CI exercises 5 km and 20 km configurations against a fixture between those radii; invalid values must fail startup. The radius is a great-circle eligibility bound and does not replace road-ETA dispatch or operational tuning.
