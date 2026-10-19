@@ -16,6 +16,18 @@ async function clickNavigation(page: import("@playwright/test").Page, label: str
   await page.getByRole("button", { name: label }).click();
 }
 
+test("keyboard users can skip navigation to the main content", async ({ page }) => {
+  await page.goto("/");
+  await page.keyboard.press("Tab");
+  const skipLink = page.getByRole("link", { name: "Skip to main content" });
+  await expect(skipLink).toBeFocused();
+  const bounds = await skipLink.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("main#top")).toBeFocused();
+});
+
 async function mockRouting(page: import("@playwright/test").Page) {
   await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
     const query = new URL(route.request().url()).searchParams.get("q") ?? "";
