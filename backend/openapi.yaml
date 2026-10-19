@@ -162,7 +162,7 @@ paths:
         "403": { description: Driver role required }
   /driver/history:
     get:
-      summary: List recent driver trips and lifetime completed-trip earnings
+      summary: List recent driver trips and lifetime completed-trip gross fares
       responses:
         "200":
           description: Driver-owned trip history and aggregate completed earnings
@@ -170,7 +170,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [rides, completedTrips, totalEarningsPaise, currency]
+                required: [rides, completedTrips, totalCompletedFarePaise, currency]
                 properties:
                   rides:
                     type: array
@@ -187,7 +187,7 @@ paths:
                         createdAt: { type: string, format: date-time }
                         completedAt: { type: [string, "null"], format: date-time }
                   completedTrips: { type: integer, minimum: 0 }
-                  totalEarningsPaise: { type: integer, minimum: 0 }
+                  totalCompletedFarePaise: { type: integer, minimum: 0 }
                   currency: { type: string, enum: [INR] }
         "401": { description: Unauthenticated }
         "403": { description: Driver role required }
