@@ -2,6 +2,7 @@
 #include <nlohmann/json.hpp>
 
 #include <chrono>
+#include <csignal>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -11,6 +12,12 @@
 using json = nlohmann::json;
 
 namespace {
+volatile std::sig_atomic_t shutdown_requested = 0;
+
+void request_shutdown(int) {
+    shutdown_requested = 1;
+}
+
 std::string env_or(const char* name, const char* fallback = "") {
     const char* value = std::getenv(name);
     return value != nullptr && *value != '\0' ? value : fallback;
@@ -124,7 +131,10 @@ int main() {
         return 2;
     }
 
-    for (;;) {
+    std::signal(SIGINT, request_shutdown);
+    std::signal(SIGTERM, request_shutdown);
+
+    while (!shutdown_requested) {
         PGconn* connection = PQconnectdb(database_url.c_str());
         if (connection == nullptr || PQstatus(connection) != CONNECTION_OK) {
             std::cerr << "{\"event\":\"outbox_database_unavailable\"}\n";
@@ -133,7 +143,7 @@ int main() {
             continue;
         }
         bool reconnect = false;
-        while (!reconnect) {
+        while (!reconnect && !shutdown_requested) {
             try {
                 if (!publish_one(connection)) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(poll_ms));
@@ -147,4 +157,6 @@ int main() {
         }
         PQfinish(connection);
     }
+    std::cerr << "{\"event\":\"outbox_worker_shutdown\"}\n";
+    return 0;
 }
