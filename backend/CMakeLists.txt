@@ -1,0 +1,42 @@
+cmake_minimum_required(VERSION 3.20)
+project(RideForgeApi LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_package(Boost 1.74 REQUIRED)
+find_package(CURL REQUIRED)
+find_package(PostgreSQL REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(nlohmann_json 3.10 REQUIRED)
+find_package(Threads REQUIRED)
+
+add_executable(rideforge_api src/server.cpp)
+target_include_directories(rideforge_api PRIVATE ${Boost_INCLUDE_DIRS})
+target_link_libraries(rideforge_api PRIVATE Boost::headers CURL::libcurl PostgreSQL::PostgreSQL OpenSSL::Crypto nlohmann_json::nlohmann_json Threads::Threads)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(rideforge_api PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
+add_executable(rideforge_outbox_worker src/outbox_worker.cpp)
+target_link_libraries(rideforge_outbox_worker PRIVATE PostgreSQL::PostgreSQL nlohmann_json::nlohmann_json Threads::Threads)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(rideforge_outbox_worker PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
+add_executable(rideforge_admin_bootstrap src/bootstrap_admin.cpp)
+target_include_directories(rideforge_admin_bootstrap PRIVATE ${Boost_INCLUDE_DIRS})
+target_link_libraries(rideforge_admin_bootstrap PRIVATE PostgreSQL::PostgreSQL OpenSSL::Crypto nlohmann_json::nlohmann_json)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(rideforge_admin_bootstrap PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
+add_executable(rideforge_security_tests tests/security_test.cpp)
+target_link_libraries(rideforge_security_tests PRIVATE OpenSSL::Crypto nlohmann_json::nlohmann_json)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(rideforge_security_tests PRIVATE -Wall -Wextra -Wpedantic -Werror -UNDEBUG)
+endif()
+enable_testing()
+add_test(NAME rideforge_security_tests COMMAND rideforge_security_tests)

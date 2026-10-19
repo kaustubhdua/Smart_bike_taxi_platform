@@ -1,47 +1,42 @@
 name: Container build and Compose validation
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "compose.yaml"
-      - ".env.example"
-      - "backend/**"
-      - "web/**"
-      - ".github/workflows/container.yml"
+  workflow_call:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - "compose.yaml"
-      - ".env.example"
       - "backend/**"
       - "web/**"
+      - "compose.yaml"
+      - ".env.example"
+      - ".github/workflows/container.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "web/**"
+      - "compose.yaml"
+      - ".env.example"
       - ".github/workflows/container.yml"
 
 permissions:
   contents: read
 
 jobs:
-  compose:
-    name: Validate Compose and build runtime images
+  container:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      POSTGRES_PASSWORD: local-ci-password-not-for-production
+      DATABASE_URL: postgresql://rideforge:local-ci-password-not-for-production@db:5432/rideforge
+      RIDEFORGE_USER_AGENT: RideForgeContainerCI/0.1 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)
+      RIDEFORGE_JWT_SECRET: local-ci-secret-that-must-never-be-used-in-production-123456
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Configure safe CI environment
-        run: |
-          cat > .env <<'EOF'
-          POSTGRES_PASSWORD=ci-only-not-for-production-password
-          DATABASE_URL=postgresql://saarthi:ci-only-not-for-production-password@db:5432/saarthi
-          SAARTHI_USER_AGENT=SaarthiCI/0.1 (ci@example.invalid)
-          SAARTHI_JWT_SECRET=ci-only-signing-secret-that-is-long-enough-for-tests
-          SAARTHI_GEOCODING_URL=https://nominatim.openstreetmap.org/search
-          SAARTHI_ROUTING_URL=https://router.project-osrm.org/route/v1/driving
-          EOF
-
-      - name: Validate Compose configuration
+      - uses: actions/checkout@v4
+      - name: Validate Compose interpolation
         run: docker compose config --quiet
-
-      - name: Build API and web runtime images
-        run: docker compose build --pull api web
+      - name: Build backend API, outbox worker and admin bootstrap image
+        run: docker build --tag rideforge-backend-ci:latest ./backend
+      - name: Build web image
+        run: docker build --build-arg VITE_API_BASE_URL=http://localhost:8080 --tag rideforge-web-ci:latest ./web
