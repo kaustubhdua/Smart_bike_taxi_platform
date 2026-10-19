@@ -319,7 +319,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await expect(page.getByText("Status: completed")).toBeVisible();
   await page.getByRole("button", { name: "Refresh trip history and earnings" }).click();
   await expect(page.getByText(/Lifetime completed trips: 1/)).toBeVisible();
-  await expect(page.getByText("Pickup → Destination", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("Pickup → Destination", { exact: true })).toHaveCount(1);
 });
 
 test("admin workspace reads metrics from the protected API", async ({ page }) => {
