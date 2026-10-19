@@ -20,6 +20,10 @@ Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local 
 ---
 
 
+## Run the complete verification suite
+
+The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) runs the C++/sanitizer/benchmark, API integration, PostgreSQL migration and backup/restore, web/Playwright/accessibility, and container/Compose suites against the selected branch commit. Use **Run workflow** on the feature branch before asking for review; record the exact tested SHA. A manual dispatch has not yet been run for the latest branch head.
+
 ## Full-stack roadmap status
 
 See [`docs/DEEP_IMPROVEMENT_RESEARCH.md`](docs/DEEP_IMPROVEMENT_RESEARCH.md) for the research-backed priority order, security/reliability recommendations, acceptance criteria, and release gates. The implementation status below is not a production-readiness claim.
