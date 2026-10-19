@@ -64,3 +64,8 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 3. Stop driver availability or bookings if assignment integrity is uncertain.
 4. Restore service only after verifying database consistency and the root cause.
 5. Document the incident, customer impact, containment and follow-up tests.
+
+
+## Driver location minimization
+
+The API stores only the latest driver coordinates while the driver is online. Going offline clears latitude, longitude, and the last-location timestamp; the web client sends no coordinates in the offline request and stops geolocation watching on logout/offline. The current portfolio MVP does not keep a historical GPS trail. A production deployment still needs a documented account-data retention/deletion schedule and privacy review.

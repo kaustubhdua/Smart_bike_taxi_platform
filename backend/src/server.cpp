@@ -627,8 +627,11 @@ public:
         std::vector<const char*> values;
         for (const auto& value : owned) values.push_back(value.c_str());
         PGresult* result = PQexecParams(connection_,
-            "UPDATE driver_profiles SET is_online=$2::boolean,current_latitude=$3::double precision,"
-            "current_longitude=$4::double precision,last_location_at=now() WHERE account_id=$1::uuid AND is_approved=true",
+            "UPDATE driver_profiles SET is_online=$2::boolean,"
+            "current_latitude=CASE WHEN $2::boolean THEN $3::double precision ELSE NULL END,"
+            "current_longitude=CASE WHEN $2::boolean THEN $4::double precision ELSE NULL END,"
+            "last_location_at=CASE WHEN $2::boolean THEN now() ELSE NULL END "
+            "WHERE account_id=$1::uuid AND is_approved=true",
             static_cast<int>(values.size()), nullptr, values.data(), nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
             if (result != nullptr) PQclear(result);
@@ -1525,20 +1528,28 @@ void handle_request(tcp::socket socket) {
         } else {
             try {
                 const auto body = json::parse(request.body());
-                if (!body.is_object() || !body.contains("online") || !body["online"].is_boolean() ||
-                    !body.contains("latitude") || !body["latitude"].is_number() ||
-                    !body.contains("longitude") || !body["longitude"].is_number()) {
-                    throw std::invalid_argument("online, latitude and longitude are required");
+                if (!body.is_object() || !body.contains("online") || !body["online"].is_boolean()) {
+                    throw std::invalid_argument("online is required");
                 }
-                const double latitude = body["latitude"].get<double>();
-                const double longitude = body["longitude"].get<double>();
-                if (!std::isfinite(latitude) || latitude < -90 || latitude > 90 ||
-                    !std::isfinite(longitude) || longitude < -180 || longitude > 180) {
-                    throw std::invalid_argument("invalid_coordinates");
+                const bool online = body["online"].get<bool>();
+                double latitude = 0.0;
+                double longitude = 0.0;
+                if (online) {
+                    if (!body.contains("latitude") || !body["latitude"].is_number() ||
+                        !body.contains("longitude") || !body["longitude"].is_number()) {
+                        throw std::invalid_argument("latitude and longitude are required when going online");
+                    }
+                    latitude = body["latitude"].get<double>();
+                    longitude = body["longitude"].get<double>();
+                    if (!std::isfinite(latitude) || latitude < -90 || latitude > 90 ||
+                        !std::isfinite(longitude) || longitude < -180 || longitude > 180) {
+                        throw std::invalid_argument("invalid_coordinates");
+                    }
                 }
+                // Offline requests intentionally do not require or retain precise coordinates.
                 Database database(env_or("DATABASE_URL", ""));
-                database.set_driver_availability(claims->subject, body["online"].get<bool>(), latitude, longitude);
-                result = response(http::status::ok, {{"online", body["online"]}, {"updated", true}}, request);
+                database.set_driver_availability(claims->subject, online, latitude, longitude);
+                result = response(http::status::ok, {{"online", online}, {"updated", true}}, request);
             } catch (const std::domain_error& error) {
                 result = response(http::status::forbidden, {{"error", error.what()}}, request);
             } catch (const std::invalid_argument& error) {

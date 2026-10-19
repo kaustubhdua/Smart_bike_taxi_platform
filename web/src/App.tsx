@@ -492,7 +492,7 @@ export default function App() {
       const response = await fetch(apiUrl(base, "/api/v1/driver/availability"), {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + account.token },
-        body: JSON.stringify({ online, ...coords }),
+        body: JSON.stringify(online ? { online: true, ...coords } : { online: false }),
         signal: AbortSignal.timeout(8000),
       });
       const data = await response.json() as { error?: string };
@@ -503,11 +503,7 @@ export default function App() {
       if (online) await refreshDriverQueue();
     };
     if (driverOnline) {
-      if (!driverLocation) {
-        setNotice("Your last location is unavailable. Allow location access before going offline.");
-        return;
-      }
-      try { await sendAvailability(driverLocation, false); }
+      try { await sendAvailability(driverLocation ?? { latitude: 0, longitude: 0 }, false); }
       catch (error) { setNotice(error instanceof Error ? error.message : "Could not update availability."); }
       return;
     }

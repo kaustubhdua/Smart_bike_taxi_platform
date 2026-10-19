@@ -69,7 +69,7 @@ Acceptance: a newly created driver cannot go online until explicitly approved; s
 - [x] Add authenticated SSE subscriptions scoped to ride ownership; passenger and driver workspaces consume ride-status events.
 - [x] Use persisted event IDs, Last-Event-ID replay and reconnect backoff for passenger streams.
 - [ ] Add explicit browser resynchronization and load/reconnect stress tests beyond current smoke coverage.
-- [ ] Add fresh driver-location updates while online; stop sharing on offline/logout and enforce retention.
+- [x] Refresh driver coordinates while online with movement-aware updates and a 30-second freshness heartbeat; clear stored coordinates and timestamp when going offline/logout. [ ] Define and verify a retention/deletion policy for account data.
 - [ ] Rank eligible drivers by configured distance/ETA policy, with a provider adapter and timeout/failure behavior.
 - [ ] Test duplicate, delayed and out-of-order event delivery.
 

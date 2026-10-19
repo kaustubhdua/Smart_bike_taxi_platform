@@ -387,7 +387,7 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
       account: { email: "driver@example.test", role: "driver" },
     }) });
   });
-  const availability: Array<{ online: boolean; latitude: number; longitude: number }> = [];
+  const availability: Array<{ online: boolean; latitude?: number; longitude?: number }> = [];
   await page.route("http://api.test/api/v1/driver/availability", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer test-driver-token");
     availability.push(route.request().postDataJSON() as { online: boolean; latitude: number; longitude: number });
@@ -411,7 +411,7 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
   ), { timeout: 5000 }).toBe(true);
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("button", { name: /Sign in securely/ })).toBeVisible();
-  expect(availability.at(-1)).toMatchObject({ online: false, latitude: 28.531, longitude: 77.351 });
+  expect(availability.at(-1)).toEqual({ online: false });
 });
 
 
