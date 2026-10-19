@@ -280,6 +280,7 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
     expect(route.request().headers()["authorization"]).toBe("Bearer admin-access-token");
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       ridesByStatus: { requested: 3, completed: 2 }, onlineDrivers: 4,
+      pendingOutboxEvents: 5, deadLetteredOutboxEvents: 1, oldestPendingOutboxAgeSeconds: 240,
     }) });
   });
   await page.goto("/");
@@ -292,6 +293,8 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await page.getByRole("button", { name: "Refresh metrics" }).click();
   await expect(page.getByText("Online drivers:")).toBeVisible();
   await expect(page.locator("#operations .driver-queue p")).toContainText("4");
+  await expect(page.locator("#operations .driver-queue p")).toContainText("5");
+  await expect(page.getByRole("alert")).toContainText("Dead-lettered ride events need operator review");
   await expect(page.getByText("requested")).toBeVisible();
 });
 
