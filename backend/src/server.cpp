@@ -2262,6 +2262,13 @@ int main() {
         curl_global_cleanup();
         return 1;
     }
+    const std::string jwt_secret = env_or("RIDEFORGE_JWT_SECRET");
+    if (jwt_secret.size() < 32 || jwt_secret.rfind("replace-with-", 0) == 0) {
+        std::cerr << json{{"event", "invalid_configuration"}, {"setting", "RIDEFORGE_JWT_SECRET"},
+            {"reason", "must be a non-placeholder secret containing at least 32 characters"}}.dump() << '\n';
+        curl_global_cleanup();
+        return 1;
+    }
     std::signal(SIGINT, request_shutdown);
     std::signal(SIGTERM, request_shutdown);
     const auto address = asio::ip::make_address(env_or("RIDEFORGE_BIND_ADDRESS", "0.0.0.0"));
