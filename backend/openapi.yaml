@@ -135,7 +135,18 @@ paths:
     get:
       summary: List unassigned requests within 20 km for an approved driver with a fresh online location, ranked by pickup distance
       responses:
-        "200": { description: Available ride queue }
+        "200":
+          description: Available ride queue
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rides]
+                properties:
+                  rides:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DriverQueueItem"
         "401": { description: Unauthenticated }
         "403": { description: Driver role required }
   /driver/rides/{rideId}/accept:
@@ -251,6 +262,18 @@ components:
       required: true
       schema: { type: string, format: uuid }
   schemas:
+    DriverQueueItem:
+      type: object
+      required: [rideId, pickup, destination, farePaise, currency, createdAt, pickupDistanceMeters]
+      properties:
+        rideId: { type: string, format: uuid }
+        pickup: { type: string }
+        destination: { type: string }
+        farePaise: { type: integer, minimum: 1 }
+        currency: { type: string, enum: [INR] }
+        createdAt: { type: string }
+        distanceMeters: { type: integer, minimum: 1 }
+        pickupDistanceMeters: { type: integer, minimum: 0, maximum: 20000 }
     RegisterRequest:
       type: object
       additionalProperties: false
