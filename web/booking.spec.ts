@@ -381,7 +381,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await page.locator("#operations").getByRole("button", { name: /Create pending driver/ }).click();
   await expect(page.getByText("Pending approval")).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).click();
-  await expect(page.getByText("Approved", { exact: false })).toBeVisible();
+  await expect(page.getByText("Approved · Offline", { exact: true })).toBeVisible();
   expect(drivers[0].approved).toBe(true);
   await page.getByRole("button", { name: /Refresh audit history/ }).click();
   await expect(page.getByText("driver approved", { exact: true })).toBeVisible();
