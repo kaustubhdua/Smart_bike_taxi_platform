@@ -176,7 +176,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           statusRank[data.status] === undefined || statusRank[currentStatus] === undefined ||
           statusRank[data.status] < statusRank[currentStatus]) return;
       currentStatus = data.status;
-      setActiveRide(current => current?.rideId === data.rideId
+      setActiveRide(current => current && current.rideId === data.rideId
         ? { rideId: current.rideId, status: data.status! } : current);
     };
     const refresh = async () => {
