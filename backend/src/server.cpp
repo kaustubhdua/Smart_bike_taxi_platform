@@ -445,7 +445,7 @@ public:
                 {"reportId", PQgetvalue(result, row, 0)},
                 {"reporterEmail", PQgetvalue(result, row, 1)},
                 {"reporterRole", PQgetvalue(result, row, 2)},
-                {"rideId", PQgetvalue(result, row, 3)},
+                {"rideId", PQgetisnull(result, row, 3) ? json(nullptr) : json(PQgetvalue(result, row, 3))},
                 {"category", PQgetvalue(result, row, 4)},
                 {"severity", PQgetvalue(result, row, 5)},
                 {"description", PQgetvalue(result, row, 6)},
