@@ -38,7 +38,9 @@ test("calculates road route and shows a fare only after a valid server quote", a
   });
   await page.goto("/");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("application", { name: /Interactive road map from/ })).toBeVisible();
+  const routeMap = page.getByRole("application", { name: /Interactive road map from/ });
+  await routeMap.scrollIntoViewIfNeeded();
+  await expect(routeMap).toBeVisible();
   await expect(page.locator("#route-map-description")).toContainText("route distance, estimated duration and fare");
   await expect(page.locator(".leaflet-control-attribution a[href*='openstreetmap.org/copyright']")).toBeVisible();
   await expect(page.getByText("No invented price")).toBeVisible();
@@ -67,7 +69,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.route("http://api.test/api/v1/rides", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer test-access-token");
     const key = route.request().headers()["idempotency-key"] ?? "";
-    expect(key).toContain("saarthi-");
+    expect(key).toContain("rideforge-");
     if (bookingAttempts === 0) {
       firstIdempotencyKey = key;
       bookingAttempts += 1;
@@ -97,7 +99,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.getByRole("button", { name: "Create passenger account" }).click();
   await expect(page.locator('.auth-session')).toBeVisible();
   await page.getByRole("button", { name: "Confirm ride request" }).click();
-  await expect(page.locator(".inline-notice")).toContainText(/booking_unavailable/i);
+  await expect(page.locator("#booking .inline-notice")).toContainText(/booking_unavailable/i);
   await page.getByRole("button", { name: "Confirm ride request" }).click();
   await expect(page.locator(".ride-confirmation")).toBeVisible();
   await page.getByRole("button", { name: "Cancel request" }).click();
@@ -150,7 +152,9 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await expect.poll(() => reads).toBeGreaterThan(0);
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
-  await expect(page.getByRole("application", { name: /Includes the driver’s latest reported location/ })).toBeVisible();
+  const driverMap = page.getByRole("application", { name: /Includes the driver’s latest reported location/ });
+  await driverMap.scrollIntoViewIfNeeded();
+  await expect(driverMap).toBeVisible();
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: in_progress");
   await expect(page.getByRole("button", { name: "Cancel request" })).toHaveCount(0);
@@ -294,9 +298,8 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await page.locator("#operations").getByLabel("Password").fill("admin-password");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await page.getByRole("button", { name: "Refresh metrics" }).click();
-  await expect(page.getByText("Online drivers:")).toBeVisible();
-  await expect(page.locator("#operations .driver-queue p")).toContainText("4");
-  await expect(page.locator("#operations .driver-queue p")).toContainText("5");
+  await expect(page.getByText("Online drivers: 4")).toBeVisible();
+  await expect(page.getByText(/Outbox backlog: 5 pending · 1 dead-lettered · oldest pending 240s/)).toBeVisible();
   await expect(page.getByRole("alert")).toContainText("Dead-lettered ride events need operator review");
   await expect(page.getByText("requested")).toBeVisible();
 });
@@ -358,9 +361,9 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
 
   await page.goto("/");
   await page.getByRole("button", { name: "Admin console" }).click();
-  await page.locator('.auth-panel input[type="email"]').first().fill("admin@example.test");
-  await page.locator('.auth-panel input[type="password"]').first().fill("a-long-admin-password-123");
-  await page.getByRole("button", { name: /Sign in securely/ }).click();
+  await page.locator("#operations .auth-panel input[type=\"email\"]").fill("admin@example.test");
+  await page.locator("#operations .auth-panel input[type=\"password\"]").fill("a-long-admin-password-123");
+  await page.locator("#operations").getByRole("button", { name: /Sign in securely/ }).click();
   await expect(page.getByRole("heading", { name: "Operations and driver approval" })).toBeVisible();
   await page.getByRole("button", { name: /Refresh drivers/ }).click();
   await page.getByLabel("Driver name").fill("Demo Driver");
@@ -399,14 +402,14 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
 
   await page.goto("/");
   await page.getByRole("button", { name: "Drive with us" }).click();
-  await page.locator('.auth-panel input[type="email"]').first().fill("driver@example.test");
-  await page.locator('.auth-panel input[type="password"]').first().fill("a-long-driver-password-123");
-  await page.getByRole("button", { name: /Sign in securely/ }).click();
+  await page.locator("#operations .auth-panel input[type=\"email\"]").fill("driver@example.test");
+  await page.locator("#operations .auth-panel input[type=\"password\"]").fill("a-long-driver-password-123");
+  await page.locator("#operations").getByRole("button", { name: /Sign in securely/ }).click();
   await page.getByRole("button", { name: /Use my location and go online/ }).click();
   await expect(page.getByRole("button", { name: "Go offline" })).toBeVisible();
   expect(availability[0]).toMatchObject({ online: true, latitude: 28.53, longitude: 77.35 });
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByRole("button", { name: /Sign in securely/ })).toBeVisible();
+  await expect(page.locator("#operations").getByRole("button", { name: /Sign in securely/ })).toBeVisible();
   expect(availability.at(-1)).toMatchObject({ online: false, latitude: 28.53, longitude: 77.35 });
 });
 
