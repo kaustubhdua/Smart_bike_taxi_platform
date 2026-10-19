@@ -326,6 +326,13 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
     driverId: string; email: string; displayName: string; vehicleRegistration: string;
     approved: boolean; online: boolean; createdAt: string;
   }> = [];
+  const supportReports = [{
+    id: "42", rideId: null, category: "technical",
+    description: "A trip status failed to refresh after reconnecting.",
+    status: "open", resolutionNote: "", createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(), resolvedAt: null,
+    reporterId: "passenger-1", reporterEmail: "rider@example.test", reporterName: "Demo Rider",
+  }];
   await page.route("http://api.test/api/v1/auth/login", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       accessToken: "test-admin-token",
@@ -339,6 +346,19 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
       targetType: "driver", targetId: "driver-test-0001", details: { approved: true },
       createdAt: new Date().toISOString(),
     }] }) });
+  });
+  await page.route("http://api.test/api/v1/admin/support-reports", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-admin-token");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ reports: supportReports }) });
+  });
+  await page.route("http://api.test/api/v1/admin/support-reports/*", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-admin-token");
+    const input = route.request().postDataJSON() as { status: string; resolutionNote?: string };
+    supportReports[0].status = input.status;
+    supportReports[0].resolutionNote = input.resolutionNote ?? "";
+    supportReports[0].updatedAt = new Date().toISOString();
+    supportReports[0].resolvedAt = input.status === "resolved" || input.status === "rejected" ? new Date().toISOString() : null;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(supportReports[0]) });
   });
   await page.route("http://api.test/api/v1/admin/drivers**", async route => {
     const request = route.request();
@@ -393,6 +413,11 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await page.getByRole("button", { name: /Refresh audit history/ }).click();
   await expect(page.getByText("driver approved", { exact: true })).toBeVisible();
   await expect(page.getByText("admin@example.test · driver · driver-test-0001")).toBeVisible();
+  await page.getByRole("button", { name: /Refresh reports/ }).click();
+  await expect(page.getByText("#42 · technical · open")).toBeVisible();
+  await page.getByLabel("Resolution note (required to resolve/reject)").fill("Reviewed the event and documented the recovery steps.");
+  await page.getByRole("button", { name: "Resolve" }).click();
+  await expect(page.getByText("#42 · technical · resolved")).toBeVisible();
 });
 
 
