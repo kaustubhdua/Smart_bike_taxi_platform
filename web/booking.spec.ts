@@ -377,6 +377,14 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
       createdAt: new Date().toISOString(),
     }] }) });
   });
+  await page.route("http://api.test/api/v1/admin/rides**", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-admin-token");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [{
+      rideId: "ride-test-0001", status: "completed", passengerEmail: "rider@example.test",
+      driverEmail: "driver@example.test", pickup: "JIIT Sector 128", destination: "Sector 18 Market",
+      farePaise: 4750, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    }], limit: 100 }) });
+  });
   await page.route("http://api.test/api/v1/admin/support-reports**", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer test-admin-token");
     if (route.request().method() === "GET") {
@@ -448,6 +456,10 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await page.getByLabel("Resolution note (required to resolve/reject)").fill("Reviewed the event and documented the recovery steps.");
   await page.getByRole("button", { name: "Resolve" }).click();
   await expect(page.getByText("#42 · technical · resolved")).toBeVisible();
+  await page.getByLabel("Ride ID, passenger/driver email, or pickup/drop-off").fill("ride-test-0001");
+  await page.getByRole("button", { name: /Search rides/ }).click();
+  await expect(page.getByText("ride-test-0001")).toBeVisible();
+  await expect(page.getByText("rider@example.test")).toBeVisible();
 });
 
 
