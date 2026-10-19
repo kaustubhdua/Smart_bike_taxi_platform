@@ -3,7 +3,11 @@ set -euo pipefail
 
 base_url="${RIDEFORGE_TEST_BASE_URL:-http://127.0.0.1:8080}"
 tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
+restore_readiness_migration() {
+  psql -v ON_ERROR_STOP=1 -c "INSERT INTO schema_migrations(version) VALUES ('002_driver_approval_and_outbox') ON CONFLICT (version) DO NOTHING" >/dev/null 2>&1 || true
+  rm -rf "$tmp_dir"
+}
+trap restore_readiness_migration EXIT
 
 status="$(curl --silent --show-error --dump-header "$tmp_dir/health.headers" --output "$tmp_dir/health.json" --write-out '%{http_code}' "$base_url/api/v1/health")"
 test "$status" = "200"
@@ -13,6 +17,16 @@ grep -q '"status":"ready"' "$tmp_dir/readiness.json"
 grep -q '"status":"ok"' "$tmp_dir/health.json"
 grep -q '"database":"connected"' "$tmp_dir/health.json"
 grep -qi '^X-Request-ID: [A-Za-z0-9_-]\{8,\}' "$tmp_dir/health.headers"
+
+# Readiness must fail closed if the current migration ledger is incomplete.
+psql -v ON_ERROR_STOP=1 -c "DELETE FROM schema_migrations WHERE version = '002_driver_approval_and_outbox'" >/dev/null
+status="$(curl --silent --show-error --output "$tmp_dir/not-ready.json" --write-out '%{http_code}' "$base_url/api/v1/ready")"
+test "$status" = "503"
+grep -q '"status":"not_ready"' "$tmp_dir/not-ready.json"
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO schema_migrations(version) VALUES ('002_driver_approval_and_outbox') ON CONFLICT (version) DO NOTHING" >/dev/null
+status="$(curl --silent --show-error --output "$tmp_dir/readiness-restored.json" --write-out '%{http_code}' "$base_url/api/v1/ready")"
+test "$status" = "200"
+
 
 # SSE reconnects use Last-Event-ID and must pass the API's CORS preflight.
 status="$(curl --silent --show-error --output "$tmp_dir/sse-preflight.txt" --dump-header "$tmp_dir/sse-preflight-headers.txt" --write-out '%{http_code}' \
