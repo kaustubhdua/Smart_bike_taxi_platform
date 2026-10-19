@@ -281,8 +281,22 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     setBusy(true);
     try {
       const data = await request("/api/v1/admin/metrics");
-      if (!data.ridesByStatus || typeof data.onlineDrivers !== "number") throw new Error("The API returned invalid metrics.");
-      setMetrics({ ridesByStatus: data.ridesByStatus as Record<string, number>, onlineDrivers: data.onlineDrivers, pendingOutboxEvents: data.pendingOutboxEvents, deadLetteredOutboxEvents: data.deadLetteredOutboxEvents, oldestPendingOutboxAgeSeconds: data.oldestPendingOutboxAgeSeconds });
+      if (!data.ridesByStatus || typeof data.ridesByStatus !== "object" ||
+          Array.isArray(data.ridesByStatus) || typeof data.onlineDrivers !== "number") {
+        throw new Error("The API returned invalid metrics.");
+      }
+      const numericMetric = (value: unknown): number | undefined =>
+        typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+      setMetrics({
+        ridesByStatus: Object.fromEntries(
+          Object.entries(data.ridesByStatus as Record<string, unknown>)
+            .filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]) && entry[1] >= 0),
+        ),
+        onlineDrivers: data.onlineDrivers,
+        pendingOutboxEvents: numericMetric(data.pendingOutboxEvents),
+        deadLetteredOutboxEvents: numericMetric(data.deadLetteredOutboxEvents),
+        oldestPendingOutboxAgeSeconds: numericMetric(data.oldestPendingOutboxAgeSeconds),
+      });
       setError("Operational metrics refreshed from PostgreSQL.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Metrics unavailable."); }
     finally { setBusy(false); }
