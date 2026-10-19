@@ -1230,6 +1230,7 @@ std::optional<rideforge_security::Claims> bearer_claims(
 #include "driver_status.inc"
 #include "driver_queue.inc"
 #include "driver_history.inc"
+#include "admin_ride_search.inc"
 #include "support_routes.inc"
 
 // Authenticated SSE stream. The outbox worker emits PostgreSQL NOTIFY messages only
@@ -1775,6 +1776,9 @@ void handle_request(tcp::socket socket) {
                 result = response(http::status::service_unavailable, {{"error", "audit_unavailable"}}, request);
             }
         }
+    } else if (request.method() == http::verb::get &&
+               (path == "/api/v1/admin/rides" || path.rfind("/api/v1/admin/rides?", 0) == 0)) {
+        result = handle_admin_ride_search(request, path);
     } else if (request.method() == http::verb::get && path == "/api/v1/admin/metrics") {
         const auto claims = bearer_claims(request);
         if (!claims) {
