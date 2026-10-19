@@ -115,3 +115,8 @@ After restoration, run migration/readiness checks and verify representative acco
 ## Request logs and correlation
 
 The API emits one-line JSON completion records with event name, generated request ID, HTTP method, path without query parameters, response status, elapsed milliseconds, and whether the response write succeeded. It never logs request bodies, bearer tokens, precise coordinates, passwords, or raw provider/database exception messages. Use the response `X-Request-ID` to correlate a client report with server logs. SSE requests have a separate long-lived lifecycle; broader per-connection SSE logging and operational metrics remain a release-hardening task.
+
+
+## Connection capacity
+
+The current API limits itself to 64 concurrent HTTP/SSE sessions; each active session may hold a database connection, plus the separate outbox worker. This is a safety bound for the portfolio demo, not a production pool. Monitor PostgreSQL connection usage and reduce load if other services share the database. Production requires an explicit pool/connection-acquisition timeout and a load-tested limit.
