@@ -40,7 +40,7 @@ curl --fail --show-error http://localhost:8080/api/v1/ready
 ```
 
 - `/api/v1/health` checks database connectivity.
-- `/api/v1/ready` also checks the required account, ride and outbox tables plus all three recorded migration versions.
+- `/api/v1/ready` also checks the required account, ride and outbox tables plus all four recorded migration versions.
 - Open the web app at http://localhost:5173.
 
 If readiness fails, inspect the API, migration and database logs before retrying:
@@ -60,7 +60,9 @@ Follow the single supported procedure in [the operations runbook](OPERATIONS_RUN
 3. Confirm the booking only after the API returns a persisted ride.
 4. Sign in as an approved driver, allow location access, and go online near the pickup.
 5. Accept the request and advance the ride through arrival, in-progress and completion states.
-6. Refresh the passenger page and verify the ride state recovers from the API; use ride history to inspect persisted records.
+6. Refresh the passenger page and verify the ride state recovers from the API; refresh trip history, open a completed trip's demo receipt, and confirm it is not a tax invoice or payment proof.
+7. Submit a support report and refresh the passenger's report list. In the admin workspace, refresh support reports, move the report to review, then resolve/reject it with a resolution note; check the audit history.
+8. In the admin workspace, search by ride ID/email/address and optionally filter by ride status. In the driver workspace, refresh trip history and inspect the gross completed-fare summary (not a payout ledger).
 
 The public Nominatim and OSRM endpoints are evaluation defaults, not a production SLA. A demo driver is not identity/vehicle verified, and this environment does not implement real payments, commercial safety response, or legal transport authorization.
 
