@@ -2232,6 +2232,15 @@ void handle_request(tcp::socket socket) {
 
 int main() {
     curl_global_init(CURL_GLOBAL_DEFAULT);
+    int dispatch_radius = 0;
+    try {
+        dispatch_radius = dispatch_radius_meters();
+    } catch (const std::exception& error) {
+        std::cerr << json{{"event", "invalid_configuration"}, {"setting", "RIDEFORGE_DISPATCH_RADIUS_METERS"},
+            {"reason", error.what()}}.dump() << '\n';
+        curl_global_cleanup();
+        return 1;
+    }
     std::signal(SIGINT, request_shutdown);
     std::signal(SIGTERM, request_shutdown);
     const auto address = asio::ip::make_address(env_or("RIDEFORGE_BIND_ADDRESS", "0.0.0.0"));
@@ -2244,7 +2253,8 @@ int main() {
         std::cerr << json{{"event", "listener_setup_failed"}, {"reason", acceptor_error.message()}}.dump() << '\n';
         return 1;
     }
-    std::cerr << json{{"event", "api_started"}, {"address", address.to_string()}, {"port", port}}.dump() << '\n';
+    std::cerr << json{{"event", "api_started"}, {"address", address.to_string()}, {"port", port},
+        {"dispatchRadiusMeters", dispatch_radius}}.dump() << '\n';
     while (!shutdown_requested.load(std::memory_order_relaxed)) {
         tcp::socket socket{context};
         boost::system::error_code accept_error;
