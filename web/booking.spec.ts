@@ -131,6 +131,17 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
       rideId: "30000000-0000-4000-8000-000000000001", status: "cancelled",
     }) });
   });
+  await page.route("http://api.test/api/v1/support/reports", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-access-token");
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().postDataJSON()).toMatchObject({
+      category: "technical", severity: "normal",
+      description: "The booking history did not refresh correctly.",
+    });
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({
+      reportId: "support-report-test-0001", status: "open", createdAt: new Date().toISOString(),
+    }) });
+  });
 
   await page.goto("/");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
@@ -155,6 +166,9 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await expect(page.getByRole("heading", { name: "Ride receipt" })).toBeVisible();
   await expect(page.getByText("₹62.50 INR", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Print receipt" })).toBeVisible();
+  await page.getByLabel("What happened?").fill("The booking history did not refresh correctly.");
+  await page.getByRole("button", { name: /Submit support report/ }).click();
+  await expect(page.getByText(/Report saved: support-report-test-0001/)).toBeVisible();
 });
 
 test("passenger ride status refreshes from persisted API state", async ({ page }) => {
