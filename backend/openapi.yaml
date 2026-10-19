@@ -388,6 +388,7 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Supplied ride is not accessible to this account }
         "422": { description: Invalid report fields }
+        "429": { description: Per-account report rate limit exceeded }
         "503": { description: Report service unavailable }
   /admin/support/reports:
     get:
