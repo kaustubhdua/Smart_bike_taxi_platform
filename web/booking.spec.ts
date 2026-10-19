@@ -347,12 +347,12 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
       createdAt: new Date().toISOString(),
     }] }) });
   });
-  await page.route("http://api.test/api/v1/admin/support-reports", async route => {
+  await page.route("http://api.test/api/v1/admin/support-reports**", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer test-admin-token");
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ reports: supportReports }) });
-  });
-  await page.route("http://api.test/api/v1/admin/support-reports/*", async route => {
-    expect(route.request().headers()["authorization"]).toBe("Bearer test-admin-token");
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ reports: supportReports }) });
+      return;
+    }
     const input = route.request().postDataJSON() as { status: string; resolutionNote?: string };
     supportReports[0].status = input.status;
     supportReports[0].resolutionNote = input.resolutionNote ?? "";
