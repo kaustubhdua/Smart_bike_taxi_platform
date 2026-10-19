@@ -10,6 +10,12 @@ const routeFixture = {
   }],
 };
 
+async function clickNavigation(page: import("@playwright/test").Page, label: string) {
+  const openNavigation = page.getByRole("button", { name: "Open navigation" });
+  if (await openNavigation.isVisible()) await openNavigation.click();
+  await page.getByRole("button", { name: label }).click();
+}
+
 async function mockRouting(page: import("@playwright/test").Page) {
   await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
     const query = new URL(route.request().url()).searchParams.get("q") ?? "";
@@ -257,7 +263,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await page.goto("/");
   const openDriverNav = page.getByRole("button", { name: "Open navigation" });
   if (await openDriverNav.isVisible()) await openDriverNav.click();
-  await page.getByRole("button", { name: "Drive with us" }).click();
+  await clickNavigation(page, "Drive with us");
   await page.locator("#operations").getByLabel("Email").fill("driver@example.test");
   await page.locator("#operations").getByLabel("Password").fill("driver-password");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
@@ -293,7 +299,7 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await page.goto("/");
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
   if (await openAdminNav.isVisible()) await openAdminNav.click();
-  await page.getByRole("button", { name: "Admin console" }).click();
+  await clickNavigation(page, "Admin console");
   await page.locator("#operations").getByLabel("Email").fill("admin@example.test");
   await page.locator("#operations").getByLabel("Password").fill("admin-password");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
@@ -360,7 +366,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Admin console" }).click();
+  await clickNavigation(page, "Admin console");
   await page.locator("#operations .auth-panel input[type=\"email\"]").fill("admin@example.test");
   await page.locator("#operations .auth-panel input[type=\"password\"]").fill("a-long-admin-password-123");
   await page.locator("#operations").getByRole("button", { name: /Sign in securely/ }).click();
@@ -401,7 +407,7 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Drive with us" }).click();
+  await clickNavigation(page, "Drive with us");
   await page.locator("#operations .auth-panel input[type=\"email\"]").fill("driver@example.test");
   await page.locator("#operations .auth-panel input[type=\"password\"]").fill("a-long-driver-password-123");
   await page.locator("#operations").getByRole("button", { name: /Sign in securely/ }).click();
