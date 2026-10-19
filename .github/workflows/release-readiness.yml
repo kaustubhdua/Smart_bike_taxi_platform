@@ -1,0 +1,24 @@
+name: Full release readiness
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpp:
+    name: C++ tests and benchmarks
+    uses: ./.github/workflows/cpp.yml
+  api:
+    name: API build and HTTP smoke
+    uses: ./.github/workflows/backend.yml
+  database:
+    name: PostgreSQL migration and recovery
+    uses: ./.github/workflows/db-migration.yml
+  web:
+    name: Web build, accessibility and browser tests
+    uses: ./.github/workflows/web.yml
+  containers:
+    name: Container and Compose validation
+    uses: ./.github/workflows/container.yml

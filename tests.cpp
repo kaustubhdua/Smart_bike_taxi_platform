@@ -36,6 +36,21 @@ void testGraph() {
               route.path.back() == "C",
           "Dijkstra route reconstruction");
     check(!graph.shortestPath("A", "missing").reachable, "unknown destination");
+    const auto sameLocation = graph.shortestPath("A", "A");
+    check(sameLocation.reachable && sameLocation.distance == 0.0 &&
+              sameLocation.path.size() == 1 && sameLocation.path.front() == "A",
+          "same-location route is a zero-distance singleton");
+    Graph tied;
+    check(tied.addLocation("S") && tied.addLocation("Z") &&
+              tied.addLocation("A") && tied.addLocation("T"),
+          "create equal-route graph");
+    check(tied.addRoad("S", "Z", 1.0) && tied.addRoad("Z", "T", 1.0) &&
+              tied.addRoad("S", "A", 1.0) && tied.addRoad("A", "T", 1.0),
+          "create equal-cost alternatives");
+    const auto stableTie = tied.shortestPath("S", "T");
+    check(stableTie.reachable && stableTie.path.size() == 3 &&
+              stableTie.path[1] == "A",
+          "equal-distance route uses deterministic lexical predecessor");
     check(!graph.addRoad("A", "missing", 1.0), "unknown road endpoint");
     check(!graph.addRoad("A", "C", -1.0), "negative road rejected");
     check(!graph.addRoad("A", "C", std::numeric_limits<double>::infinity()),
@@ -43,6 +58,41 @@ void testGraph() {
     check(!graph.addRoad("A", "C", std::numeric_limits<double>::quiet_NaN()),
           "NaN road rejected");
     check(graph.addRoad("A", "A", 0.0), "zero-length self road accepted");
+
+    Graph disconnected;
+    check(disconnected.addLocation("A") && disconnected.addLocation("B") &&
+              disconnected.addLocation("C"), "create disconnected graph");
+    check(disconnected.addRoad("A", "B", 1.0), "connect only one component");
+    check(!disconnected.shortestPath("A", "C").reachable,
+          "disconnected destination remains unreachable");
+
+    Graph zeroCycle;
+    check(zeroCycle.addLocation("S") && zeroCycle.addLocation("B") &&
+              zeroCycle.addLocation("A"), "create zero-weight cycle graph");
+    check(zeroCycle.addRoad("S", "A", 0.0) &&
+              zeroCycle.addRoad("S", "B", 0.0) &&
+              zeroCycle.addRoad("A", "B", 0.0), "add zero-weight cycle");
+    const auto zeroRouteA = zeroCycle.shortestPath("S", "A");
+    const auto zeroRouteB = zeroCycle.shortestPath("S", "B");
+    check(zeroRouteA.reachable && zeroRouteA.distance == 0.0 &&
+              zeroRouteA.path.front() == "S" && zeroRouteA.path.back() == "A" &&
+              zeroRouteA.path.size() <= 3,
+          "zero-weight cycle reconstructs an acyclic route to A");
+    check(zeroRouteB.reachable && zeroRouteB.distance == 0.0 &&
+              zeroRouteB.path.front() == "S" && zeroRouteB.path.back() == "B" &&
+              zeroRouteB.path.size() <= 3,
+          "zero-weight cycle reconstructs an acyclic route to B");
+
+    Graph extreme;
+    check(extreme.addLocation("X") && extreme.addLocation("Y") &&
+              extreme.addLocation("Z"), "create extreme-weight graph");
+    const double largest = std::numeric_limits<double>::max();
+    check(extreme.addRoad("X", "Y", largest) &&
+              extreme.addRoad("Y", "Z", largest), "accept finite extreme weights");
+    check(extreme.shortestPath("X", "Y").reachable,
+          "a finite maximum-weight edge remains reachable");
+    check(!extreme.shortestPath("X", "Z").reachable,
+          "overflowing path sums are not treated as reachable");
 }
 
 void testHashTable() {
@@ -196,16 +246,38 @@ void testRideDispatchService() {
           "assigned driver remains busy at pickup location");
     check(!ride_service::completeRide(history, drivers, 10),
           "cannot complete before ride starts");
-    check(ride_service::startRide(history, 10), "assigned ride starts");
-    check(!ride_service::startRide(history, 10), "ride cannot start twice");
-    check(ride_service::completeRide(history, drivers, 10),
+    check(!ride_service::cancelRide(history, drivers, 999),
+          "cannot cancel a missing ride");
+    check(ride_service::cancelRide(history, drivers, 10),
+          "assigned ride cancellation is allowed");
+    check(history.front().status == "Cancelled" &&
+              drivers.find("NEAR")->available,
+          "cancellation records state and releases driver");
+    check(!ride_service::startRide(history, 10),
+          "cancelled ride cannot start");
+    check(!ride_service::cancelRide(history, drivers, 10),
+          "cancelled ride cannot be cancelled twice");
+
+    std::queue<RideRequest> secondRequest;
+    secondRequest.push(RideRequest{5, "R1", "A", "C"});
+    const auto secondDispatch = ride_service::dispatchNext(
+        riders, drivers, driverIds, city, secondRequest, history, nextRideId);
+    check(secondDispatch.status == ride_service::DispatchStatus::Dispatched,
+          "released driver can be assigned to a new ride");
+    check(secondDispatch.ride.rideId == 11 && nextRideId == 12,
+          "next ride receives the next unique ID");
+    check(ride_service::startRide(history, 11), "assigned ride starts");
+    check(!ride_service::startRide(history, 11), "ride cannot start twice");
+    check(ride_service::completeRide(history, drivers, 11),
           "in-progress ride completes");
-    check(history.front().status == "Completed", "completed state recorded");
+    check(history.back().status == "Completed", "completed state recorded");
     check(drivers.find("NEAR")->location == "C" &&
               drivers.find("NEAR")->available,
           "completion moves and releases driver");
-    check(!ride_service::completeRide(history, drivers, 10),
+    check(!ride_service::completeRide(history, drivers, 11),
           "completed ride cannot complete twice");
+    check(!ride_service::cancelRide(history, drivers, 11),
+          "completed ride cannot be cancelled");
     check(drivers.find("FAR")->location == "C", "unselected driver unchanged");
 
     HashTable<Driver> unavailableDrivers;
@@ -227,13 +299,49 @@ void testRideDispatchService() {
     check(noHistory.empty() && unchangedRideId == 20,
           "failed dispatch does not create ride or consume ID");
 
+    HashTable<Driver> tiedDrivers;
+    check(tiedDrivers.insert("ZED", Driver{"ZED", "Zed", "demo", "B", true}) &&
+              tiedDrivers.insert("ALPHA", Driver{"ALPHA", "Alpha", "demo", "B", true}),
+          "register equally close drivers");
+    std::vector<std::string> reverseDriverIds{"ZED", "ALPHA"};
+    std::queue<RideRequest> tiedRequest;
+    tiedRequest.push(RideRequest{6, "R1", "A", "C"});
+    std::vector<Ride> tiedHistory;
+    int tiedRideId = 30;
+    const auto tiedDispatch = ride_service::dispatchNext(
+        riders, tiedDrivers, reverseDriverIds, city, tiedRequest, tiedHistory, tiedRideId);
+    check(tiedDispatch.status == ride_service::DispatchStatus::Dispatched &&
+              tiedDispatch.ride.driverId == "ALPHA",
+          "equal-distance driver matching uses deterministic lexical ID");
+
+    Graph splitCity;
+    check(splitCity.addLocation("A") && splitCity.addLocation("B") &&
+              splitCity.addLocation("ISLAND"), "create split dispatch graph");
+    check(splitCity.addRoad("A", "B", 1.0), "connect only pickup and destination");
+    HashTable<Driver> isolatedDrivers;
+    check(isolatedDrivers.insert("ISLAND_DRIVER",
+              Driver{"ISLAND_DRIVER", "Isolated", "demo", "ISLAND", true}),
+          "register unreachable driver");
+    std::vector<std::string> isolatedIds{"ISLAND_DRIVER"};
+    std::queue<RideRequest> isolatedRequest;
+    isolatedRequest.push(RideRequest{7, "R1", "A", "B"});
+    std::vector<Ride> isolatedHistory;
+    int isolatedRideId = 40;
+    const auto isolatedDispatch = ride_service::dispatchNext(
+        riders, isolatedDrivers, isolatedIds, splitCity, isolatedRequest,
+        isolatedHistory, isolatedRideId);
+    check(isolatedDispatch.status == ride_service::DispatchStatus::NoAvailableDriver,
+          "unreachable available driver is not assigned");
+    check(isolatedRequest.size() == 1 && isolatedRideId == 40 && isolatedHistory.empty(),
+          "unreachable-driver failure preserves request and state");
+
     std::queue<RideRequest> invalid;
     invalid.push(RideRequest{3, "MISSING", "A", "B"});
     const auto badRequest = ride_service::dispatchNext(
         riders, drivers, driverIds, city, invalid, history, nextRideId);
     check(badRequest.status == ride_service::DispatchStatus::InvalidRequest,
           "unknown rider request rejected");
-    check(invalid.size() == 1 && nextRideId == 11,
+    check(invalid.size() == 1 && nextRideId == 12,
           "invalid request remains queued without consuming ID");
 
     std::queue<RideRequest> zeroLength;
@@ -242,10 +350,9 @@ void testRideDispatchService() {
         riders, drivers, driverIds, city, zeroLength, history, nextRideId);
     check(sameLocation.status == ride_service::DispatchStatus::InvalidRequest,
           "identical pickup and destination rejected");
-    check(zeroLength.size() == 1 && nextRideId == 11,
+    check(zeroLength.size() == 1 && nextRideId == 12,
           "zero-length request remains queued without consuming ride ID");
 }
-
 }  // namespace
 
 int main() {

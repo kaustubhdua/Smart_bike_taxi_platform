@@ -1,0 +1,66 @@
+name: Web build and typecheck
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/web.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/web.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Typecheck and production build
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci
+      - name: Audit installed dependencies
+        run: npm audit --audit-level=high
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Enforce JavaScript bundle budgets
+        run: |
+          main_js=$(find dist/assets -maxdepth 1 -name 'index-*.js' -print -quit)
+          map_js=$(find dist/assets -maxdepth 1 -name 'RouteMap-*.js' -print -quit)
+          test -n "$main_js"
+          test -n "$map_js"
+          main_gzip=$(gzip -c "$main_js" | wc -c)
+          map_gzip=$(gzip -c "$map_js" | wc -c)
+          echo "Main JavaScript gzip bytes: $main_gzip (budget: 150000)"
+          echo "Lazy map JavaScript gzip bytes: $map_gzip (budget: 60000)"
+          test "$main_gzip" -le 150000
+          test "$map_gzip" -le 60000
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser end-to-end tests
+        run: npm test
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-artifacts
+          path: web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
