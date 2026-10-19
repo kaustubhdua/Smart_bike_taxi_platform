@@ -359,6 +359,20 @@ fi
 grep -q 'event: ride-status' "$tmp_dir/events-sse.txt"
 grep -q '"status":"requested"' "$tmp_dir/events-sse.txt"
 
+# Reconnect replay must page through more than 100 persisted events without silently truncating history.
+last_seeded_event_id="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT COALESCE(MAX(id),0) FROM ride_events WHERE ride_id='$ride_id'")"
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO ride_events (ride_id,actor_id,previous_status,new_status,details) SELECT r.id,r.passenger_id,'requested'::ride_status,'requested'::ride_status,jsonb_build_object('replayPaginationTest',true,'sequence',n) FROM rides r CROSS JOIN generate_series(1,105) n WHERE r.id='$ride_id'::uuid" >/dev/null
+last_replay_event_id="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT MAX(id) FROM ride_events WHERE ride_id='$ride_id' AND details->>'replayPaginationTest'='true'")"
+if curl --silent --show-error --no-buffer --max-time 2 --header "Authorization: Bearer $token" \
+  --header "Last-Event-ID: $last_seeded_event_id" \
+  "$base_url/api/v1/rides/$ride_id/events" > "$tmp_dir/events-paginated-replay.txt"; then
+  :
+else
+  curl_status=$?
+  test "$curl_status" = "28"
+fi
+grep -q "^id: $last_replay_event_id$" "$tmp_dir/events-paginated-replay.txt"
+
 status="$(curl --silent --show-error --output "$tmp_dir/events-cross-owner.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $other_token" "$base_url/api/v1/rides/$ride_id/events")"
 test "$status" = "404"
