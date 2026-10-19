@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { calculateRoute } from "./lib/routing";
 const RouteMap = lazy(() => import("./components/RouteMap"));
@@ -46,6 +46,10 @@ export default function App() {
   const [driverQueue, setDriverQueue] = useState<Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number }>>([]);
   const [driverRide, setDriverRide] = useState<{ rideId: string; status: string } | null>(null);
   const [adminMetrics, setAdminMetrics] = useState<{ onlineDrivers: number; ridesByStatus: Record<string, number> } | null>(null);
+  const [supportCategory, setSupportCategory] = useState("technical");
+  const [supportDescription, setSupportDescription] = useState("");
+  const [supportReports, setSupportReports] = useState<Array<{ id: string; rideId: string | null; category: string; description: string; status: string; resolutionNote: string; createdAt: string }>>([]);
+  const [supportBusy, setSupportBusy] = useState(false);
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup !== destination && Boolean(pickup && destination) && Boolean(route) && !routeLoading;
 
@@ -601,6 +605,52 @@ export default function App() {
     }
   }
 
+  async function loadSupportReports() {
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base || !account || !["passenger", "driver"].includes(account.role)) return;
+    try {
+      const response = await fetch(apiUrl(base, "/api/v1/support/reports"), {
+        headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
+      });
+      const data = await response.json() as { reports?: typeof supportReports; error?: string };
+      if (!response.ok || !Array.isArray(data.reports)) throw new Error(data.error || "Could not load support reports.");
+      setSupportReports(data.reports);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not load support reports.");
+    }
+  }
+
+  async function submitSupportReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base || !account || !["passenger", "driver"].includes(account.role)) {
+      setNotice("Sign in as a passenger or driver before submitting a report.");
+      return;
+    }
+    setSupportBusy(true);
+    try {
+      const payload: { category: string; description: string; rideId?: string } = {
+        category: supportCategory,
+        description: supportDescription.trim(),
+      };
+      if (ride?.rideId) payload.rideId = ride.rideId;
+      const response = await fetch(apiUrl(base, "/api/v1/support/reports"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": "Bearer " + account.token },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json() as { id?: string; error?: string };
+      if (!response.ok || !data.id) throw new Error(data.error || "Could not submit support report.");
+      setSupportDescription("");
+      setNotice("Support report submitted. Reference: " + data.id + ". This demo does not contact emergency services.");
+      await loadSupportReports();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not submit support report.");
+    } finally {
+      setSupportBusy(false);
+    }
+  }
+
   function scrollToBooking() {
     document.getElementById("booking")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }
@@ -739,6 +789,36 @@ export default function App() {
                     <strong>Online drivers: {adminMetrics.onlineDrivers}</strong>
                     {Object.entries(adminMetrics.ridesByStatus).map(([status, count]) => <span key={status}>{status.replaceAll("_", " ")} <b>{count}</b></span>)}
                   </div>}
+                </section>
+              )}
+              {account && (account.role === "passenger" || account.role === "driver") && (
+                <section className="driver-panel support-panel" aria-labelledby="support-report-title">
+                  <div className="driver-panel-head">
+                    <div><h3 id="support-report-title">Support and incident report</h3><p>Submit a report tied to your current ride, or leave the ride reference blank.</p></div>
+                    <button className="text-action" type="button" onClick={loadSupportReports}>Refresh my reports</button>
+                  </div>
+                  <form className="auth-panel" onSubmit={submitSupportReport}>
+                    <label className="auth-field"><span>What is this about?</span>
+                      <select value={supportCategory} onChange={event => setSupportCategory(event.target.value)}>
+                        <option value="booking">Booking or trip status</option>
+                        <option value="driver">Driver or vehicle</option>
+                        <option value="payment">Fare or payment</option>
+                        <option value="safety">Safety concern</option>
+                        <option value="technical">Technical issue</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
+                    <label className="auth-field"><span>Describe the issue (10–2,000 characters)</span>
+                      <textarea className="support-description" minLength={10} maxLength={2000} required value={supportDescription} onChange={event => setSupportDescription(event.target.value)} placeholder="What happened, and what should the team review?" rows={4} />
+                    </label>
+                    {supportCategory === "safety" && <p className="support-disclaimer" role="note">This creates a report for review. It does not contact emergency services or guarantee an immediate response. If anyone is in immediate danger, contact local emergency services directly.</p>}
+                    <button className="book-button" type="submit" disabled={supportBusy || supportDescription.trim().length < 10}>{supportBusy ? "Submitting report…" : "Submit support report"} <ArrowRight size={17} /></button>
+                  </form>
+                  <div className="driver-queue"><h3>My recent reports</h3>
+                    {supportReports.length === 0 ? <p>No reports loaded yet. Use “Refresh my reports” to check the server.</p> : supportReports.map(report => <article className="ride-confirmation" key={report.id}>
+                      <div><strong>#{report.id} · {report.category.replaceAll("_", " ")}</strong><span>Status: {report.status.replaceAll("_", " ")}</span><small>{new Date(report.createdAt).toLocaleString()}{report.resolutionNote ? " · " + report.resolutionNote : ""}</small></div>
+                    </article>)}
+                  </div>
                 </section>
               )}
               <div className="card-footnote"><ShieldCheck size={14} /> Quotes and rides persist through the API. Status refreshes while visible; live GPS tracking and push updates are not implemented.</div>
