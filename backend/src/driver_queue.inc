@@ -12,7 +12,8 @@ http::response<http::string_body> handle_driver_queue(
         if (connection != nullptr) PQfinish(connection);
         return response(http::status::service_unavailable, {{"error", "driver_queue_unavailable"}}, request);
     }
-    const char* params[] = {claims->subject.c_str()};
+    const std::string radius_meters = std::to_string(dispatch_radius_meters());
+    const char* params[] = {claims->subject.c_str(), radius_meters.c_str()};
     PGresult* result = PQexecParams(connection,
         "WITH eligible AS ("
         "SELECT r.id::text AS ride_id,r.pickup_label,r.destination_label,"
@@ -30,9 +31,9 @@ http::response<http::string_body> handle_driver_queue(
         "AND NOT EXISTS (SELECT 1 FROM rides active WHERE active.driver_id=d.account_id "
         "AND active.status IN ('assigned','driver_arriving','in_progress'))) "
         "SELECT ride_id,pickup_label,destination_label,route_distance_m,fare_paise,created_at,"
-        "pickup_distance_m::integer FROM eligible WHERE pickup_distance_m<=20000 "
+        "pickup_distance_m::integer FROM eligible WHERE pickup_distance_m<=$2::double precision "
         "ORDER BY pickup_distance_m ASC,created_at ASC LIMIT 20",
-        1, nullptr, params, nullptr, nullptr, 0);
+        2, nullptr, params, nullptr, nullptr, 0);
     if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
         if (result != nullptr) PQclear(result);
         PQfinish(connection);
