@@ -29,6 +29,27 @@ async function mockRouting(page: import("@playwright/test").Page) {
   await page.route("**://*.tile.openstreetmap.org/**", route => route.abort());
 }
 
+test("passenger can set pickup from a permission-granted current location", async ({ page }) => {
+  await mockRouting(page);
+  await page.context().grantPermissions(["geolocation"]);
+  await page.context().setGeolocation({ latitude: 28.53123, longitude: 77.35123 });
+  await page.route("https://nominatim.openstreetmap.org/reverse?**", async route => {
+    const url = new URL(route.request().url());
+    expect(url.searchParams.get("lat")).toBe("28.53123");
+    expect(url.searchParams.get("lon")).toBe("77.35123");
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ display_name: "123 Test Road, Sector 128, Noida, Uttar Pradesh, India" }),
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use my current location" }).click();
+  await expect(page.getByRole("textbox", { name: "Pickup point" }))
+    .toHaveValue("123 Test Road, Sector 128, Noida, Uttar Pradesh, India");
+  await expect(page.getByText("Pickup updated to your current location.")).toBeVisible();
+});
+
 test("calculates road route and shows a fare only after a valid server quote", async ({ page }) => {
   await mockRouting(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
