@@ -381,6 +381,25 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
       currency: "INR", createdAt: new Date().toISOString(),
     }] }) });
   });
+  const supportReports = [{
+    reportId: "support-report-test-0001", reporterEmail: "rider@example.test", reporterRole: "passenger",
+    rideId: null, category: "technical", severity: "normal", description: "The booking history did not refresh correctly.",
+    status: "open" as "open" | "in_review" | "resolved", resolutionNote: "",
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), resolvedAt: "",
+  }];
+  await page.route("http://api.test/api/v1/admin/support/reports**", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer admin-access-token");
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ reports: supportReports }) });
+      return;
+    }
+    const body = route.request().postDataJSON() as { status: "open" | "in_review" | "resolved"; resolutionNote: string };
+    supportReports[0].status = body.status;
+    supportReports[0].resolutionNote = body.resolutionNote;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      reportId: supportReports[0].reportId, status: body.status, updatedAt: new Date().toISOString(),
+    }) });
+  });
   await page.goto("/");
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
   if (await openAdminNav.isVisible()) await openAdminNav.click();
@@ -398,6 +417,10 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await page.getByRole("button", { name: "Search rides" }).click();
   await expect(page.getByText("rider@example.test")).toBeVisible();
   await expect(page.getByText("Pickup → Destination", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Refresh support reports" }).click();
+  await expect(page.getByText(/technical · normal · open/)).toBeVisible();
+  await page.getByRole("button", { name: "Resolve" }).click();
+  await expect(page.getByText(/technical · normal · resolved/)).toBeVisible();
 });
 
 
