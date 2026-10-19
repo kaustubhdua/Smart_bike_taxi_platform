@@ -1,5 +1,15 @@
 -- Smoke-test the migration's most important integrity invariant on a clean PostgreSQL DB.
 BEGIN;
+DO $$
+BEGIN
+  IF to_regclass('public.support_reports') IS NULL THEN
+    RAISE EXCEPTION 'support_reports table was not created by migrations';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='004_support_reports') THEN
+    RAISE EXCEPTION 'support reports migration ledger entry is missing';
+  END IF;
+END $$;
+
 
 INSERT INTO accounts (id, email, display_name, role, password_hash)
 VALUES
