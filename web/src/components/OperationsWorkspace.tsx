@@ -15,6 +15,7 @@ type AuditEvent = { id: string; actorEmail: string; action: string; targetType: 
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
 type AdminRide = { rideId: string; status: string; passengerEmail: string; driverEmail: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string };
 type DriverHistory = { rides: Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string; completedAt: string | null }>; completedTrips: number; totalCompletedFarePaise: number; currency: string };
+type SupportReport = { reportId: string; reporterEmail: string; reporterRole: string; rideId: string | null; category: string; severity: string; description: string; status: "open" | "in_review" | "resolved"; resolutionNote: string; createdAt: string; updatedAt: string; resolvedAt: string };
 
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [email, setEmail] = useState("");
@@ -30,6 +31,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [supportReports, setSupportReports] = useState<SupportReport[] | null>(null);
   const [adminRideSearch, setAdminRideSearch] = useState("");
   const [adminRideStatus, setAdminRideStatus] = useState("");
   const [adminRides, setAdminRides] = useState<AdminRide[] | null>(null);
@@ -360,6 +362,32 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  async function refreshSupportReports() {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/admin/support/reports?limit=50");
+      if (!Array.isArray(data.reports)) throw new Error("The API returned an invalid support report list.");
+      setSupportReports(data.reports as SupportReport[]);
+      setError("Support and incident reports refreshed from PostgreSQL.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Support reports unavailable."); }
+    finally { setBusy(false); }
+  }
+
+  async function updateSupportReport(report: SupportReport, status: SupportReport["status"]) {
+    setBusy(true);
+    try {
+      const resolutionNote = status === "resolved" ? "Reviewed by an administrator." : report.resolutionNote;
+      await request("/api/v1/admin/support/reports/" + encodeURIComponent(report.reportId), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, resolutionNote }),
+      });
+      await refreshSupportReports();
+      setError("Support report status updated and administrative action audited.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Support report update failed."); }
+    finally { setBusy(false); }
+  }
+
   async function refreshDrivers() {
     setBusy(true);
     try {
@@ -446,7 +474,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
             </>
           ) : (
             <>
-              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); }}>Sign out</button></div>
+              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); setSupportReports(null); }}>Sign out</button></div>
               <div className="admin-ride-search" aria-label="Ride search">
                 <h3>Search rides</h3>
                 <div className="button-row">
@@ -464,8 +492,25 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                 <button className="book-button" onClick={refreshMetrics} disabled={busy}>Refresh metrics <ArrowRight size={18} /></button>
                 <button className="outline-button" onClick={refreshDrivers} disabled={busy}><RefreshCw size={15} /> Refresh drivers</button>
                 <button className="outline-button" onClick={refreshAudit} disabled={busy}><ShieldCheck size={15} /> Refresh audit history</button>
+                <button className="outline-button" onClick={refreshSupportReports} disabled={busy}><RefreshCw size={15} /> Refresh support reports</button>
               </div>
               {metrics && <div className="driver-queue"><h3>PostgreSQL-backed counts</h3><p>Online drivers: <strong>{metrics.onlineDrivers}</strong></p><p>Outbox backlog: <strong>{metrics.pendingOutboxEvents ?? "—"}</strong> pending · <strong>{metrics.deadLetteredOutboxEvents ?? "—"}</strong> dead-lettered · oldest pending {metrics.oldestPendingOutboxAgeSeconds ?? "—"}s</p>{(metrics.deadLetteredOutboxEvents ?? 0) > 0 && <p role="alert">Dead-lettered ride events need operator review.</p>}{Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}</div>}
+              <div className="driver-queue"><h3>Support and incident reports ({supportReports?.length ?? "not loaded"})</h3>
+                {supportReports === null ? <p>Refresh support reports to review user-submitted issues.</p>
+                  : supportReports.length === 0 ? <p>No support reports have been submitted.</p>
+                  : supportReports.map(report => <div className="ride-confirmation" key={report.reportId}>
+                    <div><strong>{report.category.replaceAll("_", " ")} · {report.severity} · {report.status.replaceAll("_", " ")}</strong>
+                      <span>{report.reporterEmail} ({report.reporterRole}) · Ride: {report.rideId || "not attached"}</span>
+                      <small>{report.description}</small>
+                      {report.resolutionNote && <small>Resolution: {report.resolutionNote}</small>}
+                      <small>{new Date(report.createdAt).toLocaleString()} · {report.reportId}</small>
+                    </div>
+                    {report.status !== "resolved" && <div className="button-row">
+                      {report.status === "open" && <button className="text-action" onClick={() => updateSupportReport(report, "in_review")} disabled={busy}>Mark in review</button>}
+                      <button className="text-action" onClick={() => updateSupportReport(report, "resolved")} disabled={busy}>Resolve</button>
+                    </div>}
+                  </div>)}
+              </div>
               <div className="driver-queue"><h3>Privileged action audit ({auditEvents.length})</h3>
                 {auditEvents.length === 0 ? <p>Refresh audit history to inspect driver provisioning, approval and suspension events.</p> : auditEvents.map(event => <div className="ride-confirmation" key={event.id}>
                   <div><strong>{event.action.replaceAll(".", " ")}</strong><span>{event.actorEmail} · {event.targetType} · {event.targetId}</span><small>{new Date(event.createdAt).toLocaleString()} · {JSON.stringify(event.details)}</small></div>
