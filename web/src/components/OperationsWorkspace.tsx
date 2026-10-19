@@ -410,7 +410,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
             </>
           ) : (
             <>
-              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); }}>Sign out</button></div>
+              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); setSupportReports([]); setResolutionNotes({}); }}>Sign out</button></div>
               <div className="button-row">
                 <button className="book-button" onClick={refreshMetrics} disabled={busy}>Refresh metrics <ArrowRight size={18} /></button>
                 <button className="outline-button" onClick={refreshDrivers} disabled={busy}><RefreshCw size={15} /> Refresh drivers</button>
