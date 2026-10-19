@@ -817,7 +817,7 @@ export default function App() {
                   </div>}
                 </section>
               )}
-              <div className="card-footnote"><ShieldCheck size={14} /> Quotes and rides persist through the API. Status refreshes while visible; live GPS tracking and push updates are not implemented.</div>
+              <div className="card-footnote"><ShieldCheck size={14} /> Quotes and rides persist through the API. Ride-status changes use authenticated push events with refresh recovery; driver location is the last fresh report, refreshed about once a minute while the driver is online.</div>
               <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
             </div>
             <div className="route-card">
