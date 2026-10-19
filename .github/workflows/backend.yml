@@ -113,6 +113,7 @@ jobs:
             fi
             sleep 1
           done
+          grep -q '"dispatchRadiusMeters":5000' /tmp/rideforge-api.log
           ./build-backend/rideforge_outbox_worker > /tmp/rideforge-outbox.log 2>&1 &
           worker_pid=$!
           if ! RIDEFORGE_TEST_BASE_URL=http://127.0.0.1:8080 bash -x backend/tests/http_smoke.sh; then
