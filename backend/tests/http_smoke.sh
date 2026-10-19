@@ -544,6 +544,13 @@ for round in $(seq 1 4); do
   done
 done
 
+# Going offline must not require or retain precise coordinates.
+status="$(curl --silent --show-error --output "$tmp_dir/driver-offline.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $driver_token" \
+  --data '{"online":false}' "$base_url/api/v1/driver/availability")"
+test "$status" = "200"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM driver_profiles WHERE account_id='$driver_id' AND is_online=false AND current_latitude IS NULL AND current_longitude IS NULL AND last_location_at IS NULL")" = "1"
+
 # The outbox worker must publish durable ride events and not dead-letter healthy events.
 published_events=0
 for attempt in $(seq 1 20); do
@@ -555,4 +562,4 @@ test "$published_events" -gt 0
 dead_lettered_events="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_event_outbox WHERE dead_lettered_at IS NOT NULL")"
 test "$dead_lettered_events" = "0"
 
-echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, concurrent assignment races, and outbox publication"
+echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, concurrent assignment races, offline location clearing, and outbox publication"
