@@ -45,7 +45,8 @@ test("calculates road route and shows a fare only after a valid server quote", a
   await page.goto("/");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   const routeMap = page.getByRole("application", { name: /Interactive road map from/ });
-  await routeMap.scrollIntoViewIfNeeded();
+  await page.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; });
+  await routeMap.evaluate(el => el.scrollIntoView({ block: "center", behavior: "auto" }));
   await expect(routeMap).toBeVisible();
   await expect(page.locator("#route-map-description")).toContainText("route distance, estimated duration and fare");
   await expect(page.locator(".leaflet-control-attribution a[href*='openstreetmap.org/copyright']")).toBeVisible();
@@ -159,7 +160,8 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
   const driverMap = page.getByRole("application", { name: /Includes the driver’s latest reported location/ });
-  await driverMap.scrollIntoViewIfNeeded();
+  await page.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; });
+  await driverMap.evaluate(el => el.scrollIntoView({ block: "center", behavior: "auto" }));
   await expect(driverMap).toBeVisible();
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: in_progress");
@@ -372,11 +374,11 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await page.locator("#operations").getByRole("button", { name: /Sign in securely/ }).click();
   await expect(page.getByRole("heading", { name: "Operations and driver approval" })).toBeVisible();
   await page.getByRole("button", { name: /Refresh drivers/ }).click();
-  await page.getByLabel("Driver name").fill("Demo Driver");
-  await page.getByLabel("Email", { exact: true }).last().fill("driver@example.test");
-  await page.getByLabel("Temporary password (12+ characters)").fill("a-long-driver-password-123");
-  await page.getByLabel("Vehicle registration").fill("HR-00-DEMO-01");
-  await page.getByRole("button", { name: /Create pending driver/ }).click();
+  await page.locator("#operations").getByLabel("Driver name").fill("Demo Driver");
+  await page.locator("#operations").getByLabel("Email", { exact: true }).fill("driver@example.test");
+  await page.locator("#operations").getByLabel("Temporary password (12+ characters)").fill("a-long-driver-password-123");
+  await page.locator("#operations").getByLabel("Vehicle registration").fill("HR-00-DEMO-01");
+  await page.locator("#operations").getByRole("button", { name: /Create pending driver/ }).click();
   await expect(page.getByText("Pending approval")).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Approved", { exact: false })).toBeVisible();
