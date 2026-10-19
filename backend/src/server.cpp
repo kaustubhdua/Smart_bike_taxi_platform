@@ -1459,7 +1459,7 @@ void handle_request(tcp::socket socket) {
             } catch (const json::exception&) {
                 result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
             } catch (const std::exception& error) {
-                std::cerr << "Quote request failed: " << error.what() << '\n';
+                std::cerr << "{\"event\":\"quote_service_unavailable\"}\n";
                 result = response(http::status::service_unavailable,
                                   {{"error", "quote_service_unavailable"}}, request);
             }
