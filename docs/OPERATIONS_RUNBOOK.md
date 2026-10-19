@@ -120,3 +120,8 @@ The API emits one-line JSON completion records with event name, generated reques
 ## Connection capacity
 
 The current API limits itself to 64 concurrent HTTP/SSE sessions; each active session may hold a database connection, plus the separate outbox worker. This is a safety bound for the portfolio demo, not a production pool. Monitor PostgreSQL connection usage and reduce load if other services share the database. Production requires an explicit pool/connection-acquisition timeout and a load-tested limit.
+
+
+## Clean-stack verification
+
+The container CI workflow builds the API, outbox worker, admin bootstrap utility and web image, then runs `docker compose up --build` against a disposable database. It waits for `/api/v1/ready`, verifies `/api/v1/health` and the web entry point, captures Compose logs on exit, and removes the disposable volumes. This verifies container startup and readiness, not a public deployment or a production SLA.

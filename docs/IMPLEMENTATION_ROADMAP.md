@@ -9,7 +9,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 ## Current implemented foundations
 
 - C++17 DSA application, graph routing, deterministic selection/lifecycle tests and an opt-in benchmark.
-- React + TypeScript + Vite passenger experience with a lazy-loaded map and configurable geocoding/routing adapter.
+- React + TypeScript + Vite passenger experience with a lazy-loaded map, configurable geocoding/routing adapter, and permission-based current-location pickup with reverse geocoding.
 - C++17 Boost.Beast API for database liveness (`/api/v1/health`) and schema readiness (`/api/v1/ready`), server-authoritative route quotes, passenger registration/login, persisted idempotent bookings, history/detail, cancellation, driver availability/queue/acceptance/status/history, authenticated SSE, and protected admin metrics, driver management, ride search and audit history.
 - PostgreSQL migrations 001–003 cover accounts, profiles, rides, quotes, ride events, idempotency, explicit driver approval, a transactional event notification outbox and dead-letter tracking.
 - Driver queue reads are limited to approved profiles online with a location updated in the last five minutes. Availability and acceptance enforce approval.
@@ -35,7 +35,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Add smoke tests for offline queue privacy and unapproved driver rejection.
 - [ ] Re-run every workflow against the latest exact commit SHA; fix all failures.
 - [ ] Ensure README, this roadmap, OpenAPI, PR description and issue tracker agree.
-- [ ] Verify the Compose startup path applies all migrations from a clean database and is repeatable.
+- [x] CI starts the complete Compose stack from a clean database, waits for schema readiness, checks API health and web HTML, then tears the stack down.
 
 Acceptance: every current-head check is green, migrations 001–003 apply in order and a second migration run is a no-op.
 

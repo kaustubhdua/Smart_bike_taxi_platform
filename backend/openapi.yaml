@@ -11,8 +11,28 @@ paths:
   /health:
     get:
       security: []
+      summary: Check API and database connectivity
       responses:
-        "200": { description: Service healthy }
+        "200":
+          description: Database connection is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, database]
+                properties:
+                  status: { type: string, const: ok }
+                  database: { type: string, const: connected }
+        "503":
+          description: Database is unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, database]
+                properties:
+                  status: { type: string, const: degraded }
+                  database: { type: string, const: unavailable }
   /ready:
     get:
       security: []
