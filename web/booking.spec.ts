@@ -292,7 +292,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
         pickup: "Pickup", destination: "Destination", farePaise: 4750, currency: "INR",
         createdAt: new Date().toISOString(), completedAt: new Date().toISOString(),
       }],
-      completedTrips: 1, totalEarningsPaise: 4750, currency: "INR",
+      completedTrips: 1, totalCompletedFarePaise: 4750, currency: "INR",
     }) });
   });
 
