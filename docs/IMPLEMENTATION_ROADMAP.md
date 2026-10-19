@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-10-18. This document describes the feature branch, not a claim that the service is commercially ready.
+Last reconciled: 2026-10-19. This document describes the feature branch, not a claim that the service is commercially ready.
 
 ## Product goal
 
@@ -18,7 +18,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 
 ## Known gaps — do not represent as complete
 
-- Driver provisioning, approval and suspension API/UI are implemented with an audit trail. Real-world identity/vehicle document verification remains outside this demo.
+- Driver provisioning, approval and suspension API/UI are implemented with an audit trail and the demo-versus-real-world boundary is documented in [the driver verification policy](DRIVER_VERIFICATION_POLICY.md). Real identity/vehicle document verification remains outside this demo.
 - The ride-event outbox publisher is implemented with PostgreSQL NOTIFY, retry/backoff and dead-letter handling. The API exposes an authenticated SSE stream with persisted-event replay; passenger and driver workspaces consume ride-status frames and REST polling remains the recovery path. Ride detail exposes a fresh driver location only to authorized ride participants during an active ride; the passenger map displays that marker and hides it when the location is stale/offline or the ride becomes terminal.
 - Dispatch queue filters approved, online drivers with a fresh location and a 20 km great-circle pickup radius; it is not yet ranked by road ETA, and the radius is a demo policy rather than a configurable operating rule.
 - Admin workspace exposes operational metrics, driver provisioning/approval/suspension, and recent privileged-action audit history. Incident response and audit search/filtering remain future work.
@@ -56,9 +56,9 @@ Acceptance: adversarial integration tests pass and no client can read or mutate 
 
 - [x] Add an admin-only driver provisioning/approval/suspension API and corresponding UI.
 - [x] Record approval actor/time and audit driver provisioning, approval and suspension.
-- [ ] Add driver profile/vehicle fields and a documented demo verification policy.
+- [x] Add driver profile/vehicle fields and a documented demo verification policy.
 - [x] Reject stale or out-of-area offers at both queue and acceptance time (20 km great-circle demo radius).
-- [ ] Add a driver trip history/earnings ledger that is derived from persisted rides.
+- [x] Add driver trip history and lifetime completed-trip earnings derived from persisted rides.
 - [ ] Add admin ride search, failed dispatch inspection and incident records.
 
 Acceptance: a newly created driver cannot go online until explicitly approved; suspended drivers lose dispatch eligibility. The API and UI are implemented; CI evidence on the current head is still required.
@@ -69,7 +69,7 @@ Acceptance: a newly created driver cannot go online until explicitly approved; s
 - [x] Add authenticated SSE subscriptions scoped to ride ownership; passenger and driver workspaces consume ride-status events.
 - [x] Use persisted event IDs, Last-Event-ID replay and reconnect backoff for passenger streams.
 - [ ] Add explicit browser resynchronization and load/reconnect stress tests beyond current smoke coverage.
-- [ ] Add fresh driver-location updates while online; stop sharing on offline/logout and enforce retention.
+- [x] Refresh driver location while online, stop sharing on offline/logout, and enforce freshness-limited exposure. Retention/deletion policy for real production data remains open.
 - [ ] Rank eligible drivers by configured distance/ETA policy, with a provider adapter and timeout/failure behavior.
 - [ ] Test duplicate, delayed and out-of-order event delivery.
 
@@ -77,10 +77,10 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 
 ## Phase 4 — passenger product completeness
 
-- [ ] Finish pickup/destination autocomplete, map selection, accessible map alternatives and quote expiry handling.
+- [x] Add pickup/destination autocomplete, accessible text route summary/map fallback, and quote-expiry messaging. Direct map-click selection remains a UX enhancement.
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
-- [ ] Add trip detail/history, receipt, support reporting and clear empty/error/offline states.
-- [ ] Ensure no fabricated success when the API/provider is unavailable.
+- [x] Add passenger trip detail/history and clear empty/error/offline states. [ ] Add a printable/shareable receipt and support reporting.
+- [x] Ensure no fabricated fare/booking success when the API/provider is unavailable; Playwright covers provider failures and quote errors.
 - [ ] Complete mobile/browser QA and WCAG 2.2 AA review.
 
 Acceptance: a passenger can register, quote, book, refresh, track, cancel when permitted and view trip history on the deployed build.
