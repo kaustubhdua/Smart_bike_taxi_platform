@@ -10,6 +10,7 @@
 #include <openssl/rand.h>
 #include <atomic>
 #include <csignal>
+#include <condition_variable>
 #include <chrono>
 #include <cctype>
 #include <cmath>
@@ -163,14 +164,7 @@ std::pair<int, int> route(const Location& pickup, const Location& destination) {
 
 class Database {
 public:
-    explicit Database(const std::string& url) : connection_(PQconnectdb(url.c_str())) {
-        if (connection_ == nullptr || PQstatus(connection_) != CONNECTION_OK) {
-            std::string error = connection_ == nullptr ? "PostgreSQL allocation failed" : PQerrorMessage(connection_);
-            if (connection_ != nullptr) PQfinish(connection_);
-            connection_ = nullptr;
-            throw std::runtime_error("Database unavailable: " + error);
-        }
-    }
+    explicit Database(const std::string& url) : connection_(acquire_connection(url)) {}
     bool schema_ready() {
         PGresult* result = PQexec(connection_,
             "SELECT to_regclass('public.accounts') IS NOT NULL,"
@@ -194,7 +188,7 @@ public:
         PQclear(result);
         return ready;
     }
-    ~Database() { if (connection_ != nullptr) PQfinish(connection_); }
+    ~Database() { release_connection(connection_); }
     Database(const Database&) = delete;
     Database& operator=(const Database&) = delete;
 
@@ -1253,6 +1247,85 @@ public:
     }
 
 private:
+    static constexpr std::size_t max_pool_connections_ = 16;
+    static constexpr auto pool_acquire_timeout_ = std::chrono::milliseconds(2000);
+    inline static std::mutex pool_mutex_;
+    inline static std::condition_variable pool_condition_;
+    inline static std::vector<PGconn*> idle_connections_;
+    inline static std::string pool_url_;
+    inline static std::size_t pool_connection_count_ = 0;
+
+    static PGconn* acquire_connection(const std::string& url) {
+        const auto deadline = std::chrono::steady_clock::now() + pool_acquire_timeout_;
+        for (;;) {
+            std::unique_lock<std::mutex> lock(pool_mutex_);
+            if (pool_url_.empty()) {
+                pool_url_ = url;
+            } else if (pool_url_ != url) {
+                throw std::runtime_error("Database URL changed after connection pool initialization");
+            }
+
+            if (!idle_connections_.empty()) {
+                PGconn* connection = idle_connections_.back();
+                idle_connections_.pop_back();
+                lock.unlock();
+                bool reusable = connection != nullptr && PQstatus(connection) == CONNECTION_OK;
+                if (reusable && PQtransactionStatus(connection) != PQTRANS_IDLE) {
+                    PGresult* rollback = PQexec(connection, "ROLLBACK");
+                    reusable = rollback != nullptr && PQresultStatus(rollback) == PGRES_COMMAND_OK &&
+                        PQtransactionStatus(connection) == PQTRANS_IDLE;
+                    if (rollback != nullptr) PQclear(rollback);
+                }
+                if (reusable) return connection;
+                if (connection != nullptr) PQfinish(connection);
+                lock.lock();
+                --pool_connection_count_;
+                lock.unlock();
+                pool_condition_.notify_one();
+                continue;
+            }
+
+            if (pool_connection_count_ < max_pool_connections_) {
+                ++pool_connection_count_;
+                lock.unlock();
+                PGconn* connection = PQconnectdb(url.c_str());
+                if (connection != nullptr && PQstatus(connection) == CONNECTION_OK) return connection;
+                if (connection != nullptr) PQfinish(connection);
+                lock.lock();
+                --pool_connection_count_;
+                lock.unlock();
+                pool_condition_.notify_one();
+                throw std::runtime_error("Database unavailable");
+            }
+
+            if (!pool_condition_.wait_until(lock, deadline, [] {
+                    return !idle_connections_.empty() ||
+                        pool_connection_count_ < max_pool_connections_;
+                })) {
+                throw std::runtime_error("Database connection pool acquisition timed out");
+            }
+        }
+    }
+
+    static void release_connection(PGconn* connection) noexcept {
+        if (connection == nullptr) return;
+        bool reusable = PQstatus(connection) == CONNECTION_OK;
+        if (reusable && PQtransactionStatus(connection) != PQTRANS_IDLE) {
+            PGresult* rollback = PQexec(connection, "ROLLBACK");
+            reusable = rollback != nullptr && PQresultStatus(rollback) == PGRES_COMMAND_OK &&
+                PQtransactionStatus(connection) == PQTRANS_IDLE;
+            if (rollback != nullptr) PQclear(rollback);
+        }
+
+        if (!reusable) PQfinish(connection);
+        {
+            std::lock_guard<std::mutex> lock(pool_mutex_);
+            if (reusable) idle_connections_.push_back(connection);
+            else if (pool_connection_count_ > 0) --pool_connection_count_;
+        }
+        pool_condition_.notify_one();
+    }
+
     PGconn* connection_{};
 };
 
