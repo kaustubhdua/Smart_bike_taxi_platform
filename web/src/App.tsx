@@ -520,6 +520,35 @@ export default function App() {
     });
   }
 
+  async function signOutDriver() {
+    const currentAccount = account;
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    // Stop the geolocation watcher before requesting server-side offline status.
+    setDriverOnline(false);
+    setDriverLocation(null);
+    let offlineConfirmed = false;
+    if (currentAccount?.role === "driver" && base) {
+      try {
+        const response = await fetch(apiUrl(base, "/api/v1/driver/availability"), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + currentAccount.token },
+          body: JSON.stringify({ online: false }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) throw new Error("The server did not confirm offline status.");
+        offlineConfirmed = true;
+      } catch {
+        // Local sign-out still proceeds; the server's stale-location guard prevents dispatch.
+      }
+    }
+    setAccount(null);
+    setDriverQueue([]);
+    setDriverRide(null);
+    setNotice(offlineConfirmed
+      ? "Signed out and confirmed offline. Driver coordinates were cleared."
+      : "Signed out locally, but offline status was not confirmed. The server will exclude this driver when the last location becomes stale.");
+  }
+
   async function acceptDriverRide(rideId: string) {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!base || !account) return;
@@ -677,7 +706,7 @@ export default function App() {
                   <div className="driver-panel-head">
                     <div><h3 id="driver-console-title">Availability and rides</h3><p>Availability and ride actions use the API.</p></div>
                     <button className={driverOnline ? "driver-online online" : "driver-online"} onClick={toggleDriverAvailability}>{driverOnline ? "Go offline" : "Go online"}</button>
-                    <button className="text-action" onClick={() => { setAccount(null); setDriverQueue([]); setDriverRide(null); setDriverOnline(false); }}>Sign out</button>
+                    <button className="text-action" onClick={() => { void signOutDriver(); }}>Sign out</button>
                   </div>
                   <p className="auth-caption">Going online uses your device location. Allow location access when prompted.</p>
                   <button className="text-action" onClick={refreshDriverQueue}>Refresh ride queue</button>
