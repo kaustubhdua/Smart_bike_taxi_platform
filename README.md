@@ -12,6 +12,7 @@ Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local 
 ![Database](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/db-migration.yml/badge.svg)
 ![Web](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/web.yml/badge.svg)
 ![Containers](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/container.yml/badge.svg)
+![Release readiness](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 ![Project](https://img.shields.io/badge/status-portfolio%20MVP%20in%20progress-blue)
 
