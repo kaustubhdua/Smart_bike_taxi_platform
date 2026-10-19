@@ -1241,8 +1241,15 @@ bool stream_ride_events(beast::tcp_stream& stream,
     std::uint64_t last_event_id = 0;
     const auto last_header = request["Last-Event-ID"];
     if (!last_header.empty()) {
+        const std::string value(last_header.data(), last_header.size());
+        // Event IDs are unsigned decimal integers. stoull alone accepts signs and
+        // whitespace, which can turn a malformed cursor into a huge replay offset.
+        if (value.empty() || !std::all_of(value.begin(), value.end(),
+                [](unsigned char character) { return character >= '0' && character <= '9'; })) {
+            send_json_error(http::status::bad_request, {{"error", "invalid_last_event_id"}});
+            return true;
+        }
         try {
-            const std::string value(last_header.data(), last_header.size());
             std::size_t consumed = 0;
             last_event_id = std::stoull(value, &consumed);
             if (consumed != value.size()) throw std::invalid_argument("invalid event id");
