@@ -14,6 +14,8 @@ The native C++17 HTTP service now implements:
 - Driver queue visibility is restricted to approved drivers who are online with a location updated in the last five minutes and pickup coordinates within the configurable `RIDEFORGE_DISPATCH_RADIUS_KM` great-circle radius (integer 1–100 km, default 20 km). Invalid values fail startup. Queue results are ranked by pickup distance; acceptance rechecks approval, freshness and the same radius inside the transaction. This is not road-ETA ranking.
 - `POST /api/v1/driver/rides/{rideId}/accept` and `PUT /api/v1/driver/rides/{rideId}/status`: transactional driver acceptance, conflict-safe assignment, lifecycle transitions, and event records.
 - `GET /api/v1/admin/metrics`: role-checked database-backed ride/driver counts plus pending outbox, dead-letter and oldest-pending-age metrics.
+- `POST /api/v1/support/reports` and `GET /api/v1/support/reports`: participant-scoped support/incident reports for passengers and drivers, with optional ride ownership validation.
+- `GET /api/v1/admin/support-reports` and `PUT /api/v1/admin/support-reports/{id}`: admin-only triage and resolution; status changes and audit events commit in the same PostgreSQL transaction.
 - `GET /api/v1/admin/audit?limit=50`: admin-only recent privileged-action audit history; `limit` is bounded to 1–100.
 - `GET/POST /api/v1/admin/drivers`: list provisioned driver profiles and create driver accounts that default to unapproved; creation and approval are audited.
 - `PUT /api/v1/admin/drivers/{driverId}/approval`: explicitly approve or suspend a driver; suspension forces the driver offline and is audited.
