@@ -637,6 +637,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#top">Skip to main content</a>
       <div className="top-strip"><span className="pulse-dot" /> <span>THE BETTER WAY TO GET THERE</span><span className="strip-divider" /> Built for the city, designed around you</div>
       <header className="site-header">
         <a className="brand" href="#top">
@@ -652,7 +653,7 @@ export default function App() {
         <div className="header-actions"><a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety first</a><button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button><button className="header-cta" onClick={scrollToBooking}>Get moving <ArrowUpRight size={16} /></button></div>
       </header>
 
-      <main id="top">
+      <main id="top" tabIndex={-1}>
         <section className="hero">
           <div className="hero-copy">
             <motion.div className="eyebrow" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}><span className="eyebrow-icon"><Sparkles size={14} /></span> YOUR CITY, WITHOUT THE FRICTION</motion.div>
