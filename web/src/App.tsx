@@ -39,6 +39,7 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
+  const [rideHistory, setRideHistory] = useState<Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string }> | null>(null);
   const [tripDriverLocation, setTripDriverLocation] = useState<{ latitude: number; longitude: number; updatedAt: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
@@ -400,6 +401,34 @@ export default function App() {
     }
   }
 
+  async function refreshRideHistory() {
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base || !account || account.role !== "passenger") return;
+    try {
+      const response = await fetch(apiUrl(base, "/api/v1/rides"), {
+        headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
+        signal: AbortSignal.timeout(8000),
+      });
+      const data = await response.json() as { rides?: unknown; error?: string };
+      if (!response.ok || !Array.isArray(data.rides)) {
+        throw new Error(data.error || "Could not load trip history (HTTP " + response.status + ").");
+      }
+      const validRides = data.rides.filter((item): item is {
+        rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string;
+      } => Boolean(item && typeof item === "object" &&
+        typeof (item as { rideId?: unknown }).rideId === "string" &&
+        typeof (item as { status?: unknown }).status === "string" &&
+        typeof (item as { pickup?: unknown }).pickup === "string" &&
+        typeof (item as { destination?: unknown }).destination === "string" &&
+        typeof (item as { farePaise?: unknown }).farePaise === "number" &&
+        typeof (item as { createdAt?: unknown }).createdAt === "string");
+      setRideHistory(validRides);
+      setNotice("Trip history refreshed from the server.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not load trip history.");
+    }
+  }
+
   async function refreshDriverQueue() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!base || !account || account.role !== "driver") return;
@@ -605,6 +634,19 @@ export default function App() {
                   )}
                   <button className="text-action" onClick={() => { setRide(null); setQuote(null); setNotice("Ride request saved. You can request a new quote for another trip."); }}>New ride</button>
                 </div>
+              )}
+              {account?.role === "passenger" && (
+                <section className="driver-panel" aria-labelledby="passenger-history-title">
+                  <div className="driver-panel-head">
+                    <div><h3 id="passenger-history-title">Your trip history</h3><p>Past and current rides loaded from your account.</p></div>
+                    <button className="text-action" onClick={refreshRideHistory}>Refresh trip history</button>
+                  </div>
+                  {rideHistory === null ? <p className="auth-caption">Refresh to load your persisted rides.</p>
+                    : rideHistory.length === 0 ? <p className="auth-caption">No rides found for this account yet.</p>
+                    : rideHistory.map(item => <div className="ride-confirmation" key={item.rideId}>
+                      <div><strong>{item.pickup} → {item.destination}</strong><span>{item.status.replaceAll("_", " ")} · ₹{(item.farePaise / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()} · {item.rideId}</small></div>
+                    </div>)}
+                </section>
               )}
               {account?.role === "driver" && (
                 <section className="driver-panel" aria-labelledby="driver-console-title">
