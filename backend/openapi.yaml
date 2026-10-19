@@ -137,7 +137,42 @@ paths:
       parameters:
         - $ref: "#/components/parameters/RideId"
       responses:
-        "200": { description: Ride details; active-trip driver details are passenger-only and active-trip location is participant-only and freshness-limited }
+        "200":
+          description: Ride details; active-trip driver details are passenger-only and active-trip location is participant-only and freshness-limited
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rideId, status, passengerId, pickup, destination, farePaise, currency, createdAt, updatedAt]
+                properties:
+                  rideId: { type: string, format: uuid }
+                  status:
+                    type: string
+                    enum: [requested, matching, assigned, driver_arriving, in_progress, completed, cancelled, failed]
+                  passengerId: { type: string, format: uuid }
+                  driverId: { type: string, format: uuid }
+                  pickup: { type: string }
+                  destination: { type: string }
+                  distanceMeters: { type: integer, minimum: 0 }
+                  farePaise: { type: integer, minimum: 0 }
+                  finalFarePaise: { type: integer, minimum: 0 }
+                  currency: { type: string, enum: [INR] }
+                  createdAt: { type: string, format: date-time }
+                  updatedAt: { type: string, format: date-time }
+                  driverName:
+                    type: string
+                    description: Present only for the owning passenger while the trip is assigned, arriving or in progress.
+                  vehicleRegistration:
+                    type: string
+                    description: Present only for the owning passenger while the trip is assigned, arriving or in progress.
+                  driverLocation:
+                    type: object
+                    description: Present only for the passenger or assigned driver when the active driver's location is online and newer than two minutes.
+                    required: [latitude, longitude, updatedAt]
+                    properties:
+                      latitude: { type: number, minimum: -90, maximum: 90 }
+                      longitude: { type: number, minimum: -180, maximum: 180 }
+                      updatedAt: { type: string, format: date-time }
         "403": { description: Forbidden }
         "404": { description: Not found }
   /rides/{rideId}/events:
