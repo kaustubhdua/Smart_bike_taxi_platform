@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: RideForge Ride API
   version: 0.1.0
-  description: Versioned API contract for implemented passenger quote/booking operations, driver lifecycle routes, and admin metrics.
+  description: Versioned API contract for passenger booking, driver lifecycle, support reports and audited administration.
 servers:
   - url: http://localhost:8080/api/v1
 security:
@@ -276,6 +276,67 @@ paths:
         "400": { description: Invalid limit }
         "401": { description: Unauthenticated }
         "403": { description: Admin role required }
+  /support/reports:
+    get:
+      summary: List the authenticated passenger or driver's support reports
+      responses:
+        "200":
+          description: Reports belonging to the caller
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reports]
+                properties:
+                  reports:
+                    type: array
+                    items: { $ref: "#/components/schemas/SupportReport" }
+        "401": { description: Unauthenticated }
+    post:
+      summary: Create a support report for the authenticated passenger or driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewSupportReport" }
+      responses:
+        "201":
+          description: Support report created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SupportReport" }
+        "404": { description: Ride not found or not accessible to the caller }
+        "422": { description: Invalid report fields }
+  /admin/support-reports:
+    get:
+      summary: List the 100 most recent support reports (admin only)
+      responses:
+        "200": { description: Reports returned }
+        "403": { description: Admin role required }
+  /admin/support-reports/{reportId}:
+    put:
+      summary: Move an open support report into review or resolve/reject it (admin only)
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status: { type: string, enum: [in_review, resolved, rejected] }
+                resolutionNote: { type: string, maxLength: 2000 }
+      responses:
+        "200": { description: Report status updated and audit event recorded }
+        "403": { description: Admin role required }
+        "409": { description: Report is already terminal or does not exist }
+        "422": { description: Invalid resolution }
   /admin/metrics:
     get:
       summary: Read operational metrics
@@ -296,6 +357,30 @@ components:
       required: true
       schema: { type: string, format: uuid }
   schemas:
+    NewSupportReport:
+      type: object
+      additionalProperties: false
+      required: [category, description]
+      properties:
+        rideId: { type: [string, "null"], format: uuid }
+        category: { type: string, enum: [booking, driver, payment, safety, technical, other] }
+        description: { type: string, minLength: 10, maxLength: 2000 }
+    SupportReport:
+      type: object
+      required: [id, rideId, category, description, status, resolutionNote, createdAt, updatedAt, resolvedAt]
+      properties:
+        id: { type: string }
+        rideId: { type: [string, "null"], format: uuid }
+        category: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [open, in_review, resolved, rejected] }
+        resolutionNote: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        resolvedAt: { type: [string, "null"] }
+        reporterId: { type: string, format: uuid }
+        reporterEmail: { type: string, format: email }
+        reporterName: { type: string }
     AdminMetricsResponse:
       type: object
       required: [ridesByStatus, onlineDrivers, pendingOutboxEvents, deadLetteredOutboxEvents, oldestPendingOutboxAgeSeconds]
@@ -318,7 +403,7 @@ components:
         currency: { type: string, enum: [INR] }
         createdAt: { type: string }
         distanceMeters: { type: integer, minimum: 1 }
-        pickupDistanceMeters: { type: integer, minimum: 0, maximum: 20000 }
+        pickupDistanceMeters: { type: integer, minimum: 0, maximum: 100000 }
     RegisterRequest:
       type: object
       additionalProperties: false
