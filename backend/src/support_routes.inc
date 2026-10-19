@@ -1,5 +1,4 @@
 // Authenticated support reports and admin-only resolution workflow.
-namespace {
 using support_json = nlohmann::json;
 
 bool valid_support_uuid(const std::string& value) {
@@ -237,4 +236,3 @@ http::response<http::string_body> handle_support_reports(
     PQfinish(connection);
     return response(http::status::ok, report, request);
 }
-} // namespace
