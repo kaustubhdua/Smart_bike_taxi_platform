@@ -482,6 +482,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/assigned-detail.json" --
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$ride_id")"
 test "$status" = "200"
 python3 -c 'import json,sys; r=json.load(sys.stdin); p=r["driverLocation"]; assert abs(p["latitude"]-28.53)<0.001 and abs(p["longitude"]-77.35)<0.001' < "$tmp_dir/assigned-detail.json"
+python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["driverName"]=="CI Driver" and r["vehicleRegistration"]=="CI-DRIVER-001"' < "$tmp_dir/assigned-detail.json"
 
 for next_status in driver_arriving in_progress completed; do
   status="$(curl --silent --show-error --output "$tmp_dir/status.json" --write-out '%{http_code}' \
@@ -520,7 +521,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/detail.json" --write-out
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$ride_id")"
 test "$status" = "200"
 grep -q '"status":"completed"' "$tmp_dir/detail.json"
-python3 -c 'import json,sys; assert "driverLocation" not in json.load(sys.stdin)' < "$tmp_dir/detail.json"
+python3 -c 'import json,sys; r=json.load(sys.stdin); assert "driverLocation" not in r and "driverName" not in r and "vehicleRegistration" not in r' < "$tmp_dir/detail.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/admin-ride-search.json" --write-out '%{http_code}' \
   --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $admin_token" \
