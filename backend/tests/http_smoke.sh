@@ -301,6 +301,19 @@ status="$(curl --silent --show-error --output "$tmp_dir/support-create.json" --w
 test "$status" = "201"
 support_report_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' < "$tmp_dir/support-create.json")"
 test -n "$support_report_id"
+for attempt in 1 2 3 4; do
+  status="$(curl --silent --show-error --output "$tmp_dir/support-extra-$attempt.json" --write-out '%{http_code}' \
+    --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+    --data "{\"category\":\"other\",\"description\":\"Automated rate limit fixture report $attempt.\"}" \
+    "$base_url/api/v1/support/reports")"
+  test "$status" = "201"
+done
+status="$(curl --silent --show-error --output "$tmp_dir/support-rate-limit.json" --write-out '%{http_code}' \
+  --request POST --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
+  --data '{"category":"other","description":"This sixth report should be rate limited."}' \
+  "$base_url/api/v1/support/reports")"
+test "$status" = "429"
+grep -q '"error":"support_rate_limited"' "$tmp_dir/support-rate-limit.json"
 status="$(curl --silent --show-error --output "$tmp_dir/support-list.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/support/reports")"
 test "$status" = "200"
