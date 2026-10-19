@@ -1475,7 +1475,7 @@ void handle_request(tcp::socket socket) {
             } catch (const json::exception&) {
                 result = response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
             } catch (const std::exception& error) {
-                std::cerr << "{\"event\":\"quote_service_unavailable\"}\n";
+                std::cerr << json{{"event", "quote_service_unavailable"}, {"requestId", std::string(request["X-Request-ID"].data(), request["X-Request-ID"].size())}}.dump() << '\n';
                 result = response(http::status::service_unavailable,
                                   {{"error", "quote_service_unavailable"}}, request);
             }
