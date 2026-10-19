@@ -335,6 +335,17 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
       pendingOutboxEvents: 5, deadLetteredOutboxEvents: 1, oldestPendingOutboxAgeSeconds: 240,
     }) });
   });
+  await page.route("http://api.test/api/v1/admin/rides/search", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer admin-access-token");
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().postDataJSON()).toMatchObject({ query: "rider", status: "completed", limit: 50 });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ limit: 50, rides: [{
+      rideId: "30000000-0000-4000-8000-000000000099", status: "completed",
+      passengerEmail: "rider@example.test", driverEmail: "driver@example.test",
+      pickup: "Pickup", destination: "Destination", farePaise: 4750,
+      currency: "INR", createdAt: new Date().toISOString(),
+    }] }) });
+  });
   await page.goto("/");
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
   if (await openAdminNav.isVisible()) await openAdminNav.click();
@@ -347,6 +358,11 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await expect(page.getByText(/Outbox backlog: 5 pending · 1 dead-lettered · oldest pending 240s/)).toBeVisible();
   await expect(page.getByRole("alert")).toContainText("Dead-lettered ride events need operator review");
   await expect(page.getByText("requested")).toBeVisible();
+  await page.getByLabel("Ride ID, email or address").fill("rider");
+  await page.getByLabel("Status").selectOption("completed");
+  await page.getByRole("button", { name: "Search rides" }).click();
+  await expect(page.getByText("rider@example.test")).toBeVisible();
+  await expect(page.getByText("Pickup → Destination", { exact: true })).toBeVisible();
 });
 
 
