@@ -15,7 +15,7 @@ VALUES ('20000000-0000-4000-8000-000000000001', 'TEST-DRIVER-001', true, true);
 INSERT INTO driver_profiles (account_id, vehicle_registration)
 VALUES ('20000000-0000-4000-8000-000000000002', 'TEST-DRIVER-002');
 
-DO $
+DO $$
 BEGIN
   IF (SELECT is_approved FROM driver_profiles
       WHERE account_id = '20000000-0000-4000-8000-000000000002') THEN
@@ -24,7 +24,7 @@ BEGIN
   IF to_regclass('public.admin_audit_events') IS NULL THEN
     RAISE EXCEPTION 'Expected administrator audit event table';
   END IF;
-END $;
+END $$;
 
 INSERT INTO rides (
   id, passenger_id, driver_id, status, pickup_label, pickup_latitude, pickup_longitude,
@@ -44,7 +44,7 @@ VALUES (
   'requested', 'assigned', '{"source":"schema-smoke"}'::jsonb
 );
 
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM ride_event_outbox
@@ -53,7 +53,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Expected ride event to create a durable notification outbox row';
   END IF;
-END $;
+END $$;
 
 DO $$
 BEGIN
