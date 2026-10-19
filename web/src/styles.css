@@ -19,6 +19,10 @@
 .auth-field select:focus-visible,.auth-field textarea:focus-visible{outline:2px solid #335cff;border-color:#335cff}
 .support-description{resize:vertical;min-height:100px;line-height:1.5}
 .support-disclaimer{padding:10px 12px;border-left:3px solid #b9f65b;background:#fff;color:#374151!important;font-size:12px!important}
+.print-receipt{margin-top:14px;padding:18px;border:1px dashed #9aa89d;border-radius:12px;background:#fff;color:#17211d}
+.print-receipt p{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+@media print{body *{visibility:hidden!important}.print-receipt,.print-receipt *{visibility:visible!important}.print-receipt{position:fixed;inset:0;width:100%;margin:0;padding:28px;border:0;border-radius:0;background:#fff;color:#000;box-shadow:none}.print-receipt .outline-button{display:none!important}}
+
 
 .auth-caption{margin:0;color:#68717c;font-size:11px;line-height:1.5}
 .auth-session{display:grid;gap:12px}
