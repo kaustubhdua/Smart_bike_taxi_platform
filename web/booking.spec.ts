@@ -66,10 +66,13 @@ test("passenger can set pickup from a permission-granted current location", asyn
   await mockRouting(page);
   await page.context().grantPermissions(["geolocation"]);
   await page.context().setGeolocation({ latitude: 28.53123, longitude: 77.35123 });
+  let reverseCoordinates: { latitude: number; longitude: number } | null = null;
   await page.route("https://nominatim.openstreetmap.org/reverse?**", async route => {
     const url = new URL(route.request().url());
-    expect(url.searchParams.get("lat")).toBe("28.53123");
-    expect(url.searchParams.get("lon")).toBe("77.35123");
+    reverseCoordinates = {
+      latitude: Number(url.searchParams.get("lat")),
+      longitude: Number(url.searchParams.get("lon")),
+    };
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -78,9 +81,12 @@ test("passenger can set pickup from a permission-granted current location", asyn
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Use my current location" }).click();
-  await expect(page.getByRole("combobox", { name: "Pickup point" }))
+  await expect(page.getByLabel("Pickup point"))
     .toHaveValue("123 Test Road, Sector 128, Noida, Uttar Pradesh, India");
   await expect(page.getByText("Pickup updated to your current location.")).toBeVisible();
+  expect(reverseCoordinates).not.toBeNull();
+  expect(reverseCoordinates!.latitude).toBeCloseTo(28.53123, 5);
+  expect(reverseCoordinates!.longitude).toBeCloseTo(77.35123, 5);
 });
 
 test("calculates road route and shows a fare only after a valid server quote", async ({ page }) => {
