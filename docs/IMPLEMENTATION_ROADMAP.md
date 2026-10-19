@@ -88,7 +88,9 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 ## Phase 5 — reliability, privacy and deployment
 
 - [x] Add a schema-aware `/api/v1/ready` probe and use it for the Compose API healthcheck.
-- [ ] Add request IDs and structured redacted logs, graceful shutdown and dependency timeouts.
+- [x] Add generated request IDs to API/SSE responses and redact raw quote-provider/database exception text.
+- [x] Add backup/restore scripts, a CI recovery smoke test, and schema-readiness failure-path coverage.
+- [ ] Complete structured redacted logging across all routes, graceful shutdown and dependency timeouts.
 - [ ] Document and test backup/restore; verify schema upgrade and rollback/recovery procedures.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
 - [ ] Run dependency, container and API security scans; review data retention and deletion.
