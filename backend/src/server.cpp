@@ -574,7 +574,7 @@ public:
             throw std::runtime_error("Could not read driver earnings");
         }
         const std::int64_t completed_trips = std::stoll(PQgetvalue(summary, 0, 0));
-        const std::int64_t total_earnings_paise = std::stoll(PQgetvalue(summary, 0, 1));
+        const std::int64_t total_completed_fare_paise = std::stoll(PQgetvalue(summary, 0, 1));
         PQclear(summary);
 
         PGresult* result = PQexecParams(connection_,
@@ -601,7 +601,7 @@ public:
         }
         PQclear(result);
         return json{{"rides", rides}, {"completedTrips", completed_trips},
-                    {"totalEarningsPaise", total_earnings_paise}, {"currency", "INR"}};
+                    {"totalCompletedFarePaise", total_completed_fare_paise}, {"currency", "INR"}};
     }
 
     json cancel_ride(const std::string& ride_id, const std::string& passenger_id) {
