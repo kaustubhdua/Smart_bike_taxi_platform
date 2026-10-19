@@ -15,6 +15,7 @@ type AuditEvent = { id: string; actorEmail: string; action: string; targetType: 
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
 type SupportReport = { id: string; rideId: string | null; category: string; description: string; status: string; resolutionNote: string; createdAt: string; updatedAt: string; resolvedAt: string | null; reporterEmail: string; reporterName: string };
 type DriverHistory = { rides: Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; finalFarePaise?: number; createdAt: string; completedAt?: string }>; grossCompletedFarePaise: number; currency: string; note: string };
+type AdminRideSearchItem = { rideId: string; status: string; passengerEmail: string; driverEmail: string | null; pickup: string; destination: string; farePaise: number; createdAt: string; updatedAt: string };
 
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [email, setEmail] = useState("");
@@ -36,6 +37,9 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [vehicleRegistration, setVehicleRegistration] = useState("");
   const [supportReports, setSupportReports] = useState<SupportReport[]>([]);
   const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
+  const [rideSearch, setRideSearch] = useState("");
+  const [rideStatusFilter, setRideStatusFilter] = useState("");
+  const [adminRideResults, setAdminRideResults] = useState<AdminRideSearchItem[]>([]);
   const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
 
   async function signIn() {
@@ -328,6 +332,21 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  async function searchAdminRides(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setBusy(true);
+    try {
+      const params = new URLSearchParams();
+      if (rideSearch.trim()) params.set("q", rideSearch.trim());
+      if (rideStatusFilter) params.set("status", rideStatusFilter);
+      const data = await request("/api/v1/admin/rides" + (params.size ? "?" + params.toString() : ""));
+      if (!Array.isArray(data.rides)) throw new Error("The API returned an invalid ride search result.");
+      setAdminRideResults(data.rides as AdminRideSearchItem[]);
+      setError("Ride search refreshed from PostgreSQL.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Ride search unavailable."); }
+    finally { setBusy(false); }
+  }
+
   async function updateSupportReport(report: SupportReport, status: "in_review" | "resolved" | "rejected") {
     const resolutionNote = (resolutionNotes[report.id] ?? "").trim();
     if ((status === "resolved" || status === "rejected") && resolutionNote.length < 10) {
@@ -440,6 +459,19 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                 <button className="book-button" onClick={refreshMetrics} disabled={busy}>Refresh metrics <ArrowRight size={18} /></button>
                 <button className="outline-button" onClick={refreshDrivers} disabled={busy}><RefreshCw size={15} /> Refresh drivers</button>
                 <button className="outline-button" onClick={refreshAudit} disabled={busy}><ShieldCheck size={15} /> Refresh audit history</button>
+              </div>
+              <form className="auth-panel" onSubmit={searchAdminRides}>
+                <div className="card-heading"><div><span className="card-eyebrow">RIDE INVESTIGATION</span><h3>Search rides</h3></div></div>
+                <label className="auth-field"><span>Ride ID, passenger/driver email, or pickup/drop-off</span><input maxLength={160} value={rideSearch} onChange={event => setRideSearch(event.target.value)} placeholder="Search by ID, email or address" /></label>
+                <label className="auth-field"><span>Status filter</span><select value={rideStatusFilter} onChange={event => setRideStatusFilter(event.target.value)}>
+                  <option value="">All statuses</option><option value="requested">Requested</option><option value="matching">Matching</option><option value="assigned">Assigned</option><option value="driver_arriving">Driver arriving</option><option value="in_progress">In progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="failed">Failed</option>
+                </select></label>
+                <button className="book-button" type="submit" disabled={busy}>Search rides <ArrowRight size={18} /></button>
+              </form>
+              <div className="driver-queue"><h3>Ride search results ({adminRideResults.length})</h3>
+                {adminRideResults.length === 0 ? <p>Search by ride reference, account email, or address to investigate a ride.</p> : adminRideResults.map(item => <article className="ride-confirmation" key={item.rideId}>
+                  <div><strong>{item.status.replaceAll("_", " ")} · ₹{(item.farePaise / 100).toFixed(2)}</strong><span>{item.pickup} → {item.destination}</span><small>Passenger: {item.passengerEmail} · Driver: {item.driverEmail ?? "unassigned"} · {item.rideId}</small><small>{new Date(item.createdAt).toLocaleString()}</small></div>
+                </article>)}
               </div>
               {metrics && <div className="driver-queue"><h3>PostgreSQL-backed counts</h3><p>Online drivers: <strong>{metrics.onlineDrivers}</strong></p><p>Outbox backlog: <strong>{metrics.pendingOutboxEvents ?? "—"}</strong> pending · <strong>{metrics.deadLetteredOutboxEvents ?? "—"}</strong> dead-lettered · oldest pending {metrics.oldestPendingOutboxAgeSeconds ?? "—"}s</p>{(metrics.deadLetteredOutboxEvents ?? 0) > 0 && <p role="alert">Dead-lettered ride events need operator review.</p>}{Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}</div>}
               <div className="driver-queue"><h3>Privileged action audit ({auditEvents.length})</h3>
