@@ -1856,7 +1856,7 @@ int main() {
     try {
         (void)dispatch_radius_meters();
     } catch (const std::exception&) {
-        std::cerr << "{\"event\":\"invalid_dispatch_radius_configuration\"}\\n";
+        std::cerr << "{\"event\":\"invalid_dispatch_radius_configuration\"}\n";
         return 2;
     }
     curl_global_init(CURL_GLOBAL_DEFAULT);
