@@ -50,6 +50,9 @@ export default function App() {
   const [supportDescription, setSupportDescription] = useState("");
   const [supportReports, setSupportReports] = useState<Array<{ id: string; rideId: string | null; category: string; description: string; status: string; resolutionNote: string; createdAt: string }>>([]);
   const [supportBusy, setSupportBusy] = useState(false);
+  const [passengerHistory, setPassengerHistory] = useState<Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; finalFarePaise?: number; currency: string; createdAt: string; completedAt?: string }>>([]);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [receiptRideId, setReceiptRideId] = useState<string | null>(null);
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup !== destination && Boolean(pickup && destination) && Boolean(route) && !routeLoading;
 
@@ -606,6 +609,26 @@ export default function App() {
     }
   }
 
+  async function loadPassengerHistory() {
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base || !account || account.role !== "passenger") return;
+    setHistoryBusy(true);
+    try {
+      const response = await fetch(apiUrl(base, "/api/v1/rides"), {
+        headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
+      });
+      const data = await response.json() as { rides?: typeof passengerHistory; error?: string };
+      if (!response.ok || !Array.isArray(data.rides)) throw new Error(data.error || "Could not load trip history.");
+      setPassengerHistory(data.rides);
+      setReceiptRideId(null);
+      setNotice("Trip history refreshed from the API.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not load trip history.");
+    } finally {
+      setHistoryBusy(false);
+    }
+  }
+
   async function loadSupportReports() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!base || !account || !["passenger", "driver"].includes(account.role)) return;
@@ -790,6 +813,30 @@ export default function App() {
                     <strong>Online drivers: {adminMetrics.onlineDrivers}</strong>
                     {Object.entries(adminMetrics.ridesByStatus).map(([status, count]) => <span key={status}>{status.replaceAll("_", " ")} <b>{count}</b></span>)}
                   </div>}
+                </section>
+              )}
+              {account?.role === "passenger" && (
+                <section className="driver-panel" aria-labelledby="passenger-history-title">
+                  <div className="driver-panel-head">
+                    <div><h3 id="passenger-history-title">Your trip history</h3><p>Saved rides from the API, including cancelled and completed trips.</p></div>
+                    <button className="outline-button" onClick={loadPassengerHistory} disabled={historyBusy}>{historyBusy ? "Loading…" : "Refresh trip history"}</button>
+                  </div>
+                  {passengerHistory.length === 0 ? <p className="auth-caption">Refresh history to load your latest saved trips.</p> : passengerHistory.map(item => <article className="ride-confirmation" key={item.rideId}>
+                    <div><strong>{item.pickup} → {item.destination}</strong><span>Status: {item.status.replaceAll("_", " ")} · ₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()} · {item.rideId}</small></div>
+                    {item.status === "completed" && <button className="text-action" onClick={() => setReceiptRideId(item.rideId)}>View demo receipt</button>}
+                  </article>)}
+                  {receiptRideId && passengerHistory.find(item => item.rideId === receiptRideId && item.status === "completed") && (() => {
+                    const item = passengerHistory.find(entry => entry.rideId === receiptRideId)!;
+                    return <div className="print-receipt">
+                      <div className="card-heading"><div><span className="card-eyebrow">RIDEFORGE · DEMO RECEIPT</span><h3>Trip receipt</h3></div><button className="outline-button" onClick={() => window.print()}>Print receipt</button></div>
+                      <p><strong>Trip reference</strong><br />{item.rideId}</p>
+                      <p><strong>Pickup</strong><br />{item.pickup}</p>
+                      <p><strong>Destination</strong><br />{item.destination}</p>
+                      <p><strong>Completed</strong><br />{item.completedAt ? new Date(item.completedAt).toLocaleString() : new Date(item.createdAt).toLocaleString()}</p>
+                      <p><strong>Final fare</strong><br />₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)} {item.currency}</p>
+                      <p className="auth-caption">Demo trip record only. Not a tax invoice, proof of payment, or driver payout statement.</p>
+                    </div>;
+                  })()}
                 </section>
               )}
               {account && (account.role === "passenger" || account.role === "driver") && (
