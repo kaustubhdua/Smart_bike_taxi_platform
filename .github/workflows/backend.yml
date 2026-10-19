@@ -118,5 +118,13 @@ jobs:
           fi
           api_pid=""
           grep -q '"event":"api_shutdown".*"graceful":true' /tmp/rideforge-api.log
+          kill -TERM "$worker_pid"
+          if ! wait "$worker_pid"; then
+            echo "Outbox worker did not shut down cleanly:"
+            cat /tmp/rideforge-outbox.log
+            exit 1
+          fi
+          worker_pid=""
+          grep -q '"event":"outbox_worker_shutdown"' /tmp/rideforge-outbox.log
       - name: Verify migration invariants
         run: psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
