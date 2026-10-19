@@ -4,7 +4,7 @@
 
 The native C++17 HTTP service now implements:
 
-- `GET /api/v1/health`: checks whether PostgreSQL is reachable. `GET /api/v1/ready` additionally checks required schema tables for deployment rollout probes.
+- `GET /api/v1/health`: checks whether PostgreSQL is reachable. `GET /api/v1/ready` additionally checks required schema tables and all three recorded migration versions for deployment rollout probes.
 - `POST /api/v1/routes/quote`: validates labels, geocodes through Nominatim, routes through OSRM, calculates a server-side demo fare, and persists a five-minute quote.
 - `POST /api/v1/auth/register` and `POST /api/v1/auth/login`: passenger accounts, PBKDF2-HMAC-SHA-256 password hashes using 600,000 iterations for new hashes, short-lived HMAC-signed access tokens, duplicate-email handling, and per-IP authentication throttling.
 - `POST /api/v1/rides`: authenticated quote consumption and ride creation in a PostgreSQL transaction, with idempotency replay/conflict handling and ride-event history.
@@ -14,7 +14,6 @@ The native C++17 HTTP service now implements:
 - Driver queue visibility is restricted to approved drivers who are online with a location updated in the last five minutes and pickup coordinates within a 20 km great-circle radius. Queue results are ranked by pickup distance; acceptance rechecks approval, freshness and the radius inside the transaction. This is not road-ETA ranking.
 - `POST /api/v1/driver/rides/{rideId}/accept` and `PUT /api/v1/driver/rides/{rideId}/status`: transactional driver acceptance, conflict-safe assignment, lifecycle transitions, and event records.
 - `GET /api/v1/admin/metrics`: role-checked database-backed ride/driver counts plus pending outbox, dead-letter and oldest-pending-age metrics.
-- `GET /api/v1/admin/audit?limit=50`: admin-only, bounded recent audit-event history for privileged driver operations.
 - `GET /api/v1/admin/audit?limit=50`: admin-only recent privileged-action audit history; `limit` is bounded to 1–100.
 - `GET/POST /api/v1/admin/drivers`: list provisioned driver profiles and create driver accounts that default to unapproved; creation and approval are audited.
 - `PUT /api/v1/admin/drivers/{driverId}/approval`: explicitly approve or suspend a driver; suspension forces the driver offline and is audited.
