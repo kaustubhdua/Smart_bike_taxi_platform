@@ -34,6 +34,11 @@ export default function App() {
   const [route, setRoute] = useState<{ km: number; mins: number; path: string; geometry: Array<[number, number]>; provider: string } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [locatingPickup, setLocatingPickup] = useState(false);
+  const [supportCategory, setSupportCategory] = useState("technical");
+  const [supportSeverity, setSupportSeverity] = useState("normal");
+  const [supportDescription, setSupportDescription] = useState("");
+  const [supportSubmitting, setSupportSubmitting] = useState(false);
+  const [supportNotice, setSupportNotice] = useState("");
   const [routeError, setRouteError] = useState("");
   const [quote, setQuote] = useState<{ quoteId: string; farePaise: number; distanceKm: number; durationMinutes: number; expiresAt?: string } | null>(null);
   const [authMode, setAuthMode] = useState<"register" | "login">("register");
@@ -53,6 +58,57 @@ export default function App() {
   const [adminMetrics, setAdminMetrics] = useState<{ onlineDrivers: number; ridesByStatus: Record<string, number> } | null>(null);
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup !== destination && Boolean(pickup && destination) && Boolean(route) && !routeLoading;
+
+  const submitSupportReport = async () => {
+    if (!account || account.role !== "passenger") {
+      setSupportNotice("Sign in with a passenger account to submit a report.");
+      return;
+    }
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base) {
+      setSupportNotice("The support API is not configured.");
+      return;
+    }
+    const description = supportDescription.trim();
+    if (description.length < 10 || description.length > 2000) {
+      setSupportNotice("Describe the issue in 10–2000 characters.");
+      return;
+    }
+    setSupportSubmitting(true);
+    setSupportNotice("");
+    try {
+      const response = await fetch(apiUrl(base, "/api/v1/support/reports"), {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + account.token,
+        },
+        body: JSON.stringify({
+          ...(ride?.rideId ? { rideId: ride.rideId } : {}),
+          category: supportCategory,
+          severity: supportSeverity,
+          description,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const data = await response.json() as { reportId?: string; error?: string };
+      if (!response.ok || !data.reportId) {
+        setSupportNotice(response.status === 401
+          ? "Your session expired. Sign in again before reporting an issue."
+          : response.status === 403
+            ? "This report is not associated with a ride you can access."
+            : data.error ?? "The report could not be saved. Please try again.");
+        return;
+      }
+      setSupportDescription("");
+      setSupportNotice("Report saved: " + data.reportId + ". An administrator can review it.");
+    } catch {
+      setSupportNotice("The support service could not be reached. No report was confirmed; try again.");
+    } finally {
+      setSupportSubmitting(false);
+    }
+  };
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -685,6 +741,23 @@ export default function App() {
                       <div><strong>{item.pickup} → {item.destination}</strong><span>{item.status.replaceAll("_", " ")} · ₹{(item.farePaise / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()} · {item.rideId}</small></div>
                       {item.status === "completed" && <button className="text-action" onClick={() => setReceipt(item)}>View receipt</button>}
                     </div>)}
+                </section>
+              )}
+              {account?.role === "passenger" && (
+                <section className="driver-panel" aria-labelledby="support-report-title">
+                  <div className="driver-panel-head">
+                    <div><h3 id="support-report-title">Report a problem</h3><p>Reports are saved for administrator review. Attach the active ride reference when available.</p></div>
+                  </div>
+                  <label className="auth-field"><span>Issue category</span><select value={supportCategory} onChange={event => setSupportCategory(event.target.value)}>
+                    <option value="booking">Booking</option><option value="driver">Driver</option><option value="safety">Safety concern</option><option value="payment_demo">Demo payment</option><option value="technical">Technical problem</option><option value="other">Other</option>
+                  </select></label>
+                  <label className="auth-field"><span>Priority</span><select value={supportSeverity} onChange={event => setSupportSeverity(event.target.value)}>
+                    <option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option>
+                  </select></label>
+                  <label className="auth-field"><span>What happened?</span><textarea value={supportDescription} onChange={event => setSupportDescription(event.target.value)} minLength={10} maxLength={2000} rows={3} placeholder="Describe the issue (10–2000 characters)." /></label>
+                  <button className="book-button" onClick={submitSupportReport} disabled={supportSubmitting || supportDescription.trim().length < 10}>{supportSubmitting ? "Saving report…" : "Submit support report"} <ArrowRight size={18} /></button>
+                  <p className="auth-caption">An urgent report is not an emergency call and does not contact emergency services.</p>
+                  {supportNotice && <p role="status" aria-live="polite" className="auth-caption">{supportNotice}</p>}
                 </section>
               )}
               {receipt && account?.role === "passenger" && <section className="driver-panel receipt-print" aria-labelledby="receipt-title">
