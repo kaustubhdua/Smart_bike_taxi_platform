@@ -564,7 +564,8 @@ public:
     json list_rides(const std::string& passenger_id) {
         const char* params[] = {passenger_id.c_str()};
         PGresult* result = PQexecParams(connection_,
-            "SELECT id::text,status::text,pickup_label,destination_label,quoted_fare_paise,created_at::text "
+            "SELECT id::text,status::text,pickup_label,destination_label,quoted_fare_paise::text,"
+            "final_fare_paise::text,created_at::text,completed_at::text "
             "FROM rides WHERE passenger_id=$1::uuid ORDER BY created_at DESC LIMIT 50",
             1, nullptr, params, nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
@@ -573,11 +574,14 @@ public:
         }
         json rides = json::array();
         for (int i = 0; i < PQntuples(result); ++i) {
-            rides.push_back({{"rideId", PQgetvalue(result, i, 0)},
+            json ride{{"rideId", PQgetvalue(result, i, 0)},
                 {"status", PQgetvalue(result, i, 1)}, {"pickup", PQgetvalue(result, i, 2)},
                 {"destination", PQgetvalue(result, i, 3)},
                 {"farePaise", std::stoi(PQgetvalue(result, i, 4))},
-                {"currency", "INR"}, {"createdAt", PQgetvalue(result, i, 5)}});
+                {"currency", "INR"}, {"createdAt", PQgetvalue(result, i, 6)}};
+            if (!PQgetisnull(result, i, 5)) ride["finalFarePaise"] = std::stoi(PQgetvalue(result, i, 5));
+            if (!PQgetisnull(result, i, 7)) ride["completedAt"] = PQgetvalue(result, i, 7);
+            rides.push_back(std::move(ride));
         }
         PQclear(result);
         return json{{"rides", rides}};
