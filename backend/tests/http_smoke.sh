@@ -405,12 +405,12 @@ test "$status" = "200"
 radius_meters="$((${RIDEFORGE_DISPATCH_RADIUS_KM:-20} * 1000))"
 python3 -c 'import json,sys; rides=json.load(sys.stdin)["rides"]; ids={r["rideId"] for r in rides}; assert sys.argv[1] in ids and sys.argv[2] in ids and sys.argv[3] not in ids; assert all(0 <= r["pickupDistanceMeters"] <= int(sys.argv[4]) for r in rides); assert all(r["farePaise"] > 0 for r in rides); assert (sys.argv[5] in ids) == (int(sys.argv[6]) >= 10)' "$ride_id" "$busy_ride_id" "$far_ride_id" "$radius_meters" "$midrange_ride_id" "${RIDEFORGE_DISPATCH_RADIUS_KM:-20}" < "$tmp_dir/driver-queue-online.json"
 if [ "${RIDEFORGE_DISPATCH_RADIUS_KM:-20}" -lt 10 ]; then
-  status="$(curl --silent --show-error --output "$tmp_dir/midrange-accept.json" --write-out '%{http_code}' \\
+  status="$(curl --silent --show-error --output "$tmp_dir/midrange-accept.json" --write-out '%{http_code}' \
     --header "Authorization: Bearer $driver_token" --request POST "$base_url/api/v1/driver/rides/$midrange_ride_id/accept")"
   test "$status" = "409"
   grep -q '"error":"ride_outside_dispatch_radius"' "$tmp_dir/midrange-accept.json"
 fi
-status="$(curl --silent --show-error --output "$tmp_dir/midrange-cancel.json" --write-out '%{http_code}' \\
+status="$(curl --silent --show-error --output "$tmp_dir/midrange-cancel.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $other_token" --request POST "$base_url/api/v1/rides/$midrange_ride_id/cancel")"
 test "$status" = "200"
 status="$(curl --silent --show-error --output "$tmp_dir/far-accept.json" --write-out '%{http_code}' \
