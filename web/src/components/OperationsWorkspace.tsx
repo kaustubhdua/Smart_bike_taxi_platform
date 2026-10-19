@@ -282,7 +282,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     try {
       const data = await request("/api/v1/admin/metrics");
       if (!data.ridesByStatus || typeof data.onlineDrivers !== "number") throw new Error("The API returned invalid metrics.");
-      setMetrics({ ridesByStatus: data.ridesByStatus as Record<string, number>, onlineDrivers: data.onlineDrivers });
+      setMetrics({ ridesByStatus: data.ridesByStatus as Record<string, number>, onlineDrivers: data.onlineDrivers, pendingOutboxEvents: data.pendingOutboxEvents, deadLetteredOutboxEvents: data.deadLetteredOutboxEvents, oldestPendingOutboxAgeSeconds: data.oldestPendingOutboxAgeSeconds });
       setError("Operational metrics refreshed from PostgreSQL.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Metrics unavailable."); }
     finally { setBusy(false); }
