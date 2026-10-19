@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { calculateRoute } from "./lib/routing";
+import { calculateRoute, reverseGeocode } from "./lib/routing";
 const RouteMap = lazy(() => import("./components/RouteMap"));
 import OperationsWorkspace from "./components/OperationsWorkspace";
 import {
@@ -33,6 +33,7 @@ export default function App() {
   const [apiState, setApiState] = useState<"idle" | "checking" | "offline">("idle");
   const [route, setRoute] = useState<{ km: number; mins: number; path: string; geometry: Array<[number, number]>; provider: string } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
+  const [locatingPickup, setLocatingPickup] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [quote, setQuote] = useState<{ quoteId: string; farePaise: number; distanceKm: number; durationMinutes: number; expiresAt?: string } | null>(null);
   const [authMode, setAuthMode] = useState<"register" | "login">("register");
@@ -52,6 +53,41 @@ export default function App() {
   const [adminMetrics, setAdminMetrics] = useState<{ onlineDrivers: number; ridesByStatus: Record<string, number> } | null>(null);
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup !== destination && Boolean(pickup && destination) && Boolean(route) && !routeLoading;
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setNotice("This browser does not support device location. Enter a pickup address instead.");
+      return;
+    }
+    setLocatingPickup(true);
+    setNotice("Requesting your current location…");
+    navigator.geolocation.getCurrentPosition(async position => {
+      try {
+        const label = await reverseGeocode(
+          position.coords.latitude,
+          position.coords.longitude,
+          AbortSignal.timeout(8000),
+        );
+        setPickup(label);
+        setQuote(null);
+        setBookingKey(null);
+        setRide(null);
+        setNotice("Pickup updated to your current location.");
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "We couldn't resolve your current location. Enter a pickup address instead.");
+      } finally {
+        setLocatingPickup(false);
+      }
+    }, error => {
+      const message = error.code === error.PERMISSION_DENIED
+        ? "Location permission was denied. Allow location access or enter a pickup address."
+        : error.code === error.TIMEOUT
+          ? "Location request timed out. Try again or enter a pickup address."
+          : "Your current location is unavailable. Enter a pickup address instead.";
+      setNotice(message);
+      setLocatingPickup(false);
+    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -716,7 +752,7 @@ export default function App() {
                     ? <RouteMap geometry={route.geometry} pickup={pickup} destination={destination} driverLocation={tripDriverLocation} />
                     : <div className="route-map-empty" role="status">A real road route will appear here when routing succeeds.</div>}
                 </Suspense>
-                <button className="locate-button" onClick={() => setNotice("Device location is not requested in this preview. Choose a pickup from the location list.")} aria-label="About current location"><LocateFixed size={17} /></button>
+                <button className="locate-button" onClick={useCurrentLocation} disabled={locatingPickup} aria-label="Use my current location" title="Use my current location">{locatingPickup ? <span className="sr-only">Finding location…</span> : null}<LocateFixed size={17} /></button>
               </div>
               <div className="route-stats"><div><span><Route size={15} /> DISTANCE</span><strong>{route ? route.km.toFixed(1) : "—"} <small>km</small></strong></div><div><span><Clock3 size={15} /> EST. TIME</span><strong>{route ? route.mins : "—"} <small>min</small></strong></div><div><span><Gauge size={15} /> ROUTE TYPE</span><strong>{route ? "Road" : "—"} <small>{route ? "route" : "unavailable"}</small></strong></div></div>
               <div className="route-disclaimer"><span className="disclaimer-dot" /> {route ? `Real road geometry via ${route.provider}; live traffic may not be included.` : routeLoading ? "Looking up locations and calculating road geometry…" : routeError || "A route will appear when a real road route is available."}</div>
