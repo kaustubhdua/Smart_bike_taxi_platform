@@ -99,6 +99,76 @@ export default function App() {
     if (account?.role === "admin") void loadAdminMetrics();
   }, [account?.role]);
 
+  // Keep driver coordinates fresh while online; the API excludes stale locations
+  // from dispatch, and this effect stops immediately on logout/offline.
+  useEffect(() => {
+    if (!account || account.role !== "driver" || !driverOnline || !navigator.geolocation) return;
+    let disposed = false;
+    let inFlight = false;
+    let lastSentAt = 0;
+    let lastSentCoords: { latitude: number; longitude: number } | null = null;
+    let latestCoords: { latitude: number; longitude: number } | null = driverLocation;
+    let activeController: AbortController | null = null;
+
+    const distanceMeters = (a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) => {
+      const radians = Math.PI / 180;
+      const lat1 = a.latitude * radians;
+      const lat2 = b.latitude * radians;
+      const dLat = (b.latitude - a.latitude) * radians;
+      const dLon = (b.longitude - a.longitude) * radians;
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+      return 6_371_000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+    };
+
+    const sendLocation = async (coords: { latitude: number; longitude: number }) => {
+      const now = Date.now();
+      if (disposed || inFlight ||
+          (lastSentCoords !== null && now - lastSentAt < 15_000 && distanceMeters(lastSentCoords, coords) < 50)) return;
+      inFlight = true;
+      const controller = new AbortController();
+      activeController = controller;
+      const timeout = window.setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch(apiUrl(import.meta.env.VITE_API_BASE_URL as string, "/api/v1/driver/availability"), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + account.token },
+          body: JSON.stringify({ online: true, ...coords }),
+          signal: controller.signal,
+        });
+        const data = await response.json() as { error?: string };
+        if (!response.ok) throw new Error(data.error || "Could not refresh your driver location.");
+        lastSentAt = Date.now();
+        lastSentCoords = coords;
+        if (!disposed) setDriverLocation(coords);
+      } catch (error) {
+        if (!disposed && !(error instanceof DOMException && error.name === "AbortError")) {
+          setNotice(error instanceof Error ? error.message : "Driver location update failed.");
+        }
+      } finally {
+        window.clearTimeout(timeout);
+        if (activeController === controller) activeController = null;
+        inFlight = false;
+      }
+    };
+
+    const watchId = navigator.geolocation.watchPosition(position => {
+      latestCoords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+      void sendLocation(latestCoords);
+    }, () => {
+      if (!disposed) setNotice("Driver location updates are unavailable. Allow location access to remain eligible for dispatch.");
+    }, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 5_000 });
+    const heartbeat = window.setInterval(() => {
+      if (latestCoords) void sendLocation(latestCoords);
+    }, 30_000);
+
+    return () => {
+      disposed = true;
+      navigator.geolocation.clearWatch(watchId);
+      window.clearInterval(heartbeat);
+      activeController?.abort();
+    };
+  }, [account?.token, account?.role, driverOnline]);
+
   useEffect(() => {
     setRideDriverLocation(null);
   }, [ride?.rideId]);
