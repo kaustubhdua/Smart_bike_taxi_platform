@@ -669,8 +669,11 @@ public:
         std::vector<const char*> values;
         for (const auto& value : owned) values.push_back(value.c_str());
         PGresult* result = PQexecParams(connection_,
-            "UPDATE driver_profiles SET is_online=$2::boolean,current_latitude=$3::double precision,"
-            "current_longitude=$4::double precision,last_location_at=now() WHERE account_id=$1::uuid AND is_approved=true",
+            "UPDATE driver_profiles SET is_online=$2::boolean,"
+            "current_latitude=CASE WHEN $2::boolean THEN $3::double precision ELSE NULL END,"
+            "current_longitude=CASE WHEN $2::boolean THEN $4::double precision ELSE NULL END,"
+            "last_location_at=CASE WHEN $2::boolean THEN now() ELSE NULL END "
+            "WHERE account_id=$1::uuid AND is_approved=true",
             static_cast<int>(values.size()), nullptr, values.data(), nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
             if (result != nullptr) PQclear(result);
