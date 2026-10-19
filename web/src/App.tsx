@@ -17,6 +17,8 @@ const locations = [
   "Sector 62",
 ];
 
+type PassengerRide = { rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string };
+
 function apiUrl(base: string, path: string): string {
   return (base.endsWith("/") ? base.slice(0, -1) : base) + path;
 }
@@ -39,7 +41,8 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
-  const [rideHistory, setRideHistory] = useState<Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string }> | null>(null);
+  const [rideHistory, setRideHistory] = useState<PassengerRide[] | null>(null);
+  const [receipt, setReceipt] = useState<PassengerRide | null>(null);
   const [tripDriverLocation, setTripDriverLocation] = useState<{ latitude: number; longitude: number; updatedAt: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
@@ -413,9 +416,7 @@ export default function App() {
       if (!response.ok || !Array.isArray(data.rides)) {
         throw new Error(data.error || "Could not load trip history (HTTP " + response.status + ").");
       }
-      const validRides = data.rides.filter((item): item is {
-        rideId: string; status: string; pickup: string; destination: string; farePaise: number; currency: string; createdAt: string;
-      } => Boolean(item && typeof item === "object" &&
+      const validRides = data.rides.filter((item): item is PassengerRide => Boolean(item && typeof item === "object" &&
         typeof (item as { rideId?: unknown }).rideId === "string" &&
         typeof (item as { status?: unknown }).status === "string" &&
         typeof (item as { pickup?: unknown }).pickup === "string" &&
@@ -645,9 +646,24 @@ export default function App() {
                     : rideHistory.length === 0 ? <p className="auth-caption">No rides found for this account yet.</p>
                     : rideHistory.map(item => <div className="ride-confirmation" key={item.rideId}>
                       <div><strong>{item.pickup} → {item.destination}</strong><span>{item.status.replaceAll("_", " ")} · ₹{(item.farePaise / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()} · {item.rideId}</small></div>
+                      {item.status === "completed" && <button className="text-action" onClick={() => setReceipt(item)}>View receipt</button>}
                     </div>)}
                 </section>
               )}
+              {receipt && account?.role === "passenger" && <section className="driver-panel receipt-print" aria-labelledby="receipt-title">
+                <div className="driver-panel-head">
+                  <div><h3 id="receipt-title">Ride receipt</h3><p>Completed trip · Demo fare receipt, not a tax invoice or proof of payment.</p></div>
+                  <button className="text-action" onClick={() => setReceipt(null)}>Close receipt</button>
+                </div>
+                <dl className="receipt-details">
+                  <div><dt>Ride reference</dt><dd>{receipt.rideId}</dd></div>
+                  <div><dt>Pickup</dt><dd>{receipt.pickup}</dd></div>
+                  <div><dt>Destination</dt><dd>{receipt.destination}</dd></div>
+                  <div><dt>Completed trip fare</dt><dd>₹{(receipt.farePaise / 100).toFixed(2)} {receipt.currency}</dd></div>
+                  <div><dt>Record created</dt><dd>{new Date(receipt.createdAt).toLocaleString()}</dd></div>
+                </dl>
+                <button className="book-button" onClick={() => window.print()}>Print receipt</button>
+              </section>}
               {account?.role === "driver" && (
                 <section className="driver-panel" aria-labelledby="driver-console-title">
                   <div className="driver-panel-head">
