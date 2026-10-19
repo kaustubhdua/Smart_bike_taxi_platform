@@ -75,6 +75,14 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   let firstIdempotencyKey = "";
   await page.route("http://api.test/api/v1/rides", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer test-access-token");
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [{
+        rideId: "30000000-0000-4000-8000-000000000001", status: "cancelled",
+        pickup: "JIIT Sector 128", destination: "Sector 18 Market", farePaise: 4750,
+        currency: "INR", createdAt: new Date().toISOString(),
+      }] }) });
+      return;
+    }
     const key = route.request().headers()["idempotency-key"] ?? "";
     expect(key).toContain("rideforge-");
     if (bookingAttempts === 0) {
@@ -111,6 +119,10 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await expect(page.locator(".ride-confirmation")).toBeVisible();
   await page.getByRole("button", { name: "Cancel request" }).click();
   await expect(page.getByText(/Ride request cancelled/)).toBeVisible();
+  await page.getByRole("button", { name: "Refresh trip history" }).click();
+  await expect(page.getByRole("heading", { name: "Your trip history" })).toBeVisible();
+  await expect(page.getByText("JIIT Sector 128 → Sector 18 Market", { exact: true })).toBeVisible();
+  await expect(page.getByText(/cancelled · ₹47\.50/)).toBeVisible();
 });
 
 test("passenger ride status refreshes from persisted API state", async ({ page }) => {
