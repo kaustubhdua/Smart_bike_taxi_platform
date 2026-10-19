@@ -15,7 +15,7 @@ VALUES ('20000000-0000-4000-8000-000000000001', 'TEST-DRIVER-001', true, true);
 INSERT INTO driver_profiles (account_id, vehicle_registration)
 VALUES ('20000000-0000-4000-8000-000000000002', 'TEST-DRIVER-002');
 
-DO $$$
+DO $$
 BEGIN
   IF (SELECT is_approved FROM driver_profiles
       WHERE account_id = '20000000-0000-4000-8000-000000000002') THEN
@@ -55,7 +55,7 @@ BEGIN
   END IF;
 END $$;
 
-DO $$$
+DO $$
 BEGIN
   BEGIN
     INSERT INTO rides (
