@@ -573,8 +573,8 @@ public:
             if (summary != nullptr) PQclear(summary);
             throw std::runtime_error("Could not read driver earnings");
         }
-        const int completed_trips = std::stoi(PQgetvalue(summary, 0, 0));
-        const int total_earnings_paise = std::stoi(PQgetvalue(summary, 0, 1));
+        const std::int64_t completed_trips = std::stoll(PQgetvalue(summary, 0, 0));
+        const std::int64_t total_earnings_paise = std::stoll(PQgetvalue(summary, 0, 1));
         PQclear(summary);
 
         PGresult* result = PQexecParams(connection_,
