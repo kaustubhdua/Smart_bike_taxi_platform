@@ -33,9 +33,9 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Add a reproducible frontend lockfile install (npm ci).
 - [x] Add explicit driver approval and a transactional event outbox foundation.
 - [x] Add smoke tests for offline queue privacy and unapproved driver rejection.
-- [ ] Re-run every workflow against the latest exact commit SHA; fix all failures.
+- [x] Re-run the C++/sanitizer/benchmark, API integration (5 km and 20 km), PostgreSQL migration/recovery, web/Playwright/axe, dependency audit, CodeQL, container/Compose and CRITICAL/HIGH container scan workflows on exact SHA `de6884ea7b46140509cd39bfd785e3c52f7c1bdb` (2026-10-20). The aggregate manual workflow is still not dispatched.
 - [ ] Ensure README, this roadmap, OpenAPI, PR description and issue tracker agree.
-- [ ] Verify the Compose startup path applies all migrations from a clean database and is repeatable.
+- [x] CI applies all versioned migrations, re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; Compose/container validation passes on the recorded SHA.
 
 Acceptance: every current-head check is green, migration 001 and 002 apply in order and the second migration run is a no-op.
 
@@ -44,11 +44,11 @@ Acceptance: every current-head check is green, migration 001 and 002 apply in or
 - [ ] Expand cross-account and cross-role authorization tests for every protected endpoint.
 - [ ] Test same-key booking retries, payload conflicts, expired/consumed quotes, cancellation races and concurrent driver acceptance.
 - [ ] Verify event rows and outbox rows commit/rollback together.
-- [ ] Add a real connection pool or bounded database concurrency strategy.
+- [ ] Add a shared PostgreSQL connection pool or explicit bounded database concurrency strategy; current deployment is a single-process demo and should not be horizontally scaled.
 - [ ] Make account deactivation/revocation take effect promptly; document the short-lived token model.
 - [ ] Add distributed rate limits before horizontally scaling.
 - [ ] Review malformed JSON, oversized headers/bodies, route path parsing, SQLSTATE mapping, and safe error/log behavior.
-- [ ] Add least-privilege database roles and a secrets/dependency scan.
+- [ ] Add least-privilege runtime database roles; [x] dependency audit, CodeQL and CRITICAL/HIGH container image scans pass on the recorded SHA.
 
 Acceptance: adversarial integration tests pass and no client can read or mutate another account's ride.
 
@@ -57,7 +57,7 @@ Acceptance: adversarial integration tests pass and no client can read or mutate 
 - [x] Add an admin-only driver provisioning/approval/suspension API and corresponding UI.
 - [x] Record approval actor/time and audit driver provisioning, approval and suspension.
 - [ ] Add driver profile/vehicle fields and a documented demo verification policy.
-- [x] Reject stale or out-of-area offers at both queue and acceptance time (20 km great-circle demo radius).
+- [x] Reject stale or out-of-area offers at both queue and acceptance time using configurable `RIDEFORGE_DISPATCH_RADIUS_KM` (1–100 km; default 20), tested at 5 km and 20 km.
 - [ ] Add a real earnings/payout ledger with adjustments, deductions and settlements; current driver history reports gross completed fares only.
 - [x] Add bounded admin ride search by ride ID, account email, pickup/drop-off and status with server-side role checks.
 - [x] Add persisted support/incident reports, participant-only ride references, per-account rate limiting, admin triage and transactional audit events.
@@ -102,7 +102,7 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
 - [x] Add scheduled CodeQL analysis for C++/TypeScript and dependency-review checks for high-severity/disallowed-license changes.
 - [x] Add CodeQL, dependency audit, and CRITICAL/HIGH container image scans to CI.
-- [ ] Verify all required workflows pass on the final release SHA before merge.
+- [x] Required CI workflows pass on the current tested SHA `de6884ea7b46140509cd39bfd785e3c52f7c1bdb`; [ ] rerun after any further code/doc changes and before merge.
 - [ ] Review and exercise location/data retention and deletion procedures.
 - [ ] Select a suitable contracted or self-hosted routing/geocoding provider for any public service.
 - [x] Add and CI-validate a self-hosted HTTPS Compose overlay, Caddy TLS edge, and same-origin API/SSE proxy.
