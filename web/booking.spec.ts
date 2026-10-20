@@ -487,6 +487,8 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
   });
 
   await page.goto("/");
+  const openDriverNav = page.getByRole("button", { name: "Open navigation" });
+  if ((page.viewportSize()?.width ?? 1024) <= 768) await openDriverNav.click();
   await page.getByRole("button", { name: "Drive with us" }).click();
   await page.locator('.auth-panel input[type="email"]').first().fill("driver@example.test");
   await page.locator('.auth-panel input[type="password"]').first().fill("a-long-driver-password-123");
