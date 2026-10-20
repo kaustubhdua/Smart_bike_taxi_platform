@@ -2,7 +2,7 @@
 
 ## Status and operating boundary
 
-The Compose setup is a local evaluation environment. It is not a production deployment and does not provide a production SLA. Do not use real passenger/driver personal data or real-money payments in the demo.
+The default Compose setup is a local evaluation environment. The compose.production.yaml overlay provides a self-hosted HTTPS deployment template, but it has not been deployed or load-tested and does not provide a production SLA. Do not use real passenger/driver personal data or real-money payments in the demo.
 
 ## Local startup
 
@@ -129,3 +129,7 @@ The API reads `RIDEFORGE_DISPATCH_RADIUS_KM` at startup (integer 1–100, defaul
 ## Support report operations
 
 Passengers and drivers can submit a report through `POST /api/v1/support/reports`; when a ride reference is supplied, the API verifies the caller participated in that ride. Users can read only their own reports. Administrators can list recent reports at `GET /api/v1/admin/support-reports` and move open reports to review or a terminal resolved/rejected state. Terminal decisions require a resolution note and are recorded in `admin_audit_events` in the same database transaction. This is an internal demo workflow, not a staffed emergency or guaranteed-response service.
+
+## Self-hosted HTTPS deployment template
+
+A production-oriented Compose overlay and Caddy TLS configuration are provided in docs/production-deployment.md. It keeps PostgreSQL and the API bound to the private Compose network/loopback, proxies same-origin /api/ traffic (including SSE) through Nginx, and exposes only the Caddy HTTP/HTTPS edge. The template does not make public Nominatim/OSRM suitable for commercial use and does not constitute a verified production deployment.

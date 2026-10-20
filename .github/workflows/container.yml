@@ -10,6 +10,10 @@ on:
       - "web/**"
       - "compose.yaml"
       - ".env.example"
+      - ".env.production.example"
+      - "compose.production.yaml"
+      - "Caddyfile"
+      - "deployment/**"
       - ".github/workflows/container.yml"
   pull_request:
     branches: [main]
@@ -18,6 +22,10 @@ on:
       - "web/**"
       - "compose.yaml"
       - ".env.example"
+      - ".env.production.example"
+      - "compose.production.yaml"
+      - "Caddyfile"
+      - "deployment/**"
       - ".github/workflows/container.yml"
 
 permissions:
@@ -32,11 +40,17 @@ jobs:
       DATABASE_URL: postgresql://rideforge:local-ci-password-not-for-production@db:5432/rideforge
       RIDEFORGE_USER_AGENT: RideForgeContainerCI/0.1 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)
       RIDEFORGE_JWT_SECRET: local-ci-secret-that-must-never-be-used-in-production-123456
+      RIDEFORGE_DOMAIN: rideforge.example.test
+      RIDEFORGE_PUBLIC_ORIGIN: https://rideforge.example.test
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Compose interpolation
+      - name: Validate local Compose interpolation
         run: docker compose config --quiet
+      - name: Validate production Compose and TLS proxy interpolation
+        run: docker compose -f compose.yaml -f compose.production.yaml config --quiet
       - name: Build backend API, outbox worker and admin bootstrap image
         run: docker build --tag rideforge-backend-ci:latest ./backend
-      - name: Build web image
+      - name: Build web image for local Compose
         run: docker build --build-arg VITE_API_BASE_URL=http://localhost:8080 --tag rideforge-web-ci:latest ./web
+      - name: Build production web and Caddy images
+        run: docker compose -f compose.yaml -f compose.production.yaml build web caddy

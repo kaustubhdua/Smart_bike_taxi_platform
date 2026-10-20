@@ -1,0 +1,33 @@
+services:
+  api:
+    environment:
+      RIDEFORGE_ALLOWED_ORIGIN: ${RIDEFORGE_PUBLIC_ORIGIN:?Set RIDEFORGE_PUBLIC_ORIGIN in .env}
+
+  web:
+    build:
+      args:
+        VITE_API_BASE_URL: ""
+
+  caddy:
+    image: rideforge-caddy:production
+    build:
+      context: .
+      dockerfile: deployment/Caddy.Dockerfile
+    restart: unless-stopped
+    environment:
+      RIDEFORGE_DOMAIN: ${RIDEFORGE_DOMAIN:?Set RIDEFORGE_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -94,7 +94,7 @@ Compose applies all ordered migrations to the local PostgreSQL volume before sta
 
 ### Container deployment
 
-See [the local deployment guide](docs/local-deployment.md) for the web/API/PostgreSQL Compose stack, health checks, and operational limits.
+See [the local deployment guide](docs/local-deployment.md) for the development Compose stack and [the production deployment template](docs/production-deployment.md) for a single-domain HTTPS setup using Caddy, same-origin API proxying, loopback-only app ports, and persistent PostgreSQL storage. The production template is not a live deployment; a domain, VPS, secret generation, and provider agreement are still required.
 
 ### UI libraries and attribution
 
