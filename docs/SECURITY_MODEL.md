@@ -49,7 +49,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - [ ] Rotate all deployment secrets; never use example values in public environments.
 - [ ] Serve the API only over HTTPS behind a correctly configured reverse proxy.
 - [ ] Use least-privilege database roles and a restricted network path to PostgreSQL.
-- [ ] Add shared rate limits, connection pooling, request IDs and redacted structured logs.
+- [ ] Add shared/distributed rate limits and connection pooling; [x] request IDs and redacted structured logs are implemented.
 - [ ] Test BOLA/IDOR across passenger, driver and admin identities.
 - [ ] Test stale, revoked, malformed and wrong-role tokens.
 - [ ] Test duplicate/out-of-order requests, cancellation races and competing assignments.
