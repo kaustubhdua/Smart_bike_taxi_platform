@@ -467,9 +467,29 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
 });
 
 
-test("driver uses browser geolocation, refreshes availability, and goes offline on sign-out", async ({ page }) => {
-  await page.context().grantPermissions(["geolocation"]);
-  await page.context().setGeolocation({ latitude: 28.53, longitude: 77.35 });
+test("driver refreshes a controlled browser location and goes offline on sign-out", async ({ page }) => {
+  await page.addInitScript(() => {
+    let currentLocation = { latitude: 28.53, longitude: 77.35 };
+    Object.defineProperty(window, "__setRideforgeTestLocation", {
+      value: (latitude: number, longitude: number) => { currentLocation = { latitude, longitude }; },
+    });
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition(success: (position: GeolocationPosition) => void) {
+          success({
+            coords: {
+              latitude: currentLocation.latitude, longitude: currentLocation.longitude, accuracy: 5,
+              altitude: null, altitudeAccuracy: null, heading: null, speed: null,
+              toJSON: () => ({ latitude: currentLocation.latitude, longitude: currentLocation.longitude, accuracy: 5 }),
+            },
+            timestamp: Date.now(),
+            toJSON: () => ({ timestamp: Date.now() }),
+          } as GeolocationPosition);
+        },
+      },
+    });
+  });
   await page.route("http://api.test/api/v1/auth/login", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       accessToken: "test-driver-token",
@@ -496,7 +516,10 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
   await page.getByRole("button", { name: /Use my location and go online/ }).click();
   await expect(page.getByRole("button", { name: "Go offline" })).toBeVisible();
   expect(availability[0]).toMatchObject({ online: true, latitude: 28.53, longitude: 77.35 });
-  await page.context().setGeolocation({ latitude: 28.531, longitude: 77.351 });
+  await page.evaluate(() => {
+    (window as Window & { __setRideforgeTestLocation: (latitude: number, longitude: number) => void })
+      .__setRideforgeTestLocation(28.531, 77.351);
+  });
   await page.getByRole("button", { name: "Refresh my location" }).click();
   await expect.poll(() => availability.some(item =>
     item.online && item.latitude === 28.531 && item.longitude === 77.351
