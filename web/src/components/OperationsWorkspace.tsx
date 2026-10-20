@@ -86,7 +86,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
         error => reject(new Error(error.code === error.PERMISSION_DENIED
           ? "Location permission is required to go online."
           : "Could not get a fresh location. Check device location settings and retry.")),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
       );
     });
   }
