@@ -292,7 +292,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
 
   await page.goto("/");
   const openDriverNav = page.getByRole("button", { name: "Open navigation" });
-  if (await openDriverNav.isVisible()) await openDriverNav.click();
+  if ((page.viewportSize()?.width ?? 1024) <= 768) await openDriverNav.click();
   await page.getByRole("button", { name: "Drive with us" }).click();
   await page.locator("#operations").getByLabel("Email").fill("driver@example.test");
   await page.locator("#operations").getByLabel("Password").fill("driver-password");
@@ -332,7 +332,7 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   });
   await page.goto("/");
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
-  if (await openAdminNav.isVisible()) await openAdminNav.click();
+  if ((page.viewportSize()?.width ?? 1024) <= 768) await openAdminNav.click();
   await page.getByRole("button", { name: "Admin console" }).click();
   await page.locator("#operations").getByLabel("Email").fill("admin@example.test");
   await page.locator("#operations").getByLabel("Password").fill("admin-password");
@@ -441,11 +441,13 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await expect(page.getByRole("heading", { name: "Operations and driver approval" })).toBeVisible();
   await page.getByRole("button", { name: /Refresh drivers/ }).click();
-  await page.getByLabel("Driver name").fill("Demo Driver");
-  await page.getByLabel("Email", { exact: true }).last().fill("driver@example.test");
-  await page.getByLabel("Temporary password (12+ characters)").fill("a-long-driver-password-123");
-  await page.getByLabel("Vehicle registration").fill("HR-00-DEMO-01");
-  await page.getByRole("button", { name: /Create pending driver/ }).click();
+  await page.locator("#operations").getByLabel("Driver name").fill("Demo Driver");
+  await page.locator("#operations").getByLabel("Email", { exact: true }).fill("driver@example.test");
+  await page.locator("#operations").getByLabel("Temporary password (12+ characters)").fill("a-long-driver-password-123");
+  await page.locator("#operations").getByLabel("Vehicle registration").fill("HR-00-DEMO-01");
+  const createDriverButton = page.locator("#operations").getByRole("button", { name: /Create pending driver/ });
+  await expect(createDriverButton).toBeEnabled();
+  await createDriverButton.click();
   await expect(page.getByText("Pending approval")).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Approved", { exact: false })).toBeVisible();
@@ -466,6 +468,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
 
 
 test("driver uses browser geolocation, refreshes availability, and goes offline on sign-out", async ({ page }) => {
+  await page.clock.install();
   await page.context().grantPermissions(["geolocation"]);
   await page.context().setGeolocation({ latitude: 28.53, longitude: 77.35 });
   await page.route("http://api.test/api/v1/auth/login", async route => {
@@ -493,6 +496,7 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
   await expect(page.getByRole("button", { name: "Go offline" })).toBeVisible();
   expect(availability[0]).toMatchObject({ online: true, latitude: 28.53, longitude: 77.35 });
   await page.context().setGeolocation({ latitude: 28.531, longitude: 77.351 });
+  await page.clock.fastForward(60_000);
   await expect.poll(() => availability.some(item =>
     item.online && item.latitude === 28.531 && item.longitude === 77.351
   ), { timeout: 5000 }).toBe(true);
