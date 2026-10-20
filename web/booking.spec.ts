@@ -434,7 +434,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
 
   await page.goto("/");
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
-  if (await openAdminNav.isVisible()) await openAdminNav.click();
+  if ((page.viewportSize()?.width ?? 1024) <= 768) await openAdminNav.click();
   await page.getByRole("button", { name: "Admin console" }).click();
   await page.locator("#operations").getByLabel("Email").fill("admin@example.test");
   await page.locator("#operations").getByLabel("Password").fill("a-long-admin-password-123");
