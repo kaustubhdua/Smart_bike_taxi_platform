@@ -33,7 +33,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Add a reproducible frontend lockfile install (npm ci).
 - [x] Add explicit driver approval and a transactional event outbox foundation.
 - [x] Add smoke tests for offline queue privacy and unapproved driver rejection.
-- [x] Re-run the C++/sanitizer/benchmark, API integration (5 km and 20 km), PostgreSQL migration/recovery, web/Playwright/axe, dependency audit, CodeQL, container/Compose and CRITICAL/HIGH container scan workflows on exact SHA `de6884ea7b46140509cd39bfd785e3c52f7c1bdb` (2026-10-20). The aggregate manual workflow is still not dispatched.
+- [x] Run the C++/sanitizer/benchmark, API integration (5 km and 20 km), PostgreSQL migration/recovery, web/Playwright/axe, dependency audit, CodeQL, container/Compose and CRITICAL/HIGH container scan workflows. Use the live PR checks to confirm the exact current head; the aggregate manual workflow is still not dispatched.
 - [ ] Ensure README, this roadmap, OpenAPI, PR description and issue tracker agree.
 - [x] CI applies all versioned migrations, re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; Compose/container validation passes on the recorded SHA.
 
@@ -103,7 +103,7 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
 - [x] Add scheduled CodeQL analysis for C++/TypeScript and dependency-review checks for high-severity/disallowed-license changes.
 - [x] Add CodeQL, dependency audit, and CRITICAL/HIGH container image scans to CI.
-- [x] Required CI workflows pass on the current tested SHA `de6884ea7b46140509cd39bfd785e3c52f7c1bdb`; [ ] rerun after any further code/doc changes and before merge.
+- [x] The constituent CI suite has passed on recent release-candidate commits; [ ] require all checks green on the exact PR head immediately before merge.
 - [ ] Review and exercise location/data retention and deletion procedures.
 - [ ] Select a suitable contracted or self-hosted routing/geocoding provider for any public service.
 - [x] Add and CI-validate a self-hosted HTTPS Compose overlay, Caddy TLS edge, and same-origin API/SSE proxy.
