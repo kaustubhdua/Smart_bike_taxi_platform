@@ -521,7 +521,8 @@ public:
     json list_available_rides(const std::string& driver_id) {
         // Do not expose pickup/drop-off data to drivers who are offline or whose
         // last location is stale. Dispatch eligibility is checked again when accepting.
-        const char* params[] = {driver_id.c_str()};
+        const std::string radius_meters = std::to_string(dispatch_radius_meters());
+        const char* params[] = {driver_id.c_str(), radius_meters.c_str()};
         PGresult* result = PQexecParams(connection_,
             "WITH eligible AS ("
             "SELECT r.id::text AS ride_id,r.pickup_label,r.destination_label,"
@@ -539,9 +540,9 @@ public:
             "AND NOT EXISTS (SELECT 1 FROM rides active WHERE active.driver_id=d.account_id "
             "AND active.status IN ('assigned','driver_arriving','in_progress'))) "
             "SELECT ride_id,pickup_label,destination_label,route_distance_m,fare_paise,created_at,"
-            "pickup_distance_m::integer FROM eligible WHERE pickup_distance_m<=20000 "
+            "pickup_distance_m::integer FROM eligible WHERE pickup_distance_m<=$2::double precision "
             "ORDER BY pickup_distance_m ASC,created_at ASC LIMIT 100",
-            1, nullptr, params, nullptr, nullptr, 0);
+            2, nullptr, params, nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
             if (result != nullptr) PQclear(result);
             throw std::runtime_error("Could not list available rides");
