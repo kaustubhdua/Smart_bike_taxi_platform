@@ -75,7 +75,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
       return;
     }
     const key = route.request().headers()["idempotency-key"] ?? "";
-    expect(key).toContain("saarthi-");
+    expect(key).toContain("rideforge-");
     if (bookingAttempts === 0) {
       firstIdempotencyKey = key;
       bookingAttempts += 1;
@@ -119,7 +119,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.getByRole("button", { name: "Create passenger account" }).click();
   await expect(page.locator('.auth-session')).toBeVisible();
   await page.getByRole("button", { name: "Confirm ride request" }).click();
-  await expect(page.locator(".inline-notice")).toContainText(/booking_unavailable/i);
+  await expect(page.locator(".inline-notice").filter({ hasText: /booking_unavailable/i })).toBeVisible();
   await page.getByRole("button", { name: "Confirm ride request" }).click();
   await expect(page.locator(".ride-confirmation")).toBeVisible();
   await page.getByRole("button", { name: "Cancel request" }).click();
@@ -313,7 +313,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await expect(page.getByText("Status: completed")).toBeVisible();
   await page.getByRole("button", { name: /Refresh trip history/ }).click();
   await expect(page.getByText("Gross completed fares:")).toBeVisible();
-  await expect(page.getByText("₹47.50", { exact: false })).toBeVisible();
+  await expect(page.locator("#operations .driver-queue").filter({ hasText: "Gross completed fares:" }).getByText("₹47.50", { exact: true })).toBeVisible();
   await expect(page.getByText(/not a payout or net-earnings ledger/)).toBeVisible();
 });
 
@@ -339,8 +339,8 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await page.getByRole("button", { name: "Refresh metrics" }).click();
   await expect(page.getByText("Online drivers:")).toBeVisible();
-  await expect(page.locator("#operations .driver-queue p")).toContainText("4");
-  await expect(page.locator("#operations .driver-queue p")).toContainText("5");
+  await expect(page.getByText(/Online drivers:\s*4/)).toBeVisible();
+  await expect(page.getByText(/Outbox backlog:\s*5 pending · 1 dead-lettered · oldest pending 240s/)).toBeVisible();
   await expect(page.getByRole("alert")).toContainText("Dead-lettered ride events need operator review");
   await expect(page.getByText("requested", { exact: true })).toBeVisible();
 });
@@ -436,7 +436,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await page.getByRole("button", { name: "Admin console" }).click();
   await page.locator('.auth-panel input[type="email"]').first().fill("admin@example.test");
   await page.locator('.auth-panel input[type="password"]').first().fill("a-long-admin-password-123");
-  await page.getByRole("button", { name: /Sign in securely/ }).click();
+  await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await expect(page.getByRole("heading", { name: "Operations and driver approval" })).toBeVisible();
   await page.getByRole("button", { name: /Refresh drivers/ }).click();
   await page.getByLabel("Driver name").fill("Demo Driver");
@@ -486,7 +486,7 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
   await page.getByRole("button", { name: "Drive with us" }).click();
   await page.locator('.auth-panel input[type="email"]').first().fill("driver@example.test");
   await page.locator('.auth-panel input[type="password"]').first().fill("a-long-driver-password-123");
-  await page.getByRole("button", { name: /Sign in securely/ }).click();
+  await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await page.getByRole("button", { name: /Use my location and go online/ }).click();
   await expect(page.getByRole("button", { name: "Go offline" })).toBeVisible();
   expect(availability[0]).toMatchObject({ online: true, latitude: 28.53, longitude: 77.35 });
