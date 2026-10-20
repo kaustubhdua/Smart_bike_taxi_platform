@@ -450,8 +450,8 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await createDriverButton.click();
   await expect(page.getByText("Pending approval")).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).click();
-  await expect(page.getByText("Approved", { exact: false })).toBeVisible();
   expect(drivers[0].approved).toBe(true);
+  await expect(page.getByRole("button", { name: "Suspend" })).toBeVisible();
   await page.getByRole("button", { name: /Refresh audit history/ }).click();
   await expect(page.getByText("driver approved", { exact: true })).toBeVisible();
   await expect(page.getByText("admin@example.test · driver · driver-test-0001")).toBeVisible();
