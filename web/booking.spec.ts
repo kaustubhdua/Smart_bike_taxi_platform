@@ -433,9 +433,11 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   });
 
   await page.goto("/");
+  const openAdminNav = page.getByRole("button", { name: "Open navigation" });
+  if (await openAdminNav.isVisible()) await openAdminNav.click();
   await page.getByRole("button", { name: "Admin console" }).click();
-  await page.locator('.auth-panel input[type="email"]').first().fill("admin@example.test");
-  await page.locator('.auth-panel input[type="password"]').first().fill("a-long-admin-password-123");
+  await page.locator("#operations").getByLabel("Email").fill("admin@example.test");
+  await page.locator("#operations").getByLabel("Password").fill("a-long-admin-password-123");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await expect(page.getByRole("heading", { name: "Operations and driver approval" })).toBeVisible();
   await page.getByRole("button", { name: /Refresh drivers/ }).click();
@@ -495,7 +497,7 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
     item.online && item.latitude === 28.531 && item.longitude === 77.351
   ), { timeout: 5000 }).toBe(true);
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByRole("button", { name: /Sign in securely/ })).toBeVisible();
+  await expect(page.locator("#operations").getByRole("button", { name: "Sign in securely" })).toBeVisible();
   expect(availability.at(-1)).toEqual({ online: false });
 });
 
