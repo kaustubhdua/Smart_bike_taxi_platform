@@ -101,7 +101,8 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [ ] Complete a production backup/restore drill and rehearse schema upgrade/rollback recovery.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
 - [x] Add scheduled CodeQL analysis for C++/TypeScript and dependency-review checks for high-severity/disallowed-license changes.
-- [x] Add CodeQL, dependency audit, and CRITICAL/HIGH container image scans; verify they pass on the final release SHA.
+- [x] Add CodeQL, dependency audit, and CRITICAL/HIGH container image scans to CI.
+- [ ] Verify all required workflows pass on the final release SHA before merge.
 - [ ] Review and exercise location/data retention and deletion procedures.
 - [ ] Select a suitable contracted or self-hosted routing/geocoding provider for any public service.
 - [x] Add and CI-validate a self-hosted HTTPS Compose overlay, Caddy TLS edge, and same-origin API/SSE proxy.
