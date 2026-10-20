@@ -1,0 +1,37 @@
+name: Dependency audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "web/package.json"
+      - "web/package-lock.json"
+      - ".github/workflows/dependency-review.yml"
+  push:
+    branches: [main]
+    paths:
+      - "web/package.json"
+      - "web/package-lock.json"
+      - ".github/workflows/dependency-review.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install exact locked dependencies
+        run: npm ci --prefix web
+      - name: Audit production and development dependency tree
+        run: npm audit --prefix web --audit-level=high

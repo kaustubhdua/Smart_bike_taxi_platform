@@ -1,0 +1,579 @@
+openapi: 3.1.0
+info:
+  title: RideForge Ride API
+  version: 0.1.0
+  description: Versioned API contract for passenger booking, driver lifecycle, support reports and audited administration.
+servers:
+  - url: http://localhost:8080/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      security: []
+      responses:
+        "200": { description: Service healthy }
+  /ready:
+    get:
+      security: []
+      summary: Check database connectivity and required migrated tables
+      responses:
+        "200":
+          description: Application schema is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ready }
+        "503":
+          description: Database unavailable or required schema incomplete
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, reason]
+                properties:
+                  status: { type: string, const: not_ready }
+                  reason: { type: string, enum: [schema_incomplete, database_unavailable] }
+  /auth/register:
+    post:
+      security: []
+      summary: Register passenger account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201": { description: Account created }
+        "409": { description: Email already exists }
+        "422": { description: Invalid request }
+  /auth/login:
+    post:
+      security: []
+      summary: Authenticate and issue short-lived access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200": { description: Authenticated }
+        "401": { description: Invalid credentials }
+        "429": { description: Rate limited }
+  /routes/quote:
+    post:
+      security: []
+      summary: Calculate and persist a server-authoritative expiring quote without creating a ride
+      description: Public quote requests must be rate-limited. The implemented handler geocodes with Nominatim, calculates a road route with OSRM, applies the demo tariff, and persists a five-minute quote. Client-supplied distance or price is never authoritative. Public provider endpoints are for evaluation, not production SLA.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteRequest"
+      responses:
+        "200":
+          description: Route and expiring fare quote returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteResponse"
+        "422": { description: Invalid location or unreachable route }
+        "429": { description: Quote rate limit exceeded }
+        "503": { description: Routing provider unavailable }
+  /rides:
+    get:
+      summary: List the authenticated passenger's most recent rides
+      responses:
+        "200":
+          description: Passenger ride history including final fares and completion timestamps
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PassengerRideHistoryResponse" }
+        "401": { description: Unauthenticated }
+    post:
+      summary: Create an idempotent ride request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingRequest"
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 160 }
+      responses:
+        "201": { description: Ride persisted }
+        "409": { description: Quote unavailable or idempotency key reused with a different quote }
+        "401": { description: Unauthenticated }
+        "422": { description: Invalid request }
+  /rides/{rideId}:
+    get:
+      summary: Read a ride authorized to the authenticated user
+      description: Includes driverLocation only for assigned, arriving or in-progress rides when the caller is a passenger or assigned driver and the reported location is newer than two minutes.
+      parameters:
+        - $ref: "#/components/parameters/RideId"
+      responses:
+        "200": { description: Ride details, optionally including a fresh authorized driverLocation }
+        "403": { description: Forbidden }
+        "404": { description: Not found }
+  /rides/{rideId}/events:
+    get:
+      summary: Subscribe to ride status using authenticated server-sent events
+      description: Replays persisted events after Last-Event-ID, then streams PostgreSQL notifications for up to 25 seconds. Clients reconnect with the last event ID and use GET /rides/{rideId} as the recovery source of truth.
+      parameters:
+        - $ref: "#/components/parameters/RideId"
+        - in: header
+          name: Last-Event-ID
+          required: false
+          schema: { type: string, pattern: "^[0-9]{1,20}$" }
+      responses:
+        "200":
+          description: Ride status event stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "400": { description: Invalid event cursor }
+        "401": { description: Unauthenticated }
+        "404": { description: Ride not visible to this account }
+        "503": { description: Event stream unavailable }
+  /rides/{rideId}/cancel:
+    post:
+      summary: Cancel eligible ride and release driver atomically
+      parameters:
+        - $ref: "#/components/parameters/RideId"
+      responses:
+        "200": { description: Ride cancelled }
+        "409": { description: Invalid lifecycle transition }
+  /driver/availability:
+    put:
+      summary: Set availability for an explicitly approved authenticated driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverAvailabilityRequest"
+      responses:
+        "200": { description: Availability updated }
+        "403": { description: Driver role required }
+  /driver/rides/history:
+    get:
+      summary: List the authenticated driver's recent trips and gross completed fares
+      responses:
+        "200":
+          description: Driver history and gross completed-fare total (not a payout ledger)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriverHistoryResponse" }
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
+  /driver/rides:
+    get:
+      summary: List unassigned requests within 20 km for an approved driver with a fresh online location, ranked by pickup distance
+      responses:
+        "200":
+          description: Available ride queue
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rides]
+                properties:
+                  rides:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DriverQueueItem"
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
+  /driver/rides/{rideId}/accept:
+    post:
+      summary: Atomically accept a matching ride
+      parameters:
+        - $ref: "#/components/parameters/RideId"
+      responses:
+        "200": { description: Ride assigned }
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
+        "404": { description: Ride not found }
+        "409": { description: Another driver won assignment race or driver unavailable }
+  /driver/rides/{rideId}/status:
+    put:
+      summary: Advance the assigned driver's ride lifecycle
+      parameters:
+        - $ref: "#/components/parameters/RideId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [driver_arriving, in_progress, completed]
+      responses:
+        "200": { description: Lifecycle advanced }
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
+        "404": { description: Ride not found }
+        "409": { description: Invalid transition }
+  /admin/drivers:
+    get:
+      summary: List provisioned drivers and approval state
+      responses:
+        "200": { description: Driver records returned }
+        "401": { description: Unauthenticated }
+        "403": { description: Admin role required }
+    post:
+      summary: Provision a driver account that is unapproved by default
+      description: This endpoint does not verify a driver's real-world identity or vehicle documents. Approval must be a separate explicit admin action.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, displayName, password, vehicleRegistration]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                displayName: { type: string, minLength: 1, maxLength: 120 }
+                password: { type: string, minLength: 12, maxLength: 128 }
+                vehicleRegistration: { type: string, minLength: 3, maxLength: 32 }
+      responses:
+        "201": { description: Driver provisioned and not yet approved }
+        "401": { description: Unauthenticated }
+        "403": { description: Admin role required }
+        "409": { description: Email or vehicle registration already exists }
+  /admin/drivers/{driverId}/approval:
+    put:
+      summary: Approve or suspend a provisioned driver
+      parameters:
+        - in: path
+          name: driverId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [approved]
+              properties:
+                approved: { type: boolean }
+      responses:
+        "200": { description: Approval state updated and action audited }
+        "401": { description: Unauthenticated }
+        "403": { description: Admin role required }
+        "404": { description: Driver profile not found }
+  /admin/audit:
+    get:
+      summary: Read recent privileged administrative actions
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200": { description: Recent audit events returned }
+        "400": { description: Invalid limit }
+        "401": { description: Unauthenticated }
+        "403": { description: Admin role required }
+  /support/reports:
+    get:
+      summary: List the authenticated passenger or driver's support reports
+      responses:
+        "200":
+          description: Reports belonging to the caller
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reports]
+                properties:
+                  reports:
+                    type: array
+                    items: { $ref: "#/components/schemas/SupportReport" }
+        "401": { description: Unauthenticated }
+    post:
+      summary: Create a support report for the authenticated passenger or driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewSupportReport" }
+      responses:
+        "201":
+          description: Support report created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SupportReport" }
+        "404": { description: Ride not found or not accessible to the caller }
+        "422": { description: Invalid report fields }
+        "429": { description: Per-account report rate limit exceeded }
+  /admin/rides:
+    get:
+      summary: Search rides by ride ID, passenger/driver email, address and optional status (admin only)
+      parameters:
+        - in: query
+          name: q
+          required: false
+          schema: { type: string, maxLength: 160 }
+        - in: query
+          name: status
+          required: false
+          schema: { type: string, enum: [requested, matching, assigned, driver_arriving, in_progress, completed, cancelled, failed] }
+      responses:
+        "200":
+          description: Up to 100 most recent matching rides
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rides, limit]
+                properties:
+                  rides:
+                    type: array
+                    items: { $ref: "#/components/schemas/AdminRideSearchItem" }
+                  limit: { type: integer, enum: [100] }
+        "400": { description: Invalid search query or status }
+        "403": { description: Admin role required }
+  /admin/support-reports:
+    get:
+      summary: List the 100 most recent support reports (admin only)
+      responses:
+        "200": { description: Reports returned }
+        "403": { description: Admin role required }
+  /admin/support-reports/{reportId}:
+    put:
+      summary: Move an open support report into review or resolve/reject it (admin only)
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status: { type: string, enum: [in_review, resolved, rejected] }
+                resolutionNote: { type: string, maxLength: 2000 }
+      responses:
+        "200": { description: Report status updated and audit event recorded }
+        "403": { description: Admin role required }
+        "409": { description: Report is already terminal or does not exist }
+        "422": { description: Invalid resolution }
+  /admin/metrics:
+    get:
+      summary: Read operational metrics
+      description: Includes ride counts by status, online drivers, pending outbox backlog, dead-letter count and age of the oldest pending outbox event.
+      responses:
+        "200":
+          description: Metrics returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMetricsResponse"
+        "403": { description: Admin role required }
+components:
+  parameters:
+    RideId:
+      in: path
+      name: rideId
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    NewSupportReport:
+      type: object
+      additionalProperties: false
+      required: [category, description]
+      properties:
+        rideId: { type: [string, "null"], format: uuid }
+        category: { type: string, enum: [booking, driver, payment, safety, technical, other] }
+        description: { type: string, minLength: 10, maxLength: 2000 }
+    SupportReport:
+      type: object
+      required: [id, rideId, category, description, status, resolutionNote, createdAt, updatedAt, resolvedAt]
+      properties:
+        id: { type: string }
+        rideId: { type: [string, "null"], format: uuid }
+        category: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [open, in_review, resolved, rejected] }
+        resolutionNote: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        resolvedAt: { type: [string, "null"] }
+        reporterId: { type: string, format: uuid }
+        reporterEmail: { type: string, format: email }
+        reporterName: { type: string }
+    AdminMetricsResponse:
+      type: object
+      required: [ridesByStatus, onlineDrivers, pendingOutboxEvents, deadLetteredOutboxEvents, oldestPendingOutboxAgeSeconds]
+      properties:
+        ridesByStatus:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+        onlineDrivers: { type: integer, minimum: 0 }
+        pendingOutboxEvents: { type: integer, minimum: 0 }
+        deadLetteredOutboxEvents: { type: integer, minimum: 0 }
+        oldestPendingOutboxAgeSeconds: { type: integer, minimum: 0 }
+    PassengerRideHistoryResponse:
+      type: object
+      required: [rides]
+      properties:
+        rides:
+          type: array
+          items: { $ref: "#/components/schemas/PassengerRideHistoryItem" }
+    PassengerRideHistoryItem:
+      type: object
+      required: [rideId, status, pickup, destination, farePaise, currency, createdAt]
+      properties:
+        rideId: { type: string, format: uuid }
+        status: { type: string, enum: [requested, matching, assigned, driver_arriving, in_progress, completed, cancelled, failed] }
+        pickup: { type: string }
+        destination: { type: string }
+        farePaise: { type: integer, minimum: 0 }
+        finalFarePaise: { type: integer, minimum: 0 }
+        currency: { type: string, enum: [INR] }
+        createdAt: { type: string }
+        completedAt: { type: string }
+    AdminRideSearchItem:
+      type: object
+      required: [rideId, status, passengerEmail, driverEmail, pickup, destination, farePaise, createdAt, updatedAt]
+      properties:
+        rideId: { type: string, format: uuid }
+        status: { type: string }
+        passengerEmail: { type: string, format: email }
+        driverEmail: { type: [string, "null"], format: email }
+        pickup: { type: string }
+        destination: { type: string }
+        farePaise: { type: integer, minimum: 0 }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    DriverHistoryResponse:
+      type: object
+      required: [rides, grossCompletedFarePaise, currency, note]
+      properties:
+        rides:
+          type: array
+          items:
+            type: object
+            required: [rideId, status, pickup, destination, farePaise, currency, createdAt]
+            properties:
+              rideId: { type: string, format: uuid }
+              status: { type: string }
+              pickup: { type: string }
+              destination: { type: string }
+              farePaise: { type: integer, minimum: 0 }
+              finalFarePaise: { type: integer, minimum: 0 }
+              completedAt: { type: string }
+              createdAt: { type: string }
+        grossCompletedFarePaise: { type: integer, minimum: 0 }
+        currency: { type: string, enum: [INR] }
+        note: { type: string }
+    DriverQueueItem:
+      type: object
+      required: [rideId, pickup, destination, farePaise, currency, createdAt, pickupDistanceMeters]
+      properties:
+        rideId: { type: string, format: uuid }
+        pickup: { type: string }
+        destination: { type: string }
+        farePaise: { type: integer, minimum: 1 }
+        currency: { type: string, enum: [INR] }
+        createdAt: { type: string }
+        distanceMeters: { type: integer, minimum: 1 }
+        pickupDistanceMeters: { type: integer, minimum: 0, maximum: 100000 }
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, displayName, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 128 }
+    BookingRequest:
+      type: object
+      additionalProperties: false
+      required: [quoteId]
+      properties:
+        quoteId: { type: string, format: uuid }
+    DriverAvailabilityRequest:
+      type: object
+      additionalProperties: false
+      required: [online, latitude, longitude]
+      properties:
+        online: { type: boolean }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+    LocationInput:
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 2
+          maxLength: 240
+    QuoteRequest:
+      type: object
+      additionalProperties: false
+      required: [pickup, destination]
+      properties:
+        pickup:
+          $ref: "#/components/schemas/LocationInput"
+        destination:
+          $ref: "#/components/schemas/LocationInput"
+    QuoteResponse:
+      type: object
+      additionalProperties: false
+      required: [quoteId, distanceKm, durationMinutes, farePaise, currency, expiresAt]
+      properties:
+        quoteId:
+          type: string
+          format: uuid
+        distanceKm:
+          type: number
+          minimum: 0
+        durationMinutes:
+          type: integer
+          minimum: 0
+        farePaise:
+          type: integer
+          minimum: 0
+          description: Integer paise, never floating-point rupees.
+        currency:
+          type: string
+          enum: [INR]
+        expiresAt:
+          type: string
+          format: date-time
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

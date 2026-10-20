@@ -1,0 +1,80 @@
+name: PostgreSQL migration smoke test
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "README.md"
+      - "docs/**"
+      - ".env.production.example"
+      - "compose.production.yaml"
+      - "Caddyfile"
+      - "deployment/**"
+      - ".github/workflows/db-migration.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "README.md"
+      - "docs/**"
+      - ".env.production.example"
+      - "compose.production.yaml"
+      - "Caddyfile"
+      - "deployment/**"
+      - ".github/workflows/db-migration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  migration:
+    name: Apply schema and verify integrity constraints
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: rideforge_test
+          POSTGRES_USER: rideforge
+          POSTGRES_PASSWORD: rideforge_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rideforge -d rideforge_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
+      PGPORT: 5432
+      PGDATABASE: rideforge_test
+      PGUSER: rideforge
+      PGPASSWORD: rideforge_test_password
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Apply all migrations
+        env:
+          RIDEFORGE_MIGRATIONS_DIR: backend/migrations
+        run: sh backend/scripts/migrate-if-needed.sh
+      - name: Verify migration runner is idempotent
+        env:
+          RIDEFORGE_MIGRATIONS_DIR: backend/migrations
+        run: sh backend/scripts/migrate-if-needed.sh
+      - name: Verify driver approval, uniqueness, outbox and support schema
+        run: |
+          psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '002_driver_approval_and_outbox'" | grep -Fx '002_driver_approval_and_outbox'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '004_support_reports'" | grep -Fx '004_support_reports'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_trigger WHERE tgname = 'ride_event_notification_outbox' AND NOT tgisinternal" | grep -Fx '1'
+      - name: Verify backup and restore into a fresh database
+        run: sh backend/tests/backup_restore_smoke.sh

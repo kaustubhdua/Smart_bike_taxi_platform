@@ -1,0 +1,134 @@
+name: Container vulnerability scan
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "web/**"
+      - "README.md"
+      - "docs/**"
+      - ".env.production.example"
+      - "compose.yaml"
+      - ".env.example"
+      - ".github/workflows/container-scan.yml"
+      - "compose.production.yaml"
+      - "Caddyfile"
+      - "deployment/**"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "web/**"
+      - "README.md"
+      - "docs/**"
+      - ".env.production.example"
+      - "compose.yaml"
+      - ".env.example"
+      - ".github/workflows/container-scan.yml"
+      - "compose.production.yaml"
+      - "Caddyfile"
+      - "deployment/**"
+  schedule:
+    - cron: "41 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          tags: rideforge-api:ci
+          load: true
+      - name: Scan API image
+        id: scan_api_first
+        uses: aquasecurity/trivy-action@v0.36.0
+        continue-on-error: true
+        with:
+          image-ref: rideforge-api:ci
+          format: table
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Retry API image scan after scanner/database errors
+        if: steps.scan_api_first.outcome == 'failure'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: rideforge-api:ci
+          format: table
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          file: ./web/Dockerfile
+          build-args: VITE_API_BASE_URL=http://localhost:8080
+          tags: rideforge-web:ci
+          load: true
+      - name: Scan web image
+        id: scan_web_first
+        uses: aquasecurity/trivy-action@v0.36.0
+        continue-on-error: true
+        with:
+          image-ref: rideforge-web:ci
+          format: table
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Retry web image scan after scanner/database errors
+        if: steps.scan_web_first.outcome == 'failure'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: rideforge-web:ci
+          format: table
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Build hardened Caddy edge image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./deployment/Caddy.Dockerfile
+          tags: rideforge-caddy:ci
+          load: true
+      - name: Scan Caddy edge image
+        id: scan_caddy_first
+        uses: aquasecurity/trivy-action@v0.36.0
+        continue-on-error: true
+        with:
+          image-ref: rideforge-caddy:ci
+          format: table
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Retry Caddy scan after scanner/database errors
+        if: steps.scan_caddy_first.outcome == 'failure'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: rideforge-caddy:ci
+          format: table
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
