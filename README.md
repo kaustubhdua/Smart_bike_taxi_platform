@@ -4,7 +4,7 @@
 
 **A C++17-powered bike-taxi platform with a real API, PostgreSQL bookings, and driver/admin workspaces.**
 
-Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local persistence
+Shortest-path routing · Radius-filtered driver queue · Transactional bookings · Local persistence
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
 ![CI](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/cpp.yml/badge.svg)
@@ -24,7 +24,7 @@ Shortest-path routing · FIFO ride requests · Nearest-driver dispatch · Local 
 
 ## Run the complete verification suite
 
-The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. The individual workflows also run on pull-request changes; record the exact SHA whose checks passed. As of 2026-10-20, the constituent workflows passed on release-branch SHA `de6884ea7b46140509cd39bfd785e3c52f7c1bdb`. The aggregate manual workflow itself has not been dispatched. Any subsequent commit requires fresh checks before it can be considered verified.
+The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. The individual workflows also run on pull-request changes; record the exact SHA whose checks passed. All 14 constituent checks passed on release-branch SHA `a0a3b2859cde2de8045809fed4aaa96bafd3356a` on 2026-10-20. Later Compose PostgreSQL connection-timeout and documentation changes still require current-head verification. The aggregate manual workflow itself has not been dispatched.
 
 ## Full-stack roadmap status
 
@@ -35,7 +35,7 @@ This repository has evolved from its original C++17 academic simulation into **R
 | Area | Current evidence | Status |
 |---|---|---|
 | C++ DSA baseline | Existing C++ build/tests and GCC/Clang/sanitizer CI | Existing baseline |
-| Route algorithm | Deterministic equal-distance predecessor selection, zero-weight parent-cycle guard, and overflow handling; disconnected/extreme-weight tests | GCC, Clang and ASan/UBSan passed on release-branch SHA `de6884ea7b46140509cd39bfd785e3c52f7c1bdb` |
+| Route algorithm | Deterministic equal-distance predecessor selection, zero-weight parent-cycle guard, and overflow handling; disconnected/extreme-weight tests | GCC, Clang and ASan/UBSan passed on release-branch SHA `a0a3b2859cde2de8045809fed4aaa96bafd3356a` |
 | Ride lifecycle/dispatch | Cancellation releases drivers; tests cover cancellation/reassignment, deterministic driver ties and unreachable drivers | GCC, Clang and ASan/UBSan passed on release-branch SHA `de6884ea7b46140509cd39bfd785e3c52f7c1bdb` |
 | Benchmarking | Deterministic 1,000-node / 1,000-query benchmark; CI publishes a CSV artifact with environment notes | Download the artifact from the [C++ workflow runs](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/cpp.yml); no benchmark sample is currently checked into this branch, and one run is not a general performance claim |
 | Web UI | React + TypeScript + Vite; lazy-loaded Leaflet map; Nominatim geocoding + OSRM road geometry; pickup/drop autocomplete; quote expiry validation | CI covers typecheck/build, high-severity npm audit, gzip budgets, desktop/mobile Playwright E2E and axe accessibility audit; dependency installation is lockfile-backed with `npm ci` |
@@ -44,7 +44,7 @@ This repository has evolved from its original C++17 academic simulation into **R
 | Authentication and passenger booking | PBKDF2 password hashing, short-lived signed access tokens, role/ownership checks, quote consumption, transactional idempotency, ride history, final fares, printable demo receipts and cancellation | API implemented with smoke coverage; current-head verification and broader authorization/concurrency tests remain |
 | Driver/admin operations | Driver queue uses configurable `RIDEFORGE_DISPATCH_RADIUS_KM` (1–100 km, default 20); drivers can review trip history/gross completed fares; admins can search rides, provision/approve/suspend drivers, review audit history, and triage support reports with audited resolution | Connected driver/admin workspaces and API smoke coverage; real identity/vehicle verification remains out of scope |
 | Realtime, payments and safety operations | Durable outbox worker publishes through PostgreSQL NOTIFY with retry/dead-letter handling; API exposes authenticated SSE with persisted-event replay and the passenger UI consumes ride-status frames | SSE fallback/resync needs broader load/reconnect verification; payments and safety operations remain release blockers |
-| Reproducible installs | `web/package-lock.json` is committed and web CI uses `npm ci` | CI validates lockfile-backed installation; re-run on the current head before release |
+| Reproducible installs | `web/package-lock.json` is committed and web CI uses `npm ci` | CI validates lockfile-backed installation; current-head checks are required after any subsequent changes |
 | Deployment and screenshots | Self-hosted HTTPS Compose/Caddy template and same-origin API/SSE proxy validated in CI; no live deployment or screenshots verified | Template; external host/domain still required |
 
 ### Frontend development
