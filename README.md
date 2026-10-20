@@ -24,7 +24,7 @@ Shortest-path routing · Radius-filtered driver queue · Transactional bookings 
 
 ## Run the complete verification suite
 
-The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. The individual workflows also run on pull-request changes; record the exact SHA whose checks passed. All 14 constituent checks passed on release-branch SHA `a0a3b2859cde2de8045809fed4aaa96bafd3356a` on 2026-10-20. Later Compose PostgreSQL connection-timeout and documentation changes still require current-head verification. The aggregate manual workflow itself has not been dispatched.
+The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. The individual workflows run on pull-request changes. Use the live [PR #8 checks](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/8) to verify that every required check passes on the exact current head; an earlier green SHA does not verify later commits. The aggregate manual workflow itself has not been dispatched.
 
 ## Full-stack roadmap status
 
@@ -35,7 +35,7 @@ This repository has evolved from its original C++17 academic simulation into **R
 | Area | Current evidence | Status |
 |---|---|---|
 | C++ DSA baseline | Existing C++ build/tests and GCC/Clang/sanitizer CI | Existing baseline |
-| Route algorithm | Deterministic equal-distance predecessor selection, zero-weight parent-cycle guard, and overflow handling; disconnected/extreme-weight tests | GCC, Clang and ASan/UBSan passed on release-branch SHA `a0a3b2859cde2de8045809fed4aaa96bafd3356a` |
+| Route algorithm | Deterministic equal-distance predecessor selection, zero-weight parent-cycle guard, and overflow handling; disconnected/extreme-weight tests | GCC, Clang and ASan/UBSan are required CI checks; see the live PR checks for the exact tested head |
 | Ride lifecycle/dispatch | Cancellation releases drivers; tests cover cancellation/reassignment, deterministic driver ties and unreachable drivers | GCC, Clang and ASan/UBSan passed on release-branch SHA `de6884ea7b46140509cd39bfd785e3c52f7c1bdb` |
 | Benchmarking | Deterministic 1,000-node / 1,000-query benchmark; CI publishes a CSV artifact with environment notes | Download the artifact from the [C++ workflow runs](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/cpp.yml); no benchmark sample is currently checked into this branch, and one run is not a general performance claim |
 | Web UI | React + TypeScript + Vite; lazy-loaded Leaflet map; Nominatim geocoding + OSRM road geometry; pickup/drop autocomplete; quote expiry validation | CI covers typecheck/build, high-severity npm audit, gzip budgets, desktop/mobile Playwright E2E and axe accessibility audit; dependency installation is lockfile-backed with `npm ci` |
