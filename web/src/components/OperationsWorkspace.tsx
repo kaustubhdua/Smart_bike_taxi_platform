@@ -153,6 +153,29 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     return () => { cancelled = true; window.clearInterval(interval); };
   }, [mode, online, token, apiBase]);
 
+  async function refreshLocationNow() {
+    if (!online) {
+      setError("Go online before refreshing your location.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const location = await getCurrentLocation();
+      await request("/api/v1/driver/availability", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ online: true, latitude: location.latitude, longitude: location.longitude }),
+      });
+      setDriverLocation(location);
+      const data = await request("/api/v1/driver/rides");
+      setRides(Array.isArray(data.rides) ? data.rides as RideRequest[] : []);
+      setError("Your location and nearby ride queue were refreshed.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not refresh your location.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function toggleAvailability() {
     setBusy(true);
     try {
@@ -439,6 +462,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               <p className="auth-caption">Location permission is used to refresh your dispatch eligibility while online. The queue requires a recent location.</p>
               <button className="book-button" onClick={toggleAvailability} disabled={busy}>{online ? "Go offline" : "Use my location and go online"} <ArrowRight size={18} /></button>
               {driverLocation && <p className="auth-caption" aria-live="polite">Last location: {driverLocation.latitude.toFixed(4)}, {driverLocation.longitude.toFixed(4)}</p>}
+              {online && <button className="outline-button" onClick={refreshLocationNow} disabled={busy}><RefreshCw size={15} /> Refresh my location</button>}
               <button className="outline-button" onClick={refreshQueue} disabled={busy}><RefreshCw size={15} /> Refresh ride queue</button>
               {activeRide && <div className="ride-confirmation" role="status"><span className="confirmation-icon"><Check size={16} /></span><div><strong>Active ride</strong><span>{activeRide.rideId}</span><small>Status: {activeRide.status}</small></div>
                 {activeRide.status === "assigned" && <button className="text-action" onClick={() => rideAction(activeRide.rideId, "driver_arriving")} disabled={busy}>Mark arriving</button>}
