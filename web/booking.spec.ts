@@ -468,7 +468,6 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
 
 
 test("driver uses browser geolocation, refreshes availability, and goes offline on sign-out", async ({ page }) => {
-  await page.clock.install();
   await page.context().grantPermissions(["geolocation"]);
   await page.context().setGeolocation({ latitude: 28.53, longitude: 77.35 });
   await page.route("http://api.test/api/v1/auth/login", async route => {
@@ -496,7 +495,7 @@ test("driver uses browser geolocation, refreshes availability, and goes offline 
   await expect(page.getByRole("button", { name: "Go offline" })).toBeVisible();
   expect(availability[0]).toMatchObject({ online: true, latitude: 28.53, longitude: 77.35 });
   await page.context().setGeolocation({ latitude: 28.531, longitude: 77.351 });
-  await page.clock.fastForward(60_000);
+  await page.getByRole("button", { name: "Refresh my location" }).click();
   await expect.poll(() => availability.some(item =>
     item.online && item.latitude === 28.531 && item.longitude === 77.351
   ), { timeout: 5000 }).toBe(true);
