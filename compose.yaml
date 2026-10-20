@@ -20,6 +20,7 @@ services:
         condition: service_healthy
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGCONNECT_TIMEOUT: 5
     volumes:
       - ./backend/migrations:/migrations:ro
       - ./backend/scripts/migrate-if-needed.sh:/migrate.sh:ro
@@ -35,6 +36,7 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      PGCONNECT_TIMEOUT: 5
       PORT: 8080
       RIDEFORGE_BIND_ADDRESS: 0.0.0.0
       RIDEFORGE_ALLOWED_ORIGIN: http://localhost:5173
@@ -62,6 +64,7 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      PGCONNECT_TIMEOUT: 5
       RIDEFORGE_OUTBOX_POLL_MS: 250
     entrypoint: ["/usr/local/bin/rideforge_outbox_worker"]
     restart: unless-stopped
