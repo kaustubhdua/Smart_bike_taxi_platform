@@ -39,6 +39,18 @@ jobs:
           tags: rideforge-api:ci
           load: true
       - name: Scan API image
+        id: scan_api_first
+        uses: aquasecurity/trivy-action@v0.36.0
+        continue-on-error: true
+        with:
+          image-ref: rideforge-api:ci
+          format: table
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Retry API image scan after scanner/database errors
+        if: steps.scan_api_first.outcome == 'failure'
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: rideforge-api:ci
@@ -56,6 +68,18 @@ jobs:
           tags: rideforge-web:ci
           load: true
       - name: Scan web image
+        id: scan_web_first
+        uses: aquasecurity/trivy-action@v0.36.0
+        continue-on-error: true
+        with:
+          image-ref: rideforge-web:ci
+          format: table
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Retry web image scan after scanner/database errors
+        if: steps.scan_web_first.outcome == 'failure'
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: rideforge-web:ci
