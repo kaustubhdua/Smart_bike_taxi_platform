@@ -564,7 +564,9 @@ test("passenger applies authenticated server-sent ride events without waiting fo
     await route.fulfill({
       status: 200,
       headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache" },
-      body: 'id: 12\nevent: ride-status\ndata: {"eventId":12,"rideId":"30000000-0000-4000-8000-000000000077","status":"assigned","createdAt":"2026-10-18T00:00:00Z"}\n\n',
+      body: 'id: 12\nevent: ride-status\ndata: {"eventId":12,"rideId":"30000000-0000-4000-8000-000000000077","status":"assigned","createdAt":"2026-10-18T00:00:00Z"}\n\n' +
+        'id: 12\nevent: ride-status\ndata: {"eventId":12,"rideId":"30000000-0000-4000-8000-000000000077","status":"assigned","createdAt":"2026-10-18T00:00:00Z"}\n\n' +
+        'id: 11\nevent: ride-status\ndata: {"eventId":11,"rideId":"30000000-0000-4000-8000-000000000077","status":"requested","createdAt":"2026-10-17T23:59:00Z"}\n\n',
     });
   });
 
@@ -578,7 +580,7 @@ test("passenger applies authenticated server-sent ride events without waiting fo
   await page.getByRole("button", { name: "Confirm ride request" }).click();
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned", { timeout: 5000 });
   expect(streamRequests).toBeGreaterThan(0);
-  // A stale REST read must not roll the state back after a newer SSE event.
+  // Duplicate and out-of-order SSE frames, followed by a stale REST read, must not roll state back.
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
 });
