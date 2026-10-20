@@ -463,7 +463,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await page.getByLabel("Ride ID, passenger/driver email, or pickup/drop-off").fill("ride-test-0001");
   await page.getByRole("button", { name: /Search rides/ }).click();
   await expect(page.getByText("ride-test-0001")).toBeVisible();
-  await expect(page.getByText("rider@example.test")).toBeVisible();
+  await expect(page.locator("#operations .driver-queue").filter({ hasText: "Ride search results" }).getByText("Passenger: rider@example.test")).toBeVisible();
 });
 
 
