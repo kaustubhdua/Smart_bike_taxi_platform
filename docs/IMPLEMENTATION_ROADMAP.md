@@ -96,7 +96,8 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [x] Add backup/restore scripts, a CI recovery smoke test, and schema-readiness failure-path coverage.
 - [x] Add structured redacted request-completion logs, correlation IDs, SIGTERM/SIGINT handling, and bounded graceful draining.
 - [x] Bound routing-provider HTTP connect/total timeouts and HTTP socket read/write deadlines.
-- [ ] Add explicit PostgreSQL connection timeouts/pooling and broader SSE connection observability.
+- [x] Bound PostgreSQL connection-establishment time to five seconds in Compose API, migration and outbox-worker services via libpq `PGCONNECT_TIMEOUT`.
+- [ ] Add a shared PostgreSQL connection pool or explicit bounded database concurrency strategy; add broader SSE connection observability.
 - [x] Document local and Compose backup/restore procedures and add a CI recovery smoke test.
 - [ ] Complete a production backup/restore drill and rehearse schema upgrade/rollback recovery.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
