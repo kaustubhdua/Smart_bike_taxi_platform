@@ -385,6 +385,31 @@ fi
 grep -q 'event: ride-status' "$tmp_dir/events-sse.txt"
 grep -q '"status":"requested"' "$tmp_dir/events-sse.txt"
 
+# An explicit zero cursor replays persisted history; the latest cursor must not replay it twice.
+first_event_id="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT id FROM ride_events WHERE ride_id='$ride_id' ORDER BY id LIMIT 1")"
+test -n "$first_event_id"
+if curl --silent --show-error --no-buffer --max-time 2 --header "Authorization: Bearer $token" \
+  --header 'Last-Event-ID: 0' "$base_url/api/v1/rides/$ride_id/events" > "$tmp_dir/events-replay-zero.txt"; then
+  :
+else
+  curl_status=$?
+  test "$curl_status" = "28"
+fi
+grep -q 'event: ride-status' "$tmp_dir/events-replay-zero.txt"
+grep -q '"status":"requested"' "$tmp_dir/events-replay-zero.txt"
+
+if curl --silent --show-error --no-buffer --max-time 2 --header "Authorization: Bearer $token" \
+  --header "Last-Event-ID: $first_event_id" "$base_url/api/v1/rides/$ride_id/events" > "$tmp_dir/events-after-cursor.txt"; then
+  :
+else
+  curl_status=$?
+  test "$curl_status" = "28"
+fi
+if grep -q 'event: ride-status' "$tmp_dir/events-after-cursor.txt"; then
+  echo "Latest Last-Event-ID unexpectedly replayed a duplicate ride event" >&2
+  exit 1
+fi
+
 status="$(curl --silent --show-error --output "$tmp_dir/events-cross-owner.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $other_token" "$base_url/api/v1/rides/$ride_id/events")"
 test "$status" = "404"
