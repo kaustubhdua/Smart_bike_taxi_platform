@@ -8,6 +8,11 @@ on:
     paths:
       - "backend/**"
       - "web/**"
+      - "README.md"
+      - "docs/**"
+      - ".env.production.example"
+      - "compose.yaml"
+      - ".env.example"
       - ".github/workflows/container-scan.yml"
       - "compose.production.yaml"
       - "Caddyfile"
@@ -17,6 +22,11 @@ on:
     paths:
       - "backend/**"
       - "web/**"
+      - "README.md"
+      - "docs/**"
+      - ".env.production.example"
+      - "compose.yaml"
+      - ".env.example"
       - ".github/workflows/container-scan.yml"
       - "compose.production.yaml"
       - "Caddyfile"

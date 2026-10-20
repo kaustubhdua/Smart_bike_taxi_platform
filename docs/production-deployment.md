@@ -19,7 +19,7 @@ Internet
              outbox worker
 ~~~
 
-The API and web ports are bound to host loopback for local diagnostics. The public entry point is Caddy only. The web bundle uses a relative API path in this overlay, so browser requests remain same-origin and Nginx proxies them to the API. The PostgreSQL port is never published.
+The Caddy edge is built from upstream Caddy v2.11.7 source with Go 1.26.9 and golang.org/x/net 0.60.0 to address the currently fixed scanner findings; CI scans the API, web, and Caddy images for fixed CRITICAL/HIGH vulnerabilities. The API and web ports are bound to host loopback for local diagnostics. The public entry point is Caddy only. The web bundle uses a relative API path in this overlay, so browser requests remain same-origin and Nginx proxies them to the API. The PostgreSQL port is never published.
 
 ## 1. Prepare the host and DNS
 
@@ -69,17 +69,29 @@ Use the real domain in those commands. Complete the passenger-to-driver demo jou
 
 ## 4. Admin bootstrap and recovery
 
-Use the reviewed admin bootstrap procedure in the operations runbook. Take a backup before upgrades and restore only into a dedicated empty database. Keep encrypted backups outside the repository and host, define retention/deletion, and rehearse restoration regularly.
+Use the reviewed admin bootstrap procedure in the operations runbook. The database port is not published, so create backups through the Compose database container rather than running the host backup script with a DATABASE_URL containing the internal hostname db.
 
 ~~~sh
-set -a
-. ./.env
-set +a
+set -eu
 umask 077
-sh backend/scripts/backup.sh ./secure-backups/rideforge-$(date -u +%Y%m%dT%H%M%SZ).dump
+mkdir -p ./secure-backups
+backup="./secure-backups/rideforge-$(date -u +%Y%m%dT%H%M%SZ).dump"
+temporary="$backup.tmp"
+docker compose -f compose.yaml -f compose.production.yaml exec -T db pg_dump -U rideforge -d rideforge --format=custom --no-owner --no-acl > "$temporary"
+test -s "$temporary"
+mv "$temporary" "$backup"
 ~~~
 
-Never use docker compose down -v on the production stack unless you intend to delete the database volume. Prefer tested host backups or a managed PostgreSQL service for production recovery requirements.
+For a restore drill, restore only into a dedicated empty database and verify it before dropping the temporary target:
+
+~~~sh
+docker compose -f compose.yaml -f compose.production.yaml exec -T db createdb -U rideforge rideforge_restore
+docker compose -f compose.yaml -f compose.production.yaml exec -T db pg_restore --no-owner --no-acl --exit-on-error --dbname=rideforge_restore < "$backup"
+docker compose -f compose.yaml -f compose.production.yaml exec -T db psql -U rideforge -d rideforge_restore -X -v ON_ERROR_STOP=1 -tAc "SELECT to_regclass('public.accounts') IS NOT NULL AND to_regclass('public.rides') IS NOT NULL;"
+docker compose -f compose.yaml -f compose.production.yaml exec -T db dropdb -U rideforge rideforge_restore
+~~~
+
+Keep encrypted backups outside the repository and host, define retention/deletion, and rehearse restoration regularly. Never use docker compose down -v on the production stack unless you intend to delete the database volume. Prefer tested host backups or a managed PostgreSQL service for production recovery requirements.
 
 ## 5. Release gates not solved by deployment
 

@@ -7,11 +7,23 @@ on:
     branches: [main]
     paths:
       - "web/**"
+      - "README.md"
+      - "docs/**"
+      - ".env.production.example"
+      - "compose.production.yaml"
+      - "Caddyfile"
+      - "deployment/**"
       - ".github/workflows/web.yml"
   pull_request:
     branches: [main]
     paths:
       - "web/**"
+      - "README.md"
+      - "docs/**"
+      - ".env.production.example"
+      - "compose.production.yaml"
+      - "Caddyfile"
+      - "deployment/**"
       - ".github/workflows/web.yml"
 
 permissions:

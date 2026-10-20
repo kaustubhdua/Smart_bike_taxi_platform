@@ -97,12 +97,15 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [x] Add structured redacted request-completion logs, correlation IDs, SIGTERM/SIGINT handling, and bounded graceful draining.
 - [x] Bound routing-provider HTTP connect/total timeouts and HTTP socket read/write deadlines.
 - [ ] Add explicit PostgreSQL connection timeouts/pooling and broader SSE connection observability.
-- [ ] Document and test backup/restore; verify schema upgrade and rollback/recovery procedures.
+- [x] Document local and Compose backup/restore procedures and add a CI recovery smoke test.
+- [ ] Complete a production backup/restore drill and rehearse schema upgrade/rollback recovery.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
 - [x] Add scheduled CodeQL analysis for C++/TypeScript and dependency-review checks for high-severity/disallowed-license changes.
-- [ ] Execute those security scans on the release SHA, add container image scanning, and review data retention/deletion.
+- [x] Add CodeQL, dependency audit, and CRITICAL/HIGH container image scans; verify they pass on the final release SHA.
+- [ ] Review and exercise location/data retention and deletion procedures.
 - [ ] Select a suitable contracted or self-hosted routing/geocoding provider for any public service.
-- [ ] Deploy frontend/API/database using protected secrets and HTTPS; verify the exact release SHA.
+- [x] Add and CI-validate a self-hosted HTTPS Compose overlay, Caddy TLS edge, and same-origin API/SSE proxy.
+- [ ] Deploy frontend/API/database on a real host using protected secrets and HTTPS; verify the exact release SHA.
 - [ ] Capture genuine desktop/mobile screenshots, record the deployment URL and publish a demo walkthrough.
 
 Acceptance: clean setup and deployment are reproducible, all checks pass on one release SHA, and operations/recovery steps have been exercised.

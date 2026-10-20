@@ -93,24 +93,39 @@ Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for r
 
 ## Backup and restore
 
-Use the repository scripts only with a deliberate database target. Keep backup files outside the repository and protect them as sensitive data; a database dump contains account and ride data. Run these scripts on a trusted host with PostgreSQL client tools (`pg_dump` and `pg_restore`) installed. For local Compose, load the non-secret-placeholder settings from `.env` into the current shell first; do not commit real credentials.
+The repository backup/restore scripts are for a trusted host where DATABASE_URL points to a reachable PostgreSQL endpoint and pg_dump/pg_restore are installed. They are not directly runnable from the host against the Compose-only hostname db, because the database port is intentionally not published.
 
-```sh
-set -a
-. ./.env
-set +a
+### Compose backup
+
+For the local stack, use:
+
+~~~sh
+set -eu
 umask 077
-sh backend/scripts/backup.sh ./secure-backups/rideforge-$(date -u +%Y%m%dT%H%M%SZ).dump
-```
+mkdir -p ./secure-backups
+backup="./secure-backups/rideforge-$(date -u +%Y%m%dT%H%M%SZ).dump"
+temporary="$backup.tmp"
+docker compose exec -T db pg_dump -U rideforge -d rideforge --format=custom --no-owner --no-acl > "$temporary"
+test -s "$temporary"
+mv "$temporary" "$backup"
+~~~
 
-Restore into a **dedicated empty database** first; the restore script intentionally does not drop or clean existing objects:
+For the production overlay, use the same command with the additional flags: docker compose -f compose.yaml -f compose.production.yaml. Keep backup files encrypted at rest, outside the repository and outside the production host where possible.
 
-```sh
-DATABASE_URL="$RESTORE_DATABASE_URL" sh backend/scripts/restore.sh ./secure-backups/rideforge-backup.dump
-```
+### Restore rehearsal
 
-After restoration, run migration/readiness checks and verify representative account, ride, event, and idempotency counts before considering a recovery successful. Store backups encrypted at rest in a separate access-controlled location, define retention/deletion, and periodically perform a timed restore drill. CI runs a disposable-database backup/restore smoke test; that is not evidence of a production backup schedule or recovery-time objective.
+Restore only into a dedicated empty database. A Compose-based drill can create a temporary target and restore the dump into it:
 
+~~~sh
+docker compose exec -T db createdb -U rideforge rideforge_restore
+docker compose exec -T db pg_restore --no-owner --no-acl --exit-on-error --dbname=rideforge_restore < "$backup"
+docker compose exec -T db psql -U rideforge -d rideforge_restore -X -v ON_ERROR_STOP=1 -tAc "SELECT to_regclass('public.accounts') IS NOT NULL AND to_regclass('public.rides') IS NOT NULL;"
+docker compose exec -T db dropdb -U rideforge rideforge_restore
+~~~
+
+For the production overlay, prefix each command with the same two -f compose file arguments. Run the repository restore script only when RESTORE_DATABASE_URL points to a reachable, deliberately empty restore target; it refuses to overwrite existing relations.
+
+After restoration, verify representative account, ride, event, and idempotency counts before considering recovery successful. Store backups in a separate access-controlled location, define retention/deletion, and periodically perform a timed restore drill. CI runs a disposable-database backup/restore smoke test; that is not evidence of a production backup schedule or recovery-time objective.
 
 ## Request logs and correlation
 
