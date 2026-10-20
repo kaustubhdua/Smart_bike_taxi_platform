@@ -183,7 +183,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
         if (!driverLocation) throw new Error("No last known location is available. Refresh location before going offline.");
         await request("/api/v1/driver/availability", {
           method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ online: false, latitude: driverLocation.latitude, longitude: driverLocation.longitude }),
+          body: JSON.stringify({ online: false }),
         });
         setOnline(false);
         setRides([]);
@@ -310,7 +310,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       if (online && driverLocation) {
         await request("/api/v1/driver/availability", {
           method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ online: false, latitude: driverLocation.latitude, longitude: driverLocation.longitude }),
+          body: JSON.stringify({ online: false }),
         });
       }
       setError("Driver signed out and availability stopped.");
