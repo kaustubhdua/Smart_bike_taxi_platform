@@ -22,3 +22,6 @@ jobs:
   containers:
     name: Container and Compose validation
     uses: ./.github/workflows/container.yml
+  container_security:
+    name: Container vulnerability scan
+    uses: ./.github/workflows/container-scan.yml
