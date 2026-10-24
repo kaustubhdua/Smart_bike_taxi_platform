@@ -95,7 +95,7 @@ Compose applies all ordered migrations to the local PostgreSQL volume before sta
 
 ### Container deployment
 
-See [the local deployment guide](docs/local-deployment.md) for the development Compose stack and [the production deployment template](docs/production-deployment.md) for a two-host HTTPS setup using separate passenger and driver domains, exact CORS origin allowlisting, same-origin API proxying, loopback-only app ports, and persistent PostgreSQL storage. The production template is not a live deployment; a domain, VPS, secret generation, and provider agreement are still required.
+See [the local deployment guide](docs/local-deployment.md) for the development Compose stack and [the production deployment template](docs/production-deployment.md) for a two-host HTTPS setup using separate passenger and driver domains, exact CORS origin allowlisting, same-origin API proxying, loopback-only app ports, and persistent PostgreSQL storage. The protected admin sign-in is available at `/admin` on the passenger host. The production template is not a live deployment; a domain, VPS, secret generation, and provider agreement are still required.
 
 ### UI libraries and attribution
 
