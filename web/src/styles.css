@@ -33,6 +33,8 @@
 .ride-confirmation strong{font-size:13px;color:#213b2a}
 .ride-confirmation span,.ride-confirmation small{overflow-wrap:anywhere;font-size:11px;color:#49604e}
 .ride-confirmation .text-action{align-self:center}
+.ride-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ride-actions .text-action{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 
 .button-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
 .button-row .book-button,.button-row .outline-button{width:100%;margin:0;min-width:0}
