@@ -195,7 +195,7 @@ public:
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 11; ++column) {
+        for (int column = 0; column < 13; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
