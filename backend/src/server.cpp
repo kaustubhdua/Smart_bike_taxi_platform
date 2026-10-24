@@ -740,9 +740,10 @@ public:
             if (previous != "requested" && previous != "matching") {
                 throw std::domain_error("ride_not_available");
             }
+            const char* decline_params[] = {ride_id.c_str(), driver_id.c_str()};
             PGresult* prior_decline = PQexecParams(connection_,
                 "SELECT 1 FROM driver_ride_declines WHERE ride_id=$1::uuid AND driver_id=$2::uuid",
-                2, nullptr, (const char*[]){ride_id.c_str(), driver_id.c_str()}, nullptr, nullptr, 0);
+                2, nullptr, decline_params, nullptr, nullptr, 0);
             if (prior_decline == nullptr || PQresultStatus(prior_decline) != PGRES_TUPLES_OK) {
                 if (prior_decline != nullptr) PQclear(prior_decline);
                 throw std::runtime_error("Could not verify prior ride decline");
