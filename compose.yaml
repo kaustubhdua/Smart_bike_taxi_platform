@@ -69,6 +69,21 @@ services:
     entrypoint: ["/usr/local/bin/rideforge_outbox_worker"]
     restart: unless-stopped
 
+  dispatch-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      PGCONNECT_TIMEOUT: 5
+      RIDEFORGE_DISPATCH_POLL_MS: 500
+      RIDEFORGE_DISPATCH_RADIUS_KM: ${RIDEFORGE_DISPATCH_RADIUS_KM:-20}
+    entrypoint: ["/usr/local/bin/rideforge_dispatch_worker"]
+    restart: unless-stopped
+
   web:
     build:
       context: ./web
