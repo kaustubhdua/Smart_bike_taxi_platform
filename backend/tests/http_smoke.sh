@@ -551,10 +551,28 @@ status="$(curl --silent --show-error --output "$tmp_dir/second-booking.json" --w
 test "$status" = "201"
 second_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/second-booking.json")"
 
-status="$(curl --silent --show-error --output "$tmp_dir/second-accept.json" --write-out '%{http_code}' \
+# Declining hides this request only for this driver; it must not cancel the passenger's ride.
+status="$(curl --silent --show-error --output "$tmp_dir/second-decline.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" --request POST \
+  "$base_url/api/v1/driver/rides/$second_ride_id/decline")"
+test "$status" = "200"
+grep -q '"status":"declined"' "$tmp_dir/second-decline.json"
+
+status="$(curl --silent --show-error --output "$tmp_dir/declined-accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
   "$base_url/api/v1/driver/rides/$second_ride_id/accept")"
+test "$status" = "409"
+grep -q '"error":"ride_previously_declined"' "$tmp_dir/declined-accept.json"
+
+status="$(curl --silent --show-error --output "$tmp_dir/declined-queue.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
 test "$status" = "200"
+python3 -c 'import json,sys; assert all(r["rideId"] != sys.argv[1] for r in json.load(sys.stdin)["rides"]), "declined request remained in this driver queue"' "$second_ride_id" < "$tmp_dir/declined-queue.json"
+
+status="$(curl --silent --show-error --output "$tmp_dir/declined-passenger-detail.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$second_ride_id")"
+test "$status" = "200"
+grep -q '"status":"requested"' "$tmp_dir/declined-passenger-detail.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/driver-history.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides/history")"
