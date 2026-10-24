@@ -758,6 +758,19 @@ status="$(curl --silent --show-error --output "$tmp_dir/driver-offline.json" --w
 test "$status" = "200"
 test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM driver_profiles WHERE account_id='$driver_id' AND is_online=false AND current_latitude IS NULL AND current_longitude IS NULL AND last_location_at IS NULL")" = "1"
 
+# A stale unassigned request with no eligible drivers must end in a persisted,
+# visible no-driver outcome rather than remaining pending forever.
+exhausted_ride_id="$(psql -v ON_ERROR_STOP=1 -tAqc "INSERT INTO rides (passenger_id,status,pickup_label,pickup_latitude,pickup_longitude,destination_label,destination_latitude,destination_longitude,route_distance_m,quoted_fare_paise,idempotency_key,created_at) SELECT id,'requested','Exhaustion pickup',28.53,77.35,'Exhaustion destination',28.54,77.36,2500,475,'smoke-dispatch-exhaustion-0001',now()-interval '11 minutes' FROM accounts WHERE email='smoke-passenger@example.test' RETURNING id")"
+test -n "$exhausted_ride_id"
+exhausted_status=""
+for attempt in $(seq 1 30); do
+  exhausted_status="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT status::text FROM rides WHERE id='$exhausted_ride_id'")"
+  if test "$exhausted_status" = "failed"; then break; fi
+  sleep 0.5
+done
+test "$exhausted_status" = "failed"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_events WHERE ride_id='$exhausted_ride_id' AND new_status='failed' AND details->>'reason'='no_eligible_drivers'")" = "1"
+
 # The outbox worker must publish durable ride events and not dead-letter healthy events.
 published_events=0
 for attempt in $(seq 1 20); do
@@ -769,4 +782,4 @@ test "$published_events" -gt 0
 dead_lettered_events="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_event_outbox WHERE dead_lettered_at IS NOT NULL")"
 test "$dead_lettered_events" = "0"
 
-echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, concurrent assignment races, offline location clearing, and outbox publication"
+echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, concurrent assignment races, offline location clearing, bounded no-driver exhaustion, and outbox publication"
