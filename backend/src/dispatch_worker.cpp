@@ -68,7 +68,7 @@ bool dispatch_one(PGconn* db, int radius_meters) {
         command(db,
             "UPDATE ride_offers SET status='expired',responded_at=now() "
             "WHERE status='offered' AND expires_at<=now()");
-        Result ride(PQexec(db,
+        const std::string ride_sql =
             "SELECT r.id::text,r.pickup_latitude::text,r.pickup_longitude::text "
             "FROM rides r WHERE r.status IN ('requested','matching') AND r.driver_id IS NULL "
             "AND NOT EXISTS (SELECT 1 FROM ride_offers o WHERE o.ride_id=r.id AND o.status='offered') "
@@ -83,9 +83,10 @@ bool dispatch_one(PGconn* db, int radius_meters) {
             "AND (6371000.0 * acos(least(1.0::double precision,greatest(-1.0::double precision,"
             "sin(radians(d.current_latitude))*sin(radians(r.pickup_latitude)) + "
             "cos(radians(d.current_latitude))*cos(radians(r.pickup_latitude))*"
-            "cos(radians(r.pickup_longitude-d.current_longitude)))))) <= "
-            + std::to_string(radius_meters) + ") "
-            "ORDER BY r.created_at,r.id FOR UPDATE OF r SKIP LOCKED LIMIT 1"));
+            "cos(radians(r.pickup_longitude-d.current_longitude)))))) <= " +
+            std::to_string(radius_meters) + ") "
+            "ORDER BY r.created_at,r.id FOR UPDATE OF r SKIP LOCKED LIMIT 1";
+        Result ride(PQexec(db, ride_sql.c_str()));
         if (!tuples(ride)) throw std::runtime_error("dispatch worker ride selection failed");
         if (PQntuples(ride.get()) == 0) {
             command(db, "COMMIT");
@@ -94,9 +95,6 @@ bool dispatch_one(PGconn* db, int radius_meters) {
         const std::string ride_id = PQgetvalue(ride.get(), 0, 0);
         const std::string pickup_lat = PQgetvalue(ride.get(), 0, 1);
         const std::string pickup_lon = PQgetvalue(ride.get(), 0, 2);
-        const char* params[] = {ride_id.c_str(), pickup_lat.c_str(), pickup_lon.c_str(),
-                                std::to_string(radius_meters).c_str()};
-        // Store the radius string for the duration of the parameterized call.
         const std::string radius = std::to_string(radius_meters);
         const char* driver_params[] = {ride_id.c_str(), pickup_lat.c_str(), pickup_lon.c_str(), radius.c_str()};
         Result driver(PQexecParams(db,
@@ -116,9 +114,8 @@ bool dispatch_one(PGconn* db, int radius_meters) {
             "sin(radians(d.current_latitude))*sin(radians($2::double precision)) + "
             "cos(radians(d.current_latitude))*cos(radians($2::double precision))*"
             "cos(radians($3::double precision-d.current_longitude)))))) ASC,d.account_id "
-            "FOR UPDATE OF d SKIP LOCKED LIMIT 1",
+            "LIMIT 1",
             4, nullptr, driver_params, nullptr, nullptr, 0));
-        (void)params;
         if (!tuples(driver)) throw std::runtime_error("dispatch worker driver selection failed");
         if (PQntuples(driver.get()) == 0) {
             command(db, "COMMIT");
