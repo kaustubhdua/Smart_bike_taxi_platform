@@ -43,7 +43,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
 
   async function signIn() {
-    if (!apiBase) { setError("Set VITE_API_BASE_URL to connect to the API."); return; }
+    if (apiBase === undefined) { setError("Set VITE_API_BASE_URL to connect to the API."); return; }
     setBusy(true); setError("");
     try {
       const response = await fetch(apiBase + "/api/v1/auth/login", {
@@ -65,7 +65,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   }
 
   async function request(path: string, init: RequestInit = {}) {
-    if (!apiBase || !token) throw new Error("Sign in to continue.");
+    if (apiBase === undefined || !token) throw new Error("Sign in to continue.");
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/json");
     headers.set("Authorization", "Bearer " + token);
@@ -126,7 +126,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   }
 
   useEffect(() => {
-    if (mode !== "driver" || !online || !token || !apiBase) return;
+    if (mode !== "driver" || !online || !token || apiBase === undefined) return;
     let cancelled = false;
     const refreshLocationAndQueue = async () => {
       try {
@@ -205,7 +205,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   }
 
   useEffect(() => {
-    if (mode !== "driver" || !token || !apiBase || !activeRide ||
+    if (mode !== "driver" || !token || apiBase === undefined || !activeRide ||
         ["completed", "cancelled", "failed"].includes(activeRide.status)) return;
     let disposed = false;
     let lastEventId = 0;
