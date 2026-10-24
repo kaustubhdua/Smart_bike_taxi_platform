@@ -300,7 +300,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           : {}),
       });
       if (typeof data.rideId !== "string" || typeof data.status !== "string") throw new Error("The API returned an invalid ride state.");
-      if (action === "accept") setActiveRide({ rideId: data.rideId, status: data.status });
+      if (action !== "decline") setActiveRide({ rideId: data.rideId, status: data.status });
       setRides(current => current.filter(ride => ride.rideId !== rideId));
       setError(action === "decline"
         ? "Request declined for your driver account. The passenger's booking remains active for other drivers."
