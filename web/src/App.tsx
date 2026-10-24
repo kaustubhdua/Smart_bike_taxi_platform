@@ -195,7 +195,7 @@ export default function App() {
   // Use authenticated SSE for low-latency updates and keep REST polling as recovery.
   useEffect(() => {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || account.role !== "passenger" || !ride ||
+    if (base === undefined || !account || account.role !== "passenger" || !ride ||
         ["completed", "cancelled", "failed"].includes(ride.status)) return;
     let inFlight = false;
     let disposed = false;
@@ -331,7 +331,7 @@ export default function App() {
     setNotice("");
     setApiState("checking");
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base) {
+    if (base === undefined) {
       setApiState("offline");
       setNotice("RideForge API is not configured. Set VITE_API_BASE_URL to request quotes and create ride bookings.");
       return;
@@ -392,7 +392,7 @@ export default function App() {
 
   async function authenticate() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base) {
+    if (base === undefined) {
       setNotice("Configure VITE_API_BASE_URL to connect to the RideForge API.");
       return;
     }
@@ -425,7 +425,7 @@ export default function App() {
 
   async function createBooking() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !quote || !account) {
+    if (base === undefined || !quote || !account) {
       setNotice("Get a valid quote and sign in before confirming a ride.");
       return;
     }
@@ -463,7 +463,7 @@ export default function App() {
 
   async function cancelRide() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || !ride) return;
+    if (base === undefined || !account || !ride) return;
     try {
       const response = await fetch(apiUrl(base, "/api/v1/rides/" + encodeURIComponent(ride.rideId) + "/cancel"), {
         method: "POST",
@@ -480,7 +480,7 @@ export default function App() {
 
   async function refreshDriverQueue() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || account.role !== "driver") return;
+    if (base === undefined || !account || account.role !== "driver") return;
     try {
       const response = await fetch(apiUrl(base, "/api/v1/driver/rides"), {
         headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
@@ -495,7 +495,7 @@ export default function App() {
 
   async function toggleDriverAvailability() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || account.role !== "driver") return;
+    if (base === undefined || !account || account.role !== "driver") return;
     const sendAvailability = async (coords: { latitude: number; longitude: number }, online: boolean) => {
       const response = await fetch(apiUrl(base, "/api/v1/driver/availability"), {
         method: "PUT",
@@ -562,7 +562,7 @@ export default function App() {
 
   async function acceptDriverRide(rideId: string) {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account) return;
+    if (base === undefined || !account) return;
     try {
       const response = await fetch(apiUrl(base, "/api/v1/driver/rides/" + encodeURIComponent(rideId) + "/accept"), {
         method: "POST", headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
@@ -580,7 +580,7 @@ export default function App() {
 
   async function advanceDriverRide(nextStatus: "driver_arriving" | "in_progress" | "completed") {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || !driverRide) return;
+    if (base === undefined || !account || !driverRide) return;
     try {
       const response = await fetch(apiUrl(base, "/api/v1/driver/rides/" + encodeURIComponent(driverRide.rideId) + "/status"), {
         method: "PUT",
@@ -599,7 +599,7 @@ export default function App() {
 
   async function loadAdminMetrics() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || account.role !== "admin") return;
+    if (base === undefined || !account || account.role !== "admin") return;
     try {
       const response = await fetch(apiUrl(base, "/api/v1/admin/metrics"), {
         headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
@@ -614,7 +614,7 @@ export default function App() {
 
   async function loadPassengerHistory() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || account.role !== "passenger") return;
+    if (base === undefined || !account || account.role !== "passenger") return;
     setHistoryBusy(true);
     try {
       const response = await fetch(apiUrl(base, "/api/v1/rides"), {
@@ -634,7 +634,7 @@ export default function App() {
 
   async function loadSupportReports() {
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || !["passenger", "driver"].includes(account.role)) return;
+    if (base === undefined || !account || !["passenger", "driver"].includes(account.role)) return;
     try {
       const response = await fetch(apiUrl(base, "/api/v1/support/reports"), {
         headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
@@ -650,7 +650,7 @@ export default function App() {
   async function submitSupportReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (!base || !account || !["passenger", "driver"].includes(account.role)) {
+    if (base === undefined || !account || !["passenger", "driver"].includes(account.role)) {
       setNotice("Sign in as a passenger or driver before submitting a report.");
       return;
     }
