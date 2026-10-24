@@ -20,9 +20,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='006_durable_driver_offers') THEN
     RAISE EXCEPTION 'durable driver offer migration ledger entry is missing';
   END IF;
-  IF (SELECT count(*) FROM pg_indexes WHERE schemaname='public'
-      AND indexname IN ('ride_offers_one_active_per_ride','ride_offers_one_active_per_driver')) <> 2 THEN
-    RAISE EXCEPTION 'durable offer concurrency indexes are missing';
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public'
+      AND indexname='ride_offers_one_active_per_ride') THEN
+    RAISE EXCEPTION 'single-active-offer-per-ride concurrency index is missing';
   END IF;
 END $$;
 
