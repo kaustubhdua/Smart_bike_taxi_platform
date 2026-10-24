@@ -822,6 +822,16 @@ public:
                 throw std::runtime_error("Could not close competing driver offers");
             }
             PQclear(superseded);
+            const char* driver_offer_params[] = {driver_id.c_str(), ride_id.c_str()};
+            PGresult* other_driver_offers = PQexecParams(connection_,
+                "UPDATE ride_offers SET status='superseded',responded_at=now() "
+                "WHERE driver_id=$1::uuid AND ride_id<>$2::uuid AND status='offered'",
+                2, nullptr, driver_offer_params, nullptr, nullptr, 0);
+            if (other_driver_offers == nullptr || PQresultStatus(other_driver_offers) != PGRES_COMMAND_OK) {
+                if (other_driver_offers != nullptr) PQclear(other_driver_offers);
+                throw std::runtime_error("Could not close other offers for assigned driver");
+            }
+            PQclear(other_driver_offers);
             command("COMMIT");
             return json{{"rideId", ride_id}, {"driverId", driver_id}, {"status", "assigned"}};
         } catch (...) {
