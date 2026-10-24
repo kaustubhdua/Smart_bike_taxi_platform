@@ -85,7 +85,7 @@ bool dispatch_one(PGconn* db, int radius_meters) {
             "cos(radians(d.current_latitude))*cos(radians(r.pickup_latitude))*"
             "cos(radians(r.pickup_longitude-d.current_longitude)))))) <= " +
             std::to_string(radius_meters) + ") "
-            "ORDER BY r.created_at,r.id FOR UPDATE OF r SKIP LOCKED LIMIT 1";
+            "ORDER BY r.created_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED";
         Result ride(PQexec(db, ride_sql.c_str()));
         if (!tuples(ride)) throw std::runtime_error("dispatch worker ride selection failed");
         if (PQntuples(ride.get()) == 0) {
