@@ -181,14 +181,16 @@ public:
             "to_regclass('public.ride_event_outbox') IS NOT NULL,"
             "to_regclass('public.support_reports') IS NOT NULL,"
             "to_regclass('public.driver_ride_declines') IS NOT NULL,"
+            "to_regclass('public.ride_offers') IS NOT NULL,"
             "to_regclass('public.schema_migrations') IS NOT NULL,"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='001_initial_schema'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='002_driver_approval_and_outbox'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports'),"
-            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='005_driver_ride_declines')");
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='005_driver_ride_declines'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='006_durable_driver_offers')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 11) {
+            PQntuples(result) != 1 || PQnfields(result) != 13) {
             if (result != nullptr) PQclear(result);
             return false;
         }
@@ -740,6 +742,19 @@ public:
             if (previous != "requested" && previous != "matching") {
                 throw std::domain_error("ride_not_available");
             }
+            const char* offer_params[] = {ride_id.c_str(), driver_id.c_str()};
+            PGresult* active_offer = PQexecParams(connection_,
+                "SELECT id::text FROM ride_offers WHERE ride_id=$1::uuid AND driver_id=$2::uuid "
+                "AND status='offered' AND expires_at>now() FOR UPDATE",
+                2, nullptr, offer_params, nullptr, nullptr, 0);
+            if (active_offer == nullptr || PQresultStatus(active_offer) != PGRES_TUPLES_OK) {
+                if (active_offer != nullptr) PQclear(active_offer);
+                throw std::runtime_error("Could not verify active driver offer");
+            }
+            const bool has_offer = PQntuples(active_offer) == 1;
+            PQclear(active_offer);
+            if (!has_offer) throw std::domain_error("driver_offer_expired_or_unavailable");
+
             const char* decline_params[] = {ride_id.c_str(), driver_id.c_str()};
             PGresult* prior_decline = PQexecParams(connection_,
                 "SELECT 1 FROM driver_ride_declines WHERE ride_id=$1::uuid AND driver_id=$2::uuid",
@@ -787,6 +802,26 @@ public:
                 throw std::runtime_error("Could not record assignment event");
             }
             PQclear(event);
+            PGresult* accepted_offer = PQexecParams(connection_,
+                "UPDATE ride_offers SET status='accepted',responded_at=now() "
+                "WHERE ride_id=$1::uuid AND driver_id=$2::uuid AND status='offered' AND expires_at>now()",
+                2, nullptr, update_params, nullptr, nullptr, 0);
+            if (accepted_offer == nullptr || PQresultStatus(accepted_offer) != PGRES_COMMAND_OK ||
+                std::string(PQcmdTuples(accepted_offer)) != "1") {
+                if (accepted_offer != nullptr) PQclear(accepted_offer);
+                throw std::domain_error("driver_offer_expired_or_unavailable");
+            }
+            PQclear(accepted_offer);
+            const char* supersede_params[] = {ride_id.c_str(), driver_id.c_str()};
+            PGresult* superseded = PQexecParams(connection_,
+                "UPDATE ride_offers SET status='superseded',responded_at=now() "
+                "WHERE ride_id=$1::uuid AND driver_id<>$2::uuid AND status='offered'",
+                2, nullptr, supersede_params, nullptr, nullptr, 0);
+            if (superseded == nullptr || PQresultStatus(superseded) != PGRES_COMMAND_OK) {
+                if (superseded != nullptr) PQclear(superseded);
+                throw std::runtime_error("Could not close competing driver offers");
+            }
+            PQclear(superseded);
             command("COMMIT");
             return json{{"rideId", ride_id}, {"driverId", driver_id}, {"status", "assigned"}};
         } catch (...) {
@@ -862,6 +897,19 @@ public:
                 throw std::domain_error("ride_not_available");
             }
 
+            const char* offer_params[] = {ride_id.c_str(), driver_id.c_str()};
+            PGresult* active_offer = PQexecParams(connection_,
+                "SELECT id::text FROM ride_offers WHERE ride_id=$1::uuid AND driver_id=$2::uuid "
+                "AND status='offered' AND expires_at>now() FOR UPDATE",
+                2, nullptr, offer_params, nullptr, nullptr, 0);
+            if (active_offer == nullptr || PQresultStatus(active_offer) != PGRES_TUPLES_OK) {
+                if (active_offer != nullptr) PQclear(active_offer);
+                throw std::runtime_error("Could not verify active driver offer");
+            }
+            const bool has_offer = PQntuples(active_offer) == 1;
+            PQclear(active_offer);
+            if (!has_offer) throw std::domain_error("driver_offer_expired_or_unavailable");
+
             constexpr double earth_radius_m = 6371000.0;
             constexpr double degrees_to_radians = 3.14159265358979323846 / 180.0;
             const double lat1 = driver_latitude * degrees_to_radians;
@@ -887,6 +935,16 @@ public:
                 throw std::runtime_error("Could not record ride decline");
             }
             PQclear(inserted);
+            PGresult* marked = PQexecParams(connection_,
+                "UPDATE ride_offers SET status='declined',responded_at=now() "
+                "WHERE ride_id=$1::uuid AND driver_id=$2::uuid AND status='offered' AND expires_at>now()",
+                2, nullptr, decline_params, nullptr, nullptr, 0);
+            if (marked == nullptr || PQresultStatus(marked) != PGRES_COMMAND_OK ||
+                std::string(PQcmdTuples(marked)) != "1") {
+                if (marked != nullptr) PQclear(marked);
+                throw std::domain_error("driver_offer_expired_or_unavailable");
+            }
+            PQclear(marked);
             command("COMMIT");
             return json{{"rideId", ride_id}, {"status", "declined"}, {"hiddenForDriver", true}};
         } catch (...) {
