@@ -742,19 +742,6 @@ public:
             if (previous != "requested" && previous != "matching") {
                 throw std::domain_error("ride_not_available");
             }
-            const char* offer_params[] = {ride_id.c_str(), driver_id.c_str()};
-            PGresult* active_offer = PQexecParams(connection_,
-                "SELECT id::text FROM ride_offers WHERE ride_id=$1::uuid AND driver_id=$2::uuid "
-                "AND status='offered' AND expires_at>now() FOR UPDATE",
-                2, nullptr, offer_params, nullptr, nullptr, 0);
-            if (active_offer == nullptr || PQresultStatus(active_offer) != PGRES_TUPLES_OK) {
-                if (active_offer != nullptr) PQclear(active_offer);
-                throw std::runtime_error("Could not verify active driver offer");
-            }
-            const bool has_offer = PQntuples(active_offer) == 1;
-            PQclear(active_offer);
-            if (!has_offer) throw std::domain_error("driver_offer_expired_or_unavailable");
-
             const char* decline_params[] = {ride_id.c_str(), driver_id.c_str()};
             PGresult* prior_decline = PQexecParams(connection_,
                 "SELECT 1 FROM driver_ride_declines WHERE ride_id=$1::uuid AND driver_id=$2::uuid",
@@ -780,6 +767,19 @@ public:
             if (pickup_distance_m > static_cast<double>(dispatch_radius_meters())) {
                 throw std::domain_error("ride_outside_dispatch_radius");
             }
+
+            const char* offer_params[] = {ride_id.c_str(), driver_id.c_str()};
+            PGresult* active_offer = PQexecParams(connection_,
+                "SELECT id::text FROM ride_offers WHERE ride_id=$1::uuid AND driver_id=$2::uuid "
+                "AND status='offered' AND expires_at>now() FOR UPDATE",
+                2, nullptr, offer_params, nullptr, nullptr, 0);
+            if (active_offer == nullptr || PQresultStatus(active_offer) != PGRES_TUPLES_OK) {
+                if (active_offer != nullptr) PQclear(active_offer);
+                throw std::runtime_error("Could not verify active driver offer");
+            }
+            const bool has_offer = PQntuples(active_offer) == 1;
+            PQclear(active_offer);
+            if (!has_offer) throw std::domain_error("driver_offer_expired_or_unavailable");
 
             const char* update_params[] = {ride_id.c_str(), driver_id.c_str()};
             PGresult* updated = PQexecParams(connection_,
