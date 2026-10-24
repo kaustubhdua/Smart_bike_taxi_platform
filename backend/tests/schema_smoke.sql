@@ -14,6 +14,16 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='005_driver_ride_declines') THEN
     RAISE EXCEPTION 'driver decline migration ledger entry is missing';
   END IF;
+  IF to_regclass('public.ride_offers') IS NULL THEN
+    RAISE EXCEPTION 'ride_offers table was not created by migrations';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='006_durable_driver_offers') THEN
+    RAISE EXCEPTION 'durable driver offer migration ledger entry is missing';
+  END IF;
+  IF (SELECT count(*) FROM pg_indexes WHERE schemaname='public'
+      AND indexname IN ('ride_offers_one_active_per_ride','ride_offers_one_active_per_driver')) <> 2 THEN
+    RAISE EXCEPTION 'durable offer concurrency indexes are missing';
+  END IF;
 END $$;
 
 
