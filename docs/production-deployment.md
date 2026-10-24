@@ -1,16 +1,16 @@
 # Self-hosted HTTPS deployment (template)
 
-This is a reproducible single-domain deployment template for a Linux VPS with Docker Engine/Compose v2 and a domain name. It is not a claim that RideForge is already deployed or commercially ready. Do not process real passenger data or real payments until the remaining privacy, safety, legal, provider, and operational gates are completed.
+This is a reproducible two-host deployment template for a Linux VPS with Docker Engine/Compose v2 and a domain name. It is not a claim that RideForge is already deployed or commercially ready. Do not process real passenger data or real payments until the remaining privacy, safety, legal, provider, and operational gates are completed.
 
 ## Topology
 
 ~~~text
 Internet
-  HTTPS :443 / HTTP :80
+  Passenger HTTPS host + Driver HTTPS host
         |
-      Caddy  (automatic TLS, persistent certificate storage)
+      Caddy (automatic TLS for both hosts, persistent certificate storage)
         |
-      Nginx web container :8080
+      Nginx web container :8080 (selects driver workspace by hostname)
         |-- static React app
         `-- /api/* proxy, SSE buffering disabled
                 |
@@ -24,7 +24,7 @@ The Caddy edge is built from upstream Caddy v2.11.7 source with Go 1.26.10 and g
 ## 1. Prepare the host and DNS
 
 1. Use a supported Linux distribution, install Docker Engine and the Docker Compose plugin, and keep the host patched.
-2. Point the domain's A/AAAA records to the VPS. Ensure inbound TCP 80/443 and UDP 443 (optional HTTP/3) are allowed.
+2. Point both the passenger host (RIDEFORGE_DOMAIN) and driver host (RIDEFORGE_DRIVER_DOMAIN) A/AAAA records to the VPS. Ensure inbound TCP 80/443 and UDP 443 (optional HTTP/3) are allowed. Both hosts serve the same built frontend; the driver hostname renders the driver-only workspace, while both use the same API and PostgreSQL records.
 3. Clone the repository at the reviewed release commit. Do not deploy a moving feature branch as a release.
 
 ## 2. Configure secrets and providers
@@ -36,7 +36,7 @@ openssl rand -hex 32
 openssl rand -hex 32
 ~~~
 
-Generate two independent values. Set POSTGRES_PASSWORD to the first value, use that exact same value in DATABASE_URL, and set RIDEFORGE_JWT_SECRET to the second. Set RIDEFORGE_DOMAIN and RIDEFORGE_PUBLIC_ORIGIN to the real domain (the origin includes https://). Set a real contact identifier in RIDEFORGE_USER_AGENT.
+Generate two independent values. Set POSTGRES_PASSWORD to the first value, use that exact same value in DATABASE_URL, and set RIDEFORGE_JWT_SECRET to the second. Set RIDEFORGE_DOMAIN and RIDEFORGE_DRIVER_DOMAIN to the two real DNS hostnames. Set RIDEFORGE_PUBLIC_ORIGIN to the passenger origin (including https://), and set RIDEFORGE_ALLOWED_ORIGINS to the comma-separated exact HTTPS origins for both hosts. The API matches origins exactly; do not use wildcard origins. Set a real contact identifier in RIDEFORGE_USER_AGENT.
 
 The sample public Nominatim/OSRM endpoints are for development/evaluation and do not provide commercial capacity or an uptime agreement. Replace them with contracted or self-hosted services before real-world use. Keep the .env file out of Git and restrict host access.
 
@@ -60,9 +60,10 @@ docker compose -f compose.yaml -f compose.production.yaml logs --tail=200 web
 Verify the deployed build from an external client:
 
 ~~~sh
-curl --fail --show-error https://your-real-domain.example/healthz
-curl --fail --show-error https://your-real-domain.example/api/v1/health
-curl --fail --show-error https://your-real-domain.example/api/v1/ready
+curl --fail --show-error https://your-passenger-domain.example/healthz
+curl --fail --show-error https://your-driver-domain.example/healthz
+curl --fail --show-error https://your-passenger-domain.example/api/v1/health
+curl --fail --show-error https://your-passenger-domain.example/api/v1/ready
 ~~~
 
 Use the real domain in those commands. Complete the passenger-to-driver demo journey and save screenshots and the exact Git SHA separately as release evidence.
@@ -101,4 +102,4 @@ Keep encrypted backups outside the repository and host, define retention/deletio
 - Implement shared rate limiting, database connection pooling, secret rotation, incident response, privacy/retention/deletion, driver/vehicle verification, payment/refund handling if applicable, and legal assessment for the operating state.
 - Do not represent demo payments, support reports, or emergency/safety actions as real services.
 
-The template supplies HTTPS termination and a same-origin routing path; it does not turn the portfolio MVP into an authorized commercial ride-hailing operation.
+The template supplies HTTPS termination for both configured hosts and a same-origin routing path for each; it does not turn the portfolio MVP into an authorized commercial ride-hailing operation.
