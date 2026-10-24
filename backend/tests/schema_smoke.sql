@@ -79,7 +79,7 @@ WHERE ride_id='30000000-0000-4000-8000-000000000003'
 INSERT INTO ride_offers (ride_id,driver_id)
 VALUES ('30000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000001');
 
-DO $
+DO $$
 BEGIN
   BEGIN
     INSERT INTO ride_offers (ride_id,driver_id)
@@ -93,7 +93,7 @@ BEGIN
       AND driver_id='20000000-0000-4000-8000-000000000001') <> 2 THEN
     RAISE EXCEPTION 'Superseded offer history should permit a new attempt';
   END IF;
-END $;
+END $$;
 
 -- Ride state events and durable notification-outbox rows must be atomic.
 INSERT INTO ride_events (ride_id, actor_id, previous_status, new_status, details)
