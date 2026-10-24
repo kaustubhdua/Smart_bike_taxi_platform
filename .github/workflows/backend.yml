@@ -59,7 +59,7 @@ jobs:
       PGDATABASE: rideforge_test
       PGUSER: rideforge
       PGPASSWORD: rideforge_test_password
-      RIDEFORGE_ALLOWED_ORIGIN: http://localhost:5173
+      RIDEFORGE_ALLOWED_ORIGINS: http://localhost:5173,http://driver.localhost:5173
       RIDEFORGE_USER_AGENT: RideForgeGithubActionsSmoke/0.1 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)
       RIDEFORGE_GEOCODING_URL: http://127.0.0.1:8090/search
       RIDEFORGE_ROUTING_URL: http://127.0.0.1:8090/route/v1/driving
