@@ -779,7 +779,7 @@ export default function App() {
               {ride && (
                 <div className="ride-confirmation" role="status">
                   <span className="confirmation-icon"><Check size={17} /></span>
-                  <div><strong>Ride request created</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status}. Updates refresh while this page is visible.</small></div>
+                  <div><strong>{ride.status === "failed" ? "No driver found" : ride.status === "matching" || ride.status === "requested" ? "Finding your driver" : "Ride request created"}</strong><span>Reference: {ride.rideId}</span><small>{ride.status === "failed" ? "We could not find an eligible driver for this request. No ride was assigned; you can request another ride." : `Status: ${ride.status.replaceAll("_", " ")}. Updates refresh while this page is visible.`}</small></div>
                   {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && (
                     <button className="text-action" onClick={cancelRide}>Cancel request</button>
                   )}
