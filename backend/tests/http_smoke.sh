@@ -517,8 +517,16 @@ status="$(curl --silent --show-error --output "$tmp_dir/driver-online.json" --wr
 test "$status" = "200"
 
 # Online drivers with a fresh location can see eligible unassigned ride requests.
-status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-online.json" --write-out '%{http_code}' \
-  --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
+status=""
+for attempt in $(seq 1 20); do
+  status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-online.json" --write-out '%{http_code}' \
+    --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
+  test "$status" = "200"
+  if python3 -c 'import json,sys; ids={r["rideId"] for r in json.load(sys.stdin)["rides"]}; required=set(sys.argv[1:]); raise SystemExit(0 if required.issubset(ids) else 1)' "$ride_id" "$busy_ride_id" "$far_ride_id" < "$tmp_dir/driver-queue-online.json"; then
+    break
+  fi
+  sleep 0.25
+done
 test "$status" = "200"
 radius_meters="$((${RIDEFORGE_DISPATCH_RADIUS_KM:-20} * 1000))"
 python3 -c 'import json,sys; rides=json.load(sys.stdin)["rides"]; ids={r["rideId"] for r in rides}; radius=int(sys.argv[4]); midrange=sys.argv[5]; km=int(sys.argv[6]); assert sys.argv[1] in ids and sys.argv[2] in ids and sys.argv[3] not in ids, "required nearby/far IDs mismatch: " + repr(ids); assert all(0 <= r["pickupDistanceMeters"] <= radius for r in rides), "out-of-radius queue entries: " + repr([(r.get("rideId"),r.get("pickupDistanceMeters")) for r in rides]) + " radius=" + str(radius); assert all(r["farePaise"] > 0 for r in rides); assert (midrange in ids) == (km >= 10), "midrange visibility mismatch: present=" + str(midrange in ids) + " radius_km=" + str(km) + " distances=" + repr([(r.get("rideId"),r.get("pickupDistanceMeters")) for r in rides])' "$ride_id" "$busy_ride_id" "$far_ride_id" "$radius_meters" "$midrange_ride_id" "${RIDEFORGE_DISPATCH_RADIUS_KM:-20}" < "$tmp_dir/driver-queue-online.json"
