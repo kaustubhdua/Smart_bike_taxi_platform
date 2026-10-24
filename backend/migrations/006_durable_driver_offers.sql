@@ -10,8 +10,7 @@ CREATE TABLE IF NOT EXISTS ride_offers (
   offered_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL DEFAULT (now() + interval '45 seconds'),
   responded_at timestamptz,
-  CHECK (expires_at > offered_at),
-  UNIQUE (ride_id, driver_id)
+  CHECK (expires_at > offered_at)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ride_offers_one_active_per_ride
