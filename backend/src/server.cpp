@@ -1191,9 +1191,28 @@ http::response<http::string_body> response(http::status status, const json& body
     if (!request_id.empty()) result.set("X-Request-ID", std::string(request_id.data(), request_id.size()));
     const auto origin_view = request[http::field::origin];
     const std::string origin(origin_view.data(), origin_view.size());
-    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
-    if (!origin.empty() && origin == allowed) {
-        result.set(http::field::access_control_allow_origin, allowed);
+    // Exact-match allowlist for role-specific HTTPS origins. Never reflect an
+    // arbitrary Origin or use a wildcard with bearer-token authentication.
+    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGINS",
+        env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173"));
+    bool origin_allowed = false;
+    std::size_t origin_start = 0;
+    while (origin_start <= allowed.size()) {
+        const std::size_t comma = allowed.find(',', origin_start);
+        std::string candidate = allowed.substr(origin_start,
+            comma == std::string::npos ? std::string::npos : comma - origin_start);
+        const auto first = candidate.find_first_not_of(" \t\r\n");
+        const auto last = candidate.find_last_not_of(" \t\r\n");
+        candidate = first == std::string::npos ? std::string() : candidate.substr(first, last - first + 1);
+        if (!candidate.empty() && origin == candidate) {
+            origin_allowed = true;
+            break;
+        }
+        if (comma == std::string::npos) break;
+        origin_start = comma + 1;
+    }
+    if (!origin.empty() && origin_allowed) {
+        result.set(http::field::access_control_allow_origin, origin);
         result.set(http::field::vary, "Origin");
     }
     result.body() = body.dump();
