@@ -1193,8 +1193,10 @@ http::response<http::string_body> response(http::status status, const json& body
     const std::string origin(origin_view.data(), origin_view.size());
     // Exact-match allowlist for role-specific HTTPS origins. Never reflect an
     // arbitrary Origin or use a wildcard with bearer-token authentication.
-    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGINS",
-        env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173"));
+    const std::string allowed_origins = env_or("RIDEFORGE_ALLOWED_ORIGINS", "");
+    const std::string allowed = allowed_origins.empty()
+        ? env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173")
+        : allowed_origins;
     bool origin_allowed = false;
     std::size_t origin_start = 0;
     while (origin_start <= allowed.size()) {
@@ -1451,8 +1453,10 @@ bool stream_ride_events(beast::tcp_stream& stream,
     header.set("X-Content-Type-Options", "nosniff");
     const auto origin_view = request[http::field::origin];
     const std::string origin(origin_view.data(), origin_view.size());
-    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGINS",
-        env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173"));
+    const std::string allowed_origins = env_or("RIDEFORGE_ALLOWED_ORIGINS", "");
+    const std::string allowed = allowed_origins.empty()
+        ? env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173")
+        : allowed_origins;
     bool origin_allowed = false;
     std::size_t origin_start = 0;
     while (origin_start <= allowed.size()) {
@@ -1609,8 +1613,10 @@ void handle_request(tcp::socket socket) {
         result.set("X-Request-ID", request_id);
         const auto origin_view = request[http::field::origin];
         const std::string origin(origin_view.data(), origin_view.size());
-        const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGINS",
-            env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173"));
+        const std::string allowed_origins = env_or("RIDEFORGE_ALLOWED_ORIGINS", "");
+        const std::string allowed = allowed_origins.empty()
+            ? env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173")
+            : allowed_origins;
         bool origin_allowed = false;
         std::size_t origin_start = 0;
         while (origin_start <= allowed.size()) {
