@@ -807,31 +807,57 @@ public:
         };
         command("BEGIN");
         try {
-            const char* params[] = {ride_id.c_str(), driver_id.c_str()};
-            PGresult* candidate = PQexecParams(connection_,
-                "SELECT r.status::text,r.driver_id::text,r.pickup_latitude::text,"
-                "r.pickup_longitude::text,d.current_latitude::text,d.current_longitude::text "
-                "FROM rides r JOIN driver_profiles d ON d.account_id=$2::uuid "
-                "WHERE r.id=$1::uuid AND d.is_approved=true AND d.is_online=true "
-                "AND d.last_location_at>now()-interval '5 minutes' "
-                "AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL "
-                "FOR UPDATE OF r,d",
-                2, nullptr, params, nullptr, nullptr, 0);
-            if (candidate == nullptr || PQresultStatus(candidate) != PGRES_TUPLES_OK) {
-                if (candidate != nullptr) PQclear(candidate);
-                throw std::runtime_error("Could not lock ride for decline");
+            // Match accept_ride's lock order (driver first, then ride) to avoid
+            // a decline/accept deadlock when both actions race.
+            const char* driver_params[] = {driver_id.c_str()};
+            PGresult* driver = PQexecParams(connection_,
+                "SELECT current_latitude::text,current_longitude::text "
+                "FROM driver_profiles WHERE account_id=$1::uuid "
+                "AND is_approved=true AND is_online=true AND last_location_at>now()-interval '5 minutes' "
+                "AND current_latitude IS NOT NULL AND current_longitude IS NOT NULL FOR UPDATE",
+                1, nullptr, driver_params, nullptr, nullptr, 0);
+            if (driver == nullptr || PQresultStatus(driver) != PGRES_TUPLES_OK) {
+                if (driver != nullptr) PQclear(driver);
+                throw std::runtime_error("Could not lock driver profile");
             }
-            if (PQntuples(candidate) != 1) {
-                PQclear(candidate);
-                throw std::domain_error("ride_not_found_or_driver_unavailable");
+            if (PQntuples(driver) != 1) {
+                PQclear(driver);
+                throw std::domain_error("driver_unavailable");
             }
-            const std::string status = PQgetvalue(candidate, 0, 0);
-            const bool already_assigned = !PQgetisnull(candidate, 0, 1);
-            const double pickup_latitude = std::stod(PQgetvalue(candidate, 0, 2));
-            const double pickup_longitude = std::stod(PQgetvalue(candidate, 0, 3));
-            const double driver_latitude = std::stod(PQgetvalue(candidate, 0, 4));
-            const double driver_longitude = std::stod(PQgetvalue(candidate, 0, 5));
-            PQclear(candidate);
+            const double driver_latitude = std::stod(PQgetvalue(driver, 0, 0));
+            const double driver_longitude = std::stod(PQgetvalue(driver, 0, 1));
+            PQclear(driver);
+
+            PGresult* active = PQexecParams(connection_,
+                "SELECT id::text FROM rides WHERE driver_id=$1::uuid "
+                "AND status IN ('assigned','driver_arriving','in_progress') LIMIT 1",
+                1, nullptr, driver_params, nullptr, nullptr, 0);
+            if (active == nullptr || PQresultStatus(active) != PGRES_TUPLES_OK) {
+                if (active != nullptr) PQclear(active);
+                throw std::runtime_error("Could not check active driver rides");
+            }
+            const bool has_active = PQntuples(active) > 0;
+            PQclear(active);
+            if (has_active) throw std::domain_error("driver_has_active_ride");
+
+            const char* ride_params[] = {ride_id.c_str()};
+            PGresult* ride = PQexecParams(connection_,
+                "SELECT status::text,driver_id::text,pickup_latitude::text,pickup_longitude::text "
+                "FROM rides WHERE id=$1::uuid FOR UPDATE",
+                1, nullptr, ride_params, nullptr, nullptr, 0);
+            if (ride == nullptr || PQresultStatus(ride) != PGRES_TUPLES_OK) {
+                if (ride != nullptr) PQclear(ride);
+                throw std::runtime_error("Could not lock ride");
+            }
+            if (PQntuples(ride) != 1) {
+                PQclear(ride);
+                throw std::domain_error("ride_not_found");
+            }
+            const std::string status = PQgetvalue(ride, 0, 0);
+            const bool already_assigned = !PQgetisnull(ride, 0, 1);
+            const double pickup_latitude = std::stod(PQgetvalue(ride, 0, 2));
+            const double pickup_longitude = std::stod(PQgetvalue(ride, 0, 3));
+            PQclear(ride);
             if ((status != "requested" && status != "matching") || already_assigned) {
                 throw std::domain_error("ride_not_available");
             }
@@ -851,22 +877,11 @@ public:
                 throw std::domain_error("ride_outside_dispatch_radius");
             }
 
-            PGresult* active = PQexecParams(connection_,
-                "SELECT id::text FROM rides WHERE driver_id=$1::uuid "
-                "AND status IN ('assigned','driver_arriving','in_progress') LIMIT 1",
-                1, nullptr, &params[1], nullptr, nullptr, 0);
-            if (active == nullptr || PQresultStatus(active) != PGRES_TUPLES_OK) {
-                if (active != nullptr) PQclear(active);
-                throw std::runtime_error("Could not check active driver rides");
-            }
-            const bool has_active = PQntuples(active) > 0;
-            PQclear(active);
-            if (has_active) throw std::domain_error("driver_has_active_ride");
-
+            const char* decline_params[] = {ride_id.c_str(), driver_id.c_str()};
             PGresult* inserted = PQexecParams(connection_,
                 "INSERT INTO driver_ride_declines (ride_id,driver_id) "
                 "VALUES ($1::uuid,$2::uuid) ON CONFLICT (ride_id,driver_id) DO NOTHING",
-                2, nullptr, params, nullptr, nullptr, 0);
+                2, nullptr, decline_params, nullptr, nullptr, 0);
             if (inserted == nullptr || PQresultStatus(inserted) != PGRES_COMMAND_OK) {
                 if (inserted != nullptr) PQclear(inserted);
                 throw std::runtime_error("Could not record ride decline");
