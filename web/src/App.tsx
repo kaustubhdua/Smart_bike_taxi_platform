@@ -44,7 +44,8 @@ export default function App() {
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [driverOnline, setDriverOnline] = useState(false);
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [driverQueue, setDriverQueue] = useState<Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number }>>([]);
+  const [driverQueue, setDriverQueue] = useState<Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number; offerExpiresAt?: string }>>([]);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [driverRide, setDriverRide] = useState<{ rideId: string; status: string } | null>(null);
   const [adminMetrics, setAdminMetrics] = useState<{ onlineDrivers: number; ridesByStatus: Record<string, number> } | null>(null);
   const [supportCategory, setSupportCategory] = useState("technical");
@@ -318,6 +319,12 @@ export default function App() {
     };
   }, [account?.token, account?.role, ride?.rideId]);
 
+  // Keep offer countdowns synchronized with the browser clock; server-side expiry remains authoritative.
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // Keep the driver's queue fresh without polling in a hidden tab or while offline.
   useEffect(() => {
     if (account?.role !== "driver" || !driverOnline) return;
@@ -485,7 +492,7 @@ export default function App() {
       const response = await fetch(apiUrl(base, "/api/v1/driver/rides"), {
         headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
       });
-      const data = await response.json() as { rides?: Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number }>; error?: string };
+      const data = await response.json() as { rides?: Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number; offerExpiresAt?: string }>; error?: string };
       if (!response.ok || !data.rides) throw new Error(data.error || "Could not load the driver queue.");
       setDriverQueue(data.rides);
     } catch (error) {
@@ -797,10 +804,14 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="driver-queue">
-                      {driverQueue.map(item => <article className="driver-queue-item" key={item.rideId}>
-                        <div><strong>{item.pickup} → {item.destination}</strong><small>{(item.distanceMeters / 1000).toFixed(1)} km · ₹{(item.farePaise / 100).toFixed(2)}</small></div>
-                        <button onClick={() => acceptDriverRide(item.rideId)} disabled={!driverOnline}>Accept</button>
-                      </article>)}
+                      {driverQueue.map(item => {
+                        const expiresAt = item.offerExpiresAt ? Date.parse(item.offerExpiresAt) : Number.NaN;
+                        const secondsLeft = Number.isFinite(expiresAt) ? Math.max(0, Math.ceil((expiresAt - clockNow) / 1000)) : null;
+                        return <article className="driver-queue-item" key={item.rideId}>
+                          <div><strong>{item.pickup} → {item.destination}</strong><small>{(item.distanceMeters / 1000).toFixed(1)} km · ₹{(item.farePaise / 100).toFixed(2)}</small><small role="timer" aria-live="off">{secondsLeft === null ? "Offer expires soon" : secondsLeft > 0 ? `Offer expires in ${secondsLeft}s` : "Offer expired — refreshing…"}</small></div>
+                          <button onClick={() => acceptDriverRide(item.rideId)} disabled={!driverOnline || secondsLeft === 0}>Accept</button>
+                        </article>;
+                      })}
                       {driverQueue.length === 0 && <p className="auth-caption">{driverOnline ? "No open requests right now. Refresh to check again." : "Go online to update your location and see open requests."}</p>}
                     </div>
                   )}
