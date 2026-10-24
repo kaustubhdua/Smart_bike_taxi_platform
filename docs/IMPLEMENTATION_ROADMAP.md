@@ -74,7 +74,8 @@ Acceptance: a newly created driver cannot go online until explicitly approved; s
 - [x] Persist driver-specific decline decisions and test that declining never cancels the passenger's booking.
 - [x] Refresh driver coordinates while online with movement-aware updates and a 30-second freshness heartbeat; clear stored coordinates and timestamp when going offline/logout. [ ] Define and verify a retention/deletion policy for account data.
 - [ ] Rank eligible drivers by configured distance/ETA policy, with a provider adapter and timeout/failure behavior.
-- [ ] Test duplicate, delayed and out-of-order event delivery. [ ] Add a durable offer table, expiry worker and bounded automatic redispatch; the current queue-based decline is not a time-limited offer scheduler.
+- [ ] Test duplicate, delayed and out-of-order event delivery.
+- [ ] Add a durable offer table, expiry worker and bounded automatic redispatch; the current queue-based decline is not a time-limited offer scheduler.
 
 Acceptance: passenger and driver converge on the same persisted ride state after refresh, disconnect, reconnect and duplicate events.
 
