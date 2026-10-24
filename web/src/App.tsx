@@ -23,6 +23,7 @@ function apiUrl(base: string, path: string): string {
 
 export default function App() {
   const reduceMotion = useReducedMotion();
+  const showInternalWorkspaces = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const [pickup, setPickup] = useState(locations[0]);
   const [destination, setDestination] = useState(locations[2]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -692,8 +693,8 @@ export default function App() {
         </a>
         <nav className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
           <button className={mode === "ride" ? "nav-link active" : "nav-link"} onClick={() => { setMode("ride"); setMenuOpen(false); }}>Book a ride</button>
-          <button className={mode === "driver" ? "nav-link active" : "nav-link"} onClick={() => { setMode("driver"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Drive with us</button>
-          <button className={mode === "admin" ? "nav-link active" : "nav-link"} onClick={() => { setMode("admin"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Admin console</button>
+          {showInternalWorkspaces && <button className={mode === "driver" ? "nav-link active" : "nav-link"} onClick={() => { setMode("driver"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Driver workspace (local)</button>}
+          {showInternalWorkspaces && <button className={mode === "admin" ? "nav-link active" : "nav-link"} onClick={() => { setMode("admin"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Admin console (local)</button>
           <button className={mode === "insights" ? "nav-link active" : "nav-link"} onClick={() => { setMode("insights"); setMenuOpen(false); setNotice(""); document.getElementById("lab")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); }}>How it works</button>
         </nav>
         <div className="header-actions"><a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety first</a><button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button><button className="header-cta" onClick={scrollToBooking}>Get moving <ArrowUpRight size={16} /></button></div>
