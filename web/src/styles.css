@@ -33,8 +33,8 @@
 .ride-confirmation strong{font-size:13px;color:#213b2a}
 .ride-confirmation span,.ride-confirmation small{overflow-wrap:anywhere;font-size:11px;color:#49604e}
 .ride-confirmation .text-action{align-self:center}
-.ride-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.ride-actions .text-action{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.ride-confirmation>.ride-actions{display:flex;flex:0 0 auto;align-items:center;gap:8px;flex-wrap:wrap}
+.ride-confirmation>.ride-actions .text-action{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 
 .button-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
 .button-row .book-button,.button-row .outline-button{width:100%;margin:0;min-width:0}
@@ -47,7 +47,7 @@
 #operations .location-fields{margin:16px 0}
 #operations .outline-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px}
 #operations .card-heading .text-action{flex:none}
-@media(max-width:560px){#operations .ride-confirmation{flex-wrap:wrap}#operations .ride-confirmation .text-action{margin-left:40px}}
+@media(max-width:560px){#operations .ride-confirmation{flex-wrap:wrap}#operations .ride-confirmation>.text-action{margin-left:40px}}
 
 .driver-panel{display:grid;gap:13px;margin-top:16px;padding:16px;border:1px solid #d8e3dc;border-radius:16px;background:#f6faf7}
 .driver-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
