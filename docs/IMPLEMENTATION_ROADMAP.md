@@ -36,7 +36,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Configure the aggregate release-readiness workflow to run on pull requests and include C++/sanitizer/benchmark, API integration (5 km and 20 km), PostgreSQL migration/recovery, web/Playwright/axe, dependency audit, CodeQL, container/Compose and CRITICAL/HIGH container scanning. [ ] Confirm every required check is green on the exact latest PR head after final changes.
 - [x] Reconcile the web README with implemented booking/auth/driver workflows and document the per-driver decline contract in OpenAPI.
 - [x] Merge release-hardening PR #9 after all 13 aggregate release-readiness jobs passed on tested head `d0cab5d11bab857190f7232ffecc501ae0d5bca3`.
-- [ ] Re-run the release gate on the exact candidate release SHA after any subsequent code changes; a successful earlier SHA is not evidence for later commits.
+- [ ] Re-run the release gate on the exact candidate release SHA after any subsequent code changes; a successful earlier SHA is not evidence for later commits. Durable-offer PR #13 has been opened and its checks are pending.
 - [x] CI applies all versioned migrations, re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; Compose/container validation passes on the recorded SHA.
 
 Acceptance: every required current-head check is green; migrations 001–005 apply in order and a second migration run is a no-op.
@@ -77,7 +77,7 @@ Acceptance: a newly created driver cannot go online until explicitly approved; s
 - [x] Refresh driver coordinates while online with movement-aware updates and a 30-second freshness heartbeat; clear stored coordinates and timestamp when going offline/logout. [ ] Define and verify a retention/deletion policy for account data.
 - [ ] Rank eligible drivers by configured distance/ETA policy, with a provider adapter and timeout/failure behavior.
 - [ ] Test duplicate, delayed and out-of-order event delivery.
-- [ ] Add a durable offer table, expiry worker and bounded automatic redispatch; the current queue-based decline is not a time-limited offer scheduler.
+- [x] Add a durable offer table, expiry worker and bounded automatic redispatch; offers expire after 45 seconds, and acceptance/decline require a live offer. API smoke tests cover persisted accepted/declined offer state. [ ] Add dedicated expiry/redispatch stress tests and load-test multiple worker replicas.
 
 Acceptance: passenger and driver converge on the same persisted ride state after refresh, disconnect, reconnect and duplicate events.
 
