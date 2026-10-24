@@ -1733,16 +1733,21 @@ void handle_request(tcp::socket socket) {
             const std::string prefix = "/api/v1/driver/rides/";
             const bool accepting = path.size() > prefix.size() + 7 &&
                 path.substr(path.size() - 7) == "/accept";
+            const bool declining = path.size() > prefix.size() + 8 &&
+                path.substr(path.size() - 8) == "/decline";
             const bool changing_status = path.size() > prefix.size() + 7 &&
                 path.substr(path.size() - 7) == "/status";
-            if (!accepting && !changing_status) {
+            if (!accepting && !declining && !changing_status) {
                 result = response(http::status::not_found, {{"error", "not_found"}}, request);
             } else {
-                const std::string ride_id = path.substr(prefix.size(), path.size() - prefix.size() - 7);
+                const std::size_t suffix_size = declining ? 8 : 7;
+                const std::string ride_id = path.substr(prefix.size(), path.size() - prefix.size() - suffix_size);
                 try {
                     Database database(env_or("DATABASE_URL", ""));
                     if (accepting) {
                         result = response(http::status::ok, database.accept_ride(ride_id, claims->subject), request);
+                    } else if (declining) {
+                        result = response(http::status::ok, database.decline_ride(ride_id, claims->subject), request);
                     } else {
                         if (request.body().size() > 4096) throw std::invalid_argument("request_too_large");
                         const auto body = json::parse(request.body());
@@ -1917,6 +1922,10 @@ void handle_request(tcp::socket socket) {
                path.rfind("/api/v1/driver/rides/", 0) == 0 &&
                path.size() > 7 && path.substr(path.size() - 7) == "/accept") {
         result = handle_driver_accept(request, path);
+    } else if (request.method() == http::verb::post &&
+               path.rfind("/api/v1/driver/rides/", 0) == 0 &&
+               path.size() > 8 && path.substr(path.size() - 8) == "/decline") {
+        result = handle_driver_decline(request, path);
     } else if (request.method() == http::verb::put &&
                path.rfind("/api/v1/driver/rides/", 0) == 0 &&
                path.size() > 7 && path.substr(path.size() - 7) == "/status") {
