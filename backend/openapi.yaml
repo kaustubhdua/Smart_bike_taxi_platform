@@ -177,7 +177,7 @@ paths:
         "403": { description: Driver role required }
   /driver/rides:
     get:
-      summary: List unassigned requests within the configured dispatch radius for an approved driver with a fresh online location, ranked by pickup distance
+      summary: List active, unexpired 45-second ride offers for an approved driver with a fresh online location, ranked by pickup distance
       responses:
         "200":
           description: Available ride queue
