@@ -23,7 +23,7 @@ curl --fail --show-error http://localhost:8080/api/v1/health
 curl --fail --show-error http://localhost:8080/api/v1/ready
 ```
 
-The migration service applies all ordered SQL files in backend/migrations and exits only after pending migrations succeed. The API waits for migration completion and database readiness. The web app is exposed on port 5173 and the API on port 8080. Compose sets `PGCONNECT_TIMEOUT=5` for PostgreSQL clients so connection establishment fails promptly instead of hanging indefinitely. This is a connection timeout, not a query timeout or connection pool; the single-process demo should not be horizontally scaled without a shared pool and concurrency/load testing.
+The migration service applies all ordered SQL files in backend/migrations (including the durable-offer schema) and exits only after pending migrations succeed. The dispatch worker issues one 45-second offer at a time per ride, expires unanswered offers, and tries the next eligible driver. Inspect its logs if unassigned rides are not progressing; the demo has no external paging/dispatch SLA. The API waits for migration completion and database readiness. The web app is exposed on port 5173 and the API on port 8080. Compose sets `PGCONNECT_TIMEOUT=5` for PostgreSQL clients so connection establishment fails promptly instead of hanging indefinitely. This is a connection timeout, not a query timeout or connection pool; the single-process demo should not be horizontally scaled without a shared pool and concurrency/load testing.
 
 ## Stop and inspect
 
