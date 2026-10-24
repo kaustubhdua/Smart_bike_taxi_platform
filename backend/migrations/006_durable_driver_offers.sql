@@ -16,8 +16,6 @@ CREATE TABLE IF NOT EXISTS ride_offers (
 
 CREATE UNIQUE INDEX IF NOT EXISTS ride_offers_one_active_per_ride
   ON ride_offers (ride_id) WHERE status = 'offered';
-CREATE UNIQUE INDEX IF NOT EXISTS ride_offers_one_active_per_driver
-  ON ride_offers (driver_id) WHERE status = 'offered';
 CREATE INDEX IF NOT EXISTS ride_offers_expiry
   ON ride_offers (expires_at) WHERE status = 'offered';
 CREATE INDEX IF NOT EXISTS ride_offers_by_driver
