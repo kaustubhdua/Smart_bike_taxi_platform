@@ -28,6 +28,8 @@ http::response<http::string_body> handle_driver_queue(
         "AND d.is_approved=true AND d.is_online=true "
         "AND d.last_location_at>now()-interval '5 minutes' "
         "AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL "
+        "AND NOT EXISTS (SELECT 1 FROM driver_ride_declines declined "
+        "WHERE declined.ride_id=r.id AND declined.driver_id=d.account_id) "
         "AND NOT EXISTS (SELECT 1 FROM rides active WHERE active.driver_id=d.account_id "
         "AND active.status IN ('assigned','driver_arriving','in_progress'))) "
         "SELECT ride_id,pickup_label,destination_label,route_distance_m,fare_paise,created_at,"

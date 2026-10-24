@@ -139,7 +139,7 @@ The outbox worker handles `SIGTERM` and `SIGINT`, finishes the current database 
 
 ## Dispatch radius configuration
 
-The API reads `RIDEFORGE_DISPATCH_RADIUS_KM` at startup (integer 1–100, default 20). The driver queue and acceptance transaction use the same value. CI exercises 5 km and 20 km configurations against a fixture between those radii; invalid values must fail startup. The radius is a great-circle eligibility bound and does not replace road-ETA dispatch or operational tuning.
+The API reads `RIDEFORGE_DISPATCH_RADIUS_KM` at startup (integer 1–100, default 20). The driver queue, acceptance transaction and decline validation use the same value. CI exercises 5 km and 20 km configurations against a fixture between those radii; invalid values must fail startup. The radius is a great-circle eligibility bound and does not replace road-ETA dispatch or operational tuning.
 
 ## Support report operations
 
@@ -147,4 +147,4 @@ Passengers and drivers can submit a report through `POST /api/v1/support/reports
 
 ## Self-hosted HTTPS deployment template
 
-A production-oriented Compose overlay and Caddy TLS configuration are provided in docs/production-deployment.md. It keeps PostgreSQL and the API bound to the private Compose network/loopback, proxies same-origin /api/ traffic (including SSE) through Nginx, and exposes only the Caddy HTTP/HTTPS edge. The template does not make public Nominatim/OSRM suitable for commercial use and does not constitute a verified production deployment.
+A production-oriented Compose overlay and Caddy TLS configuration are provided in docs/production-deployment.md. Caddy serves separate passenger and driver hostnames to the same frontend image; the frontend renders the driver-only workspace when the hostname begins with `driver.`. Both hosts proxy same-origin `/api/` traffic (including SSE) to the same API and PostgreSQL data. Set `RIDEFORGE_DOMAIN`, `RIDEFORGE_DRIVER_DOMAIN`, and `RIDEFORGE_ALLOWED_ORIGINS` to the real values before deployment. Keep the allowlist exact—never use `*`. PostgreSQL remains private and only Caddy exposes public HTTP/HTTPS. This is a template, not proof of a live deployment, and it does not make public Nominatim/OSRM suitable for commercial use.

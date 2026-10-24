@@ -180,18 +180,20 @@ public:
             "to_regclass('public.rides') IS NOT NULL,"
             "to_regclass('public.ride_event_outbox') IS NOT NULL,"
             "to_regclass('public.support_reports') IS NOT NULL,"
+            "to_regclass('public.driver_ride_declines') IS NOT NULL,"
             "to_regclass('public.schema_migrations') IS NOT NULL,"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='001_initial_schema'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='002_driver_approval_and_outbox'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters'),"
-            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports')");
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='005_driver_ride_declines')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 9) {
+            PQntuples(result) != 1 || PQnfields(result) != 11) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 9; ++column) {
+        for (int column = 0; column < 11; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
@@ -537,6 +539,8 @@ public:
             "AND d.is_approved=true AND d.is_online=true "
             "AND d.last_location_at>now()-interval '5 minutes' "
             "AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL "
+            "AND NOT EXISTS (SELECT 1 FROM driver_ride_declines declined "
+            "WHERE declined.ride_id=r.id AND declined.driver_id=d.account_id) "
             "AND NOT EXISTS (SELECT 1 FROM rides active WHERE active.driver_id=d.account_id "
             "AND active.status IN ('assigned','driver_arriving','in_progress'))) "
             "SELECT ride_id,pickup_label,destination_label,route_distance_m,fare_paise,created_at,"
@@ -736,6 +740,17 @@ public:
             if (previous != "requested" && previous != "matching") {
                 throw std::domain_error("ride_not_available");
             }
+            const char* decline_params[] = {ride_id.c_str(), driver_id.c_str()};
+            PGresult* prior_decline = PQexecParams(connection_,
+                "SELECT 1 FROM driver_ride_declines WHERE ride_id=$1::uuid AND driver_id=$2::uuid",
+                2, nullptr, decline_params, nullptr, nullptr, 0);
+            if (prior_decline == nullptr || PQresultStatus(prior_decline) != PGRES_TUPLES_OK) {
+                if (prior_decline != nullptr) PQclear(prior_decline);
+                throw std::runtime_error("Could not verify prior ride decline");
+            }
+            const bool declined = PQntuples(prior_decline) > 0;
+            PQclear(prior_decline);
+            if (declined) throw std::domain_error("ride_previously_declined");
             constexpr double earth_radius_m = 6371000.0;
             constexpr double degrees_to_radians = 3.14159265358979323846 / 180.0;
             const double lat1 = driver_latitude * degrees_to_radians;
@@ -774,6 +789,106 @@ public:
             PQclear(event);
             command("COMMIT");
             return json{{"rideId", ride_id}, {"driverId", driver_id}, {"status", "assigned"}};
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
+    json decline_ride(const std::string& ride_id, const std::string& driver_id) {
+        const auto command = [this](const char* sql) {
+            PGresult* result = PQexec(connection_, sql);
+            if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Database transaction command failed");
+            }
+            PQclear(result);
+        };
+        command("BEGIN");
+        try {
+            // Match accept_ride's lock order (driver first, then ride) to avoid
+            // a decline/accept deadlock when both actions race.
+            const char* driver_params[] = {driver_id.c_str()};
+            PGresult* driver = PQexecParams(connection_,
+                "SELECT current_latitude::text,current_longitude::text "
+                "FROM driver_profiles WHERE account_id=$1::uuid "
+                "AND is_approved=true AND is_online=true AND last_location_at>now()-interval '5 minutes' "
+                "AND current_latitude IS NOT NULL AND current_longitude IS NOT NULL FOR UPDATE",
+                1, nullptr, driver_params, nullptr, nullptr, 0);
+            if (driver == nullptr || PQresultStatus(driver) != PGRES_TUPLES_OK) {
+                if (driver != nullptr) PQclear(driver);
+                throw std::runtime_error("Could not lock driver profile");
+            }
+            if (PQntuples(driver) != 1) {
+                PQclear(driver);
+                throw std::domain_error("driver_unavailable");
+            }
+            const double driver_latitude = std::stod(PQgetvalue(driver, 0, 0));
+            const double driver_longitude = std::stod(PQgetvalue(driver, 0, 1));
+            PQclear(driver);
+
+            PGresult* active = PQexecParams(connection_,
+                "SELECT id::text FROM rides WHERE driver_id=$1::uuid "
+                "AND status IN ('assigned','driver_arriving','in_progress') LIMIT 1",
+                1, nullptr, driver_params, nullptr, nullptr, 0);
+            if (active == nullptr || PQresultStatus(active) != PGRES_TUPLES_OK) {
+                if (active != nullptr) PQclear(active);
+                throw std::runtime_error("Could not check active driver rides");
+            }
+            const bool has_active = PQntuples(active) > 0;
+            PQclear(active);
+            if (has_active) throw std::domain_error("driver_has_active_ride");
+
+            const char* ride_params[] = {ride_id.c_str()};
+            PGresult* ride = PQexecParams(connection_,
+                "SELECT status::text,driver_id::text,pickup_latitude::text,pickup_longitude::text "
+                "FROM rides WHERE id=$1::uuid FOR UPDATE",
+                1, nullptr, ride_params, nullptr, nullptr, 0);
+            if (ride == nullptr || PQresultStatus(ride) != PGRES_TUPLES_OK) {
+                if (ride != nullptr) PQclear(ride);
+                throw std::runtime_error("Could not lock ride");
+            }
+            if (PQntuples(ride) != 1) {
+                PQclear(ride);
+                throw std::domain_error("ride_not_found");
+            }
+            const std::string status = PQgetvalue(ride, 0, 0);
+            const bool already_assigned = !PQgetisnull(ride, 0, 1);
+            const double pickup_latitude = std::stod(PQgetvalue(ride, 0, 2));
+            const double pickup_longitude = std::stod(PQgetvalue(ride, 0, 3));
+            PQclear(ride);
+            if ((status != "requested" && status != "matching") || already_assigned) {
+                throw std::domain_error("ride_not_available");
+            }
+
+            constexpr double earth_radius_m = 6371000.0;
+            constexpr double degrees_to_radians = 3.14159265358979323846 / 180.0;
+            const double lat1 = driver_latitude * degrees_to_radians;
+            const double lat2 = pickup_latitude * degrees_to_radians;
+            const double delta_lat = (pickup_latitude - driver_latitude) * degrees_to_radians;
+            const double delta_lon = (pickup_longitude - driver_longitude) * degrees_to_radians;
+            const double haversine = std::clamp(
+                std::sin(delta_lat / 2.0) * std::sin(delta_lat / 2.0) +
+                std::cos(lat1) * std::cos(lat2) *
+                std::sin(delta_lon / 2.0) * std::sin(delta_lon / 2.0), 0.0, 1.0);
+            const double pickup_distance_m = 2.0 * earth_radius_m * std::asin(std::sqrt(haversine));
+            if (pickup_distance_m > static_cast<double>(dispatch_radius_meters())) {
+                throw std::domain_error("ride_outside_dispatch_radius");
+            }
+
+            const char* decline_params[] = {ride_id.c_str(), driver_id.c_str()};
+            PGresult* inserted = PQexecParams(connection_,
+                "INSERT INTO driver_ride_declines (ride_id,driver_id) "
+                "VALUES ($1::uuid,$2::uuid) ON CONFLICT (ride_id,driver_id) DO NOTHING",
+                2, nullptr, decline_params, nullptr, nullptr, 0);
+            if (inserted == nullptr || PQresultStatus(inserted) != PGRES_COMMAND_OK) {
+                if (inserted != nullptr) PQclear(inserted);
+                throw std::runtime_error("Could not record ride decline");
+            }
+            PQclear(inserted);
+            command("COMMIT");
+            return json{{"rideId", ride_id}, {"status", "declined"}, {"hiddenForDriver", true}};
         } catch (...) {
             PGresult* rollback = PQexec(connection_, "ROLLBACK");
             if (rollback != nullptr) PQclear(rollback);
@@ -1076,9 +1191,30 @@ http::response<http::string_body> response(http::status status, const json& body
     if (!request_id.empty()) result.set("X-Request-ID", std::string(request_id.data(), request_id.size()));
     const auto origin_view = request[http::field::origin];
     const std::string origin(origin_view.data(), origin_view.size());
-    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
-    if (!origin.empty() && origin == allowed) {
-        result.set(http::field::access_control_allow_origin, allowed);
+    // Exact-match allowlist for role-specific HTTPS origins. Never reflect an
+    // arbitrary Origin or use a wildcard with bearer-token authentication.
+    const std::string allowed_origins = env_or("RIDEFORGE_ALLOWED_ORIGINS", "");
+    const std::string allowed = allowed_origins.empty()
+        ? env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173")
+        : allowed_origins;
+    bool origin_allowed = false;
+    std::size_t origin_start = 0;
+    while (origin_start <= allowed.size()) {
+        const std::size_t comma = allowed.find(',', origin_start);
+        std::string candidate = allowed.substr(origin_start,
+            comma == std::string::npos ? std::string::npos : comma - origin_start);
+        const auto first = candidate.find_first_not_of(" \t\r\n");
+        const auto last = candidate.find_last_not_of(" \t\r\n");
+        candidate = first == std::string::npos ? std::string() : candidate.substr(first, last - first + 1);
+        if (!candidate.empty() && origin == candidate) {
+            origin_allowed = true;
+            break;
+        }
+        if (comma == std::string::npos) break;
+        origin_start = comma + 1;
+    }
+    if (!origin.empty() && origin_allowed) {
+        result.set(http::field::access_control_allow_origin, origin);
         result.set(http::field::vary, "Origin");
     }
     result.body() = body.dump();
@@ -1317,9 +1453,25 @@ bool stream_ride_events(beast::tcp_stream& stream,
     header.set("X-Content-Type-Options", "nosniff");
     const auto origin_view = request[http::field::origin];
     const std::string origin(origin_view.data(), origin_view.size());
-    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
-    if (!origin.empty() && origin == allowed) {
-        header.set(http::field::access_control_allow_origin, allowed);
+    const std::string allowed_origins = env_or("RIDEFORGE_ALLOWED_ORIGINS", "");
+    const std::string allowed = allowed_origins.empty()
+        ? env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173")
+        : allowed_origins;
+    bool origin_allowed = false;
+    std::size_t origin_start = 0;
+    while (origin_start <= allowed.size()) {
+        const std::size_t comma = allowed.find(',', origin_start);
+        std::string candidate = allowed.substr(origin_start,
+            comma == std::string::npos ? std::string::npos : comma - origin_start);
+        const auto first = candidate.find_first_not_of(" \t\r\n");
+        const auto last = candidate.find_last_not_of(" \t\r\n");
+        candidate = first == std::string::npos ? std::string() : candidate.substr(first, last - first + 1);
+        if (!candidate.empty() && origin == candidate) { origin_allowed = true; break; }
+        if (comma == std::string::npos) break;
+        origin_start = comma + 1;
+    }
+    if (!origin.empty() && origin_allowed) {
+        header.set(http::field::access_control_allow_origin, origin);
         header.set(http::field::vary, "Origin");
     }
     header.chunked(true);
@@ -1461,9 +1613,25 @@ void handle_request(tcp::socket socket) {
         result.set("X-Request-ID", request_id);
         const auto origin_view = request[http::field::origin];
         const std::string origin(origin_view.data(), origin_view.size());
-        const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
-        if (!origin.empty() && origin == allowed) {
-            result.set(http::field::access_control_allow_origin, allowed);
+        const std::string allowed_origins = env_or("RIDEFORGE_ALLOWED_ORIGINS", "");
+        const std::string allowed = allowed_origins.empty()
+            ? env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173")
+            : allowed_origins;
+        bool origin_allowed = false;
+        std::size_t origin_start = 0;
+        while (origin_start <= allowed.size()) {
+            const std::size_t comma = allowed.find(',', origin_start);
+            std::string candidate = allowed.substr(origin_start,
+                comma == std::string::npos ? std::string::npos : comma - origin_start);
+            const auto first = candidate.find_first_not_of(" \t\r\n");
+            const auto last = candidate.find_last_not_of(" \t\r\n");
+            candidate = first == std::string::npos ? std::string() : candidate.substr(first, last - first + 1);
+            if (!candidate.empty() && origin == candidate) { origin_allowed = true; break; }
+            if (comma == std::string::npos) break;
+            origin_start = comma + 1;
+        }
+        if (!origin.empty() && origin_allowed) {
+            result.set(http::field::access_control_allow_origin, origin);
             result.set(http::field::vary, "Origin");
         }
         result.set(http::field::access_control_allow_methods, "GET, POST, PUT, OPTIONS");
@@ -1618,16 +1786,21 @@ void handle_request(tcp::socket socket) {
             const std::string prefix = "/api/v1/driver/rides/";
             const bool accepting = path.size() > prefix.size() + 7 &&
                 path.substr(path.size() - 7) == "/accept";
+            const bool declining = path.size() > prefix.size() + 8 &&
+                path.substr(path.size() - 8) == "/decline";
             const bool changing_status = path.size() > prefix.size() + 7 &&
                 path.substr(path.size() - 7) == "/status";
-            if (!accepting && !changing_status) {
+            if (!accepting && !declining && !changing_status) {
                 result = response(http::status::not_found, {{"error", "not_found"}}, request);
             } else {
-                const std::string ride_id = path.substr(prefix.size(), path.size() - prefix.size() - 7);
+                const std::size_t suffix_size = declining ? 8 : 7;
+                const std::string ride_id = path.substr(prefix.size(), path.size() - prefix.size() - suffix_size);
                 try {
                     Database database(env_or("DATABASE_URL", ""));
                     if (accepting) {
                         result = response(http::status::ok, database.accept_ride(ride_id, claims->subject), request);
+                    } else if (declining) {
+                        result = response(http::status::ok, database.decline_ride(ride_id, claims->subject), request);
                     } else {
                         if (request.body().size() > 4096) throw std::invalid_argument("request_too_large");
                         const auto body = json::parse(request.body());
@@ -1802,6 +1975,10 @@ void handle_request(tcp::socket socket) {
                path.rfind("/api/v1/driver/rides/", 0) == 0 &&
                path.size() > 7 && path.substr(path.size() - 7) == "/accept") {
         result = handle_driver_accept(request, path);
+    } else if (request.method() == http::verb::post &&
+               path.rfind("/api/v1/driver/rides/", 0) == 0 &&
+               path.size() > 8 && path.substr(path.size() - 8) == "/decline") {
+        result = handle_driver_decline(request, path);
     } else if (request.method() == http::verb::put &&
                path.rfind("/api/v1/driver/rides/", 0) == 0 &&
                path.size() > 7 && path.substr(path.size() - 7) == "/status") {

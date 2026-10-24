@@ -2,6 +2,8 @@ name: Full release readiness
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -25,3 +27,13 @@ jobs:
   container_security:
     name: Container vulnerability scan
     uses: ./.github/workflows/container-scan.yml
+  codeql:
+    name: CodeQL security analysis
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: read
+    uses: ./.github/workflows/codeql.yml
+  dependency_audit:
+    name: npm dependency audit
+    uses: ./.github/workflows/dependency-review.yml

@@ -39,6 +39,27 @@ status="$(curl --silent --show-error --output "$tmp_dir/sse-preflight.txt" --dum
   "$base_url/api/v1/rides/30000000-0000-4000-8000-000000000001/events")"
 test "$status" = "204"
 grep -qi 'Last-Event-ID' "$tmp_dir/sse-preflight-headers.txt"
+grep -qi '^Access-Control-Allow-Origin: http://localhost:5173' "$tmp_dir/sse-preflight-headers.txt"
+
+# The exact driver origin is also allowed; arbitrary origins are never reflected.
+status="$(curl --silent --show-error --output "$tmp_dir/driver-preflight.txt" --dump-header "$tmp_dir/driver-preflight-headers.txt" --write-out '%{http_code}' \
+  --request OPTIONS --header 'Origin: http://driver.localhost:5173' \
+  --header 'Access-Control-Request-Method: GET' \
+  --header 'Access-Control-Request-Headers: authorization,last-event-id' \
+  "$base_url/api/v1/rides/30000000-0000-4000-8000-000000000001/events")"
+test "$status" = "204"
+grep -qi '^Access-Control-Allow-Origin: http://driver.localhost:5173' "$tmp_dir/driver-preflight-headers.txt"
+
+status="$(curl --silent --show-error --output "$tmp_dir/untrusted-preflight.txt" --dump-header "$tmp_dir/untrusted-preflight-headers.txt" --write-out '%{http_code}' \
+  --request OPTIONS --header 'Origin: https://untrusted.example' \
+  --header 'Access-Control-Request-Method: GET' \
+  --header 'Access-Control-Request-Headers: authorization,last-event-id' \
+  "$base_url/api/v1/rides/30000000-0000-4000-8000-000000000001/events")"
+test "$status" = "204"
+if grep -qi '^Access-Control-Allow-Origin: https://untrusted.example' "$tmp_dir/untrusted-preflight-headers.txt"; then
+  echo "Untrusted origin was reflected by CORS" >&2
+  exit 1
+fi
 
 # Request parser must reject oversized bodies before buffering/dispatching them to handlers.
 python3 -c 'print("{\"padding\":\"" + "x" * 20000 + "\"}")' > "$tmp_dir/oversized.json"
@@ -551,10 +572,28 @@ status="$(curl --silent --show-error --output "$tmp_dir/second-booking.json" --w
 test "$status" = "201"
 second_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/second-booking.json")"
 
-status="$(curl --silent --show-error --output "$tmp_dir/second-accept.json" --write-out '%{http_code}' \
+# Declining hides this request only for this driver; it must not cancel the passenger's ride.
+status="$(curl --silent --show-error --output "$tmp_dir/second-decline.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" --request POST \
+  "$base_url/api/v1/driver/rides/$second_ride_id/decline")"
+test "$status" = "200"
+grep -q '"status":"declined"' "$tmp_dir/second-decline.json"
+
+status="$(curl --silent --show-error --output "$tmp_dir/declined-accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
   "$base_url/api/v1/driver/rides/$second_ride_id/accept")"
+test "$status" = "409"
+grep -q '"error":"ride_previously_declined"' "$tmp_dir/declined-accept.json"
+
+status="$(curl --silent --show-error --output "$tmp_dir/declined-queue.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
 test "$status" = "200"
+python3 -c 'import json,sys; assert all(r["rideId"] != sys.argv[1] for r in json.load(sys.stdin)["rides"]), "declined request remained in this driver queue"' "$second_ride_id" < "$tmp_dir/declined-queue.json"
+
+status="$(curl --silent --show-error --output "$tmp_dir/declined-passenger-detail.json" --write-out '%{http_code}' \
+  --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$second_ride_id")"
+test "$status" = "200"
+grep -q '"status":"requested"' "$tmp_dir/declined-passenger-detail.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/driver-history.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides/history")"

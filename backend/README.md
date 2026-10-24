@@ -2,9 +2,9 @@
 
 ## Implemented surface
 
-The native C++17 HTTP service now implements:
+The native C++17 HTTP service implements the following verified code paths; deployment and commercial operations remain separate release gates:
 
-- `GET /api/v1/health`: checks whether PostgreSQL is reachable. `GET /api/v1/ready` additionally checks required schema tables and all four recorded migration versions for deployment rollout probes.
+- `GET /api/v1/health`: checks whether PostgreSQL is reachable. `GET /api/v1/ready` additionally checks required schema tables and all five recorded migration versions for deployment rollout probes.
 - `POST /api/v1/routes/quote`: validates labels, geocodes through Nominatim, routes through OSRM, calculates a server-side demo fare, and persists a five-minute quote.
 - `POST /api/v1/auth/register` and `POST /api/v1/auth/login`: passenger accounts, PBKDF2-HMAC-SHA-256 password hashes using 600,000 iterations for new hashes, short-lived HMAC-signed access tokens, duplicate-email handling, and per-IP authentication throttling.
 - `POST /api/v1/rides`: authenticated quote consumption and ride creation in a PostgreSQL transaction, with idempotency replay/conflict handling and ride-event history.
@@ -12,7 +12,7 @@ The native C++17 HTTP service now implements:
 - `GET /api/v1/rides/{rideId}/events`: authenticated server-sent events scoped to a ride owner, with persisted-event replay from `Last-Event-ID`, PostgreSQL LISTEN/NOTIFY and heartbeats.
 - `PUT /api/v1/driver/availability`: role-checked availability/location updates; only profiles explicitly approved by an administrator can go online.
 - Driver queue visibility is restricted to approved drivers who are online with a location updated in the last five minutes and pickup coordinates within the configurable `RIDEFORGE_DISPATCH_RADIUS_KM` great-circle radius (integer 1–100 km, default 20 km). Invalid values fail startup. Queue results are ranked by pickup distance; acceptance rechecks approval, freshness and the same radius inside the transaction. This is not road-ETA ranking.
-- `POST /api/v1/driver/rides/{rideId}/accept` and `PUT /api/v1/driver/rides/{rideId}/status`: transactional driver acceptance, conflict-safe assignment, lifecycle transitions, and event records.
+- `POST /api/v1/driver/rides/{rideId}/accept`, `POST /api/v1/driver/rides/{rideId}/decline`, and `PUT /api/v1/driver/rides/{rideId}/status`: transactional conflict-safe acceptance, persisted per-driver decline, lifecycle transitions, and event records. Decline hides a still-active request only from that driver; it does not cancel the passenger's booking, and a declined driver cannot accept that request later.
 - `GET /api/v1/driver/rides/history`: recent driver trips and a gross completed-fare total; it is explicitly not a payout or net-earnings ledger.
 - `GET /api/v1/admin/rides?q=...&status=...`: admin-only bounded ride search by ride ID, passenger/driver email, pickup/drop-off and optional valid status.
 - `GET /api/v1/admin/metrics`: role-checked database-backed ride/driver counts plus pending outbox, dead-letter and oldest-pending-age metrics.

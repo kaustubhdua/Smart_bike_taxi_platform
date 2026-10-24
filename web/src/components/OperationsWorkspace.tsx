@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, Check, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, RefreshCw, ShieldCheck, X } from "lucide-react";
 
 type WorkspaceMode = "driver" | "admin";
 type RideRequest = {
@@ -43,7 +43,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
 
   async function signIn() {
-    if (!apiBase) { setError("Set VITE_API_BASE_URL to connect to the API."); return; }
+    if (apiBase === undefined) { setError("Set VITE_API_BASE_URL to connect to the API."); return; }
     setBusy(true); setError("");
     try {
       const response = await fetch(apiBase + "/api/v1/auth/login", {
@@ -65,7 +65,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   }
 
   async function request(path: string, init: RequestInit = {}) {
-    if (!apiBase || !token) throw new Error("Sign in to continue.");
+    if (apiBase === undefined || !token) throw new Error("Sign in to continue.");
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/json");
     headers.set("Authorization", "Bearer " + token);
@@ -126,7 +126,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   }
 
   useEffect(() => {
-    if (mode !== "driver" || !online || !token || !apiBase) return;
+    if (mode !== "driver" || !online || !token || apiBase === undefined) return;
     let cancelled = false;
     const refreshLocationAndQueue = async () => {
       try {
@@ -205,7 +205,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   }
 
   useEffect(() => {
-    if (mode !== "driver" || !token || !apiBase || !activeRide ||
+    if (mode !== "driver" || !token || apiBase === undefined || !activeRide ||
         ["completed", "cancelled", "failed"].includes(activeRide.status)) return;
     let disposed = false;
     let lastEventId = 0;
@@ -289,17 +289,22 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     };
   }, [mode, token, apiBase, activeRide?.rideId]);
 
-  async function rideAction(rideId: string, action: "accept" | "driver_arriving" | "in_progress" | "completed") {
+  async function rideAction(rideId: string, action: "accept" | "decline" | "driver_arriving" | "in_progress" | "completed") {
     setBusy(true);
     try {
-      const data = await request("/api/v1/driver/rides/" + encodeURIComponent(rideId) + (action === "accept" ? "/accept" : "/status"), {
-        method: action === "accept" ? "POST" : "PUT",
-        ...(action === "accept" ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: action }) }),
+      const suffix = action === "accept" ? "/accept" : action === "decline" ? "/decline" : "/status";
+      const data = await request("/api/v1/driver/rides/" + encodeURIComponent(rideId) + suffix, {
+        method: action === "driver_arriving" || action === "in_progress" || action === "completed" ? "PUT" : "POST",
+        ...(action === "driver_arriving" || action === "in_progress" || action === "completed"
+          ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: action }) }
+          : {}),
       });
       if (typeof data.rideId !== "string" || typeof data.status !== "string") throw new Error("The API returned an invalid ride state.");
-      setActiveRide({ rideId: data.rideId, status: data.status });
+      if (action !== "decline") setActiveRide({ rideId: data.rideId, status: data.status });
       setRides(current => current.filter(ride => ride.rideId !== rideId));
-      setError("Ride state saved: " + data.status + ".");
+      setError(action === "decline"
+        ? "Request declined for your driver account. The passenger's booking remains active for other drivers."
+        : "Ride state saved: " + data.status + ".");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Ride action failed."); }
     finally { setBusy(false); }
   }
@@ -470,7 +475,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                 {activeRide.status === "in_progress" && <button className="text-action" onClick={() => rideAction(activeRide.rideId, "completed")} disabled={busy}>Complete trip</button>}
               </div>}
               <div className="driver-queue"><h3>Available requests ({rides.length})</h3>
-                {rides.length === 0 ? <p>Queue is empty or has not been loaded yet.</p> : rides.map(ride => <div className="ride-confirmation" key={ride.rideId}><div><strong>{ride.pickup} → {ride.destination}</strong><span>{typeof ride.pickupDistanceMeters === "number" ? "Pickup " + (ride.pickupDistanceMeters / 1000).toFixed(1) + " km away · " : ""}{ride.distanceMeters ? (ride.distanceMeters / 1000).toFixed(1) + " km trip · " : ""}₹{(ride.farePaise / 100).toFixed(2)}</span><small>{ride.rideId}</small></div><button className="text-action" onClick={() => rideAction(ride.rideId, "accept")} disabled={busy}>Accept</button></div>)}
+                {rides.length === 0 ? <p>Queue is empty or has not been loaded yet.</p> : rides.map(ride => <div className="ride-confirmation" key={ride.rideId}><div><strong>{ride.pickup} → {ride.destination}</strong><span>{typeof ride.pickupDistanceMeters === "number" ? "Pickup " + (ride.pickupDistanceMeters / 1000).toFixed(1) + " km away · " : ""}{ride.distanceMeters ? (ride.distanceMeters / 1000).toFixed(1) + " km trip · " : ""}₹{(ride.farePaise / 100).toFixed(2)}</span><small>{ride.rideId}</small></div><div className="ride-actions"><button className="text-action" onClick={() => rideAction(ride.rideId, "accept")} disabled={busy}><Check size={15} /> Accept</button><button className="text-action" onClick={() => rideAction(ride.rideId, "decline")} disabled={busy}><X size={15} /> Decline</button></div></div>)}
               </div>
               <div className="driver-queue">
                 <div className="driver-panel-head"><h3>Trip history</h3><button className="outline-button" onClick={refreshDriverHistory} disabled={busy}><RefreshCw size={15} /> Refresh trip history</button></div>

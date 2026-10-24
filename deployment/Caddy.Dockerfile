@@ -1,8 +1,8 @@
-FROM golang:1.26.9-alpine3.24 AS builder
+FROM golang:1.26.10-alpine3.24 AS builder
 RUN apk add --no-cache git
 WORKDIR /src
 RUN git clone --depth 1 --branch v2.11.7 https://github.com/caddyserver/caddy.git .
-# Use the patched Go toolchain and the fixed x/net release until the upstream image catches up.
+# Keep the Caddy build on the patched Go toolchain and fixed x/net release.
 RUN go mod edit -require=golang.org/x/net@v0.60.0 \
     && go mod tidy \
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/caddy ./cmd/caddy

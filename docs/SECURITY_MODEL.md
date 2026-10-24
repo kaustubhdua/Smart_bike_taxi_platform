@@ -18,7 +18,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 2. API to PostgreSQL: use parameterized SQL and transactionally commit ride state, history and outbox records.
 3. API to routing/geocoding providers: provider responses are untrusted and may fail, time out or return invalid coordinates/metrics.
 4. Admin operations: only an authenticated admin token may provision, approve or suspend driver profiles.
-5. Driver dispatch: only explicitly approved profiles with a fresh online location may see the queue or accept a ride.
+5. Driver dispatch: only explicitly approved profiles with a fresh online location may see the queue, accept a ride or decline a queued request. A decline is scoped to one driver and ride; it never cancels the passenger's booking.
 
 ## Implemented controls
 
@@ -28,6 +28,8 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - Passenger ride reads are scoped to the authenticated passenger; driver actions are scoped to the assigned driver; admin routes check the admin role.
 - Ride creation, idempotency reservation, quote consumption and ride-event insertion occur in a database transaction.
 - A partial unique index prevents one driver from having multiple active rides.
+- Per-driver declines are persisted and filtered from that driver's queue. The backend rechecks decline state at acceptance time so a stale client cannot accept a request it declined.
+- CORS uses exact origin matches from `RIDEFORGE_ALLOWED_ORIGINS` (comma-separated for passenger and driver hosts), with the legacy single-origin variable retained as a fallback. Wildcard/reflected origins are not allowed.
 - Admin driver provisioning, approval and suspension are transactionally audited.
 - Support reports are scoped to their creator; ride references are validated against passenger/driver participation. Admin resolution and its audit event commit together, and report creation is limited to five per account per hour with a PostgreSQL transaction lock.
 - Driver profiles default to unapproved; suspension forces the driver offline.
@@ -53,7 +55,8 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - [ ] Test BOLA/IDOR across passenger, driver and admin identities.
 - [ ] Test stale, revoked, malformed and wrong-role tokens.
 - [ ] Test duplicate/out-of-order requests, cancellation races and competing assignments.
-- [ ] Review CORS, security headers, body/header limits and provider timeout behavior.
+- [x] Implement exact CORS allowlisting for passenger and driver hosts; CI tests allowed origins and verifies an untrusted origin is not reflected.
+- [ ] Continue reviewing security headers, body/header limits and provider timeout behavior.
 - [ ] Define data retention/deletion for trip and location data; redact precise coordinates from logs.
 - [ ] Verify dependency/container scans, backups and restore procedures.
 - [ ] Assess applicable privacy and transport obligations before processing real customer data or operating real rides.
