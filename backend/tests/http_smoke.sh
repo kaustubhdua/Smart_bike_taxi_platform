@@ -712,6 +712,20 @@ for round in $(seq 1 4); do
   test "$status" = "201"
   race_b_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/race-b-booking.json")"
 
+  # Wait until dispatch has persisted both offers; the race must test competing
+  # assignments, not the valid 409 response for a ride with no current offer.
+  offers_ready=0
+  for attempt in $(seq 1 40); do
+    race_a_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$race_a_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+    race_b_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$race_b_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+    if test "$race_a_offered" = "1" && test "$race_b_offered" = "1"; then
+      offers_ready=1
+      break
+    fi
+    sleep 0.25
+  done
+  test "$offers_ready" = "1"
+
   curl --silent --show-error --output "$tmp_dir/race-a.json" --write-out '%{http_code}' \
     --header "Authorization: Bearer $driver_token" --request POST \
     "$base_url/api/v1/driver/rides/$race_a_id/accept" > "$tmp_dir/race-a.status" &
