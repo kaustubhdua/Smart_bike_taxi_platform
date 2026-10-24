@@ -651,6 +651,21 @@ status="$(curl --silent --show-error --output "$tmp_dir/fourth-booking.json" --w
 test "$status" = "201"
 fourth_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/fourth-booking.json")"
 
+# Both requests need live durable offers before testing the assignment race.
+# Booking creation and dispatch are asynchronous; accepting before offer creation
+# correctly returns 409 and would not exercise the concurrent-assignment guard.
+offers_ready=0
+for attempt in $(seq 1 40); do
+  third_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$third_ride_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+  fourth_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$fourth_ride_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+  if test "$third_offered" = "1" && test "$fourth_offered" = "1"; then
+    offers_ready=1
+    break
+  fi
+  sleep 0.25
+done
+test "$offers_ready" = "1"
+
 curl --silent --show-error --output "$tmp_dir/concurrent-a.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
   "$base_url/api/v1/driver/rides/$third_ride_id/accept" > "$tmp_dir/concurrent-a.status" &
