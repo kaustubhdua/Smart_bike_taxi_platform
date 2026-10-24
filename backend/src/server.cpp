@@ -1451,9 +1451,23 @@ bool stream_ride_events(beast::tcp_stream& stream,
     header.set("X-Content-Type-Options", "nosniff");
     const auto origin_view = request[http::field::origin];
     const std::string origin(origin_view.data(), origin_view.size());
-    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
-    if (!origin.empty() && origin == allowed) {
-        header.set(http::field::access_control_allow_origin, allowed);
+    const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGINS",
+        env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173"));
+    bool origin_allowed = false;
+    std::size_t origin_start = 0;
+    while (origin_start <= allowed.size()) {
+        const std::size_t comma = allowed.find(',', origin_start);
+        std::string candidate = allowed.substr(origin_start,
+            comma == std::string::npos ? std::string::npos : comma - origin_start);
+        const auto first = candidate.find_first_not_of(" \t\r\n");
+        const auto last = candidate.find_last_not_of(" \t\r\n");
+        candidate = first == std::string::npos ? std::string() : candidate.substr(first, last - first + 1);
+        if (!candidate.empty() && origin == candidate) { origin_allowed = true; break; }
+        if (comma == std::string::npos) break;
+        origin_start = comma + 1;
+    }
+    if (!origin.empty() && origin_allowed) {
+        header.set(http::field::access_control_allow_origin, origin);
         header.set(http::field::vary, "Origin");
     }
     header.chunked(true);
@@ -1595,9 +1609,23 @@ void handle_request(tcp::socket socket) {
         result.set("X-Request-ID", request_id);
         const auto origin_view = request[http::field::origin];
         const std::string origin(origin_view.data(), origin_view.size());
-        const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173");
-        if (!origin.empty() && origin == allowed) {
-            result.set(http::field::access_control_allow_origin, allowed);
+        const std::string allowed = env_or("RIDEFORGE_ALLOWED_ORIGINS",
+            env_or("RIDEFORGE_ALLOWED_ORIGIN", "http://localhost:5173"));
+        bool origin_allowed = false;
+        std::size_t origin_start = 0;
+        while (origin_start <= allowed.size()) {
+            const std::size_t comma = allowed.find(',', origin_start);
+            std::string candidate = allowed.substr(origin_start,
+                comma == std::string::npos ? std::string::npos : comma - origin_start);
+            const auto first = candidate.find_first_not_of(" \t\r\n");
+            const auto last = candidate.find_last_not_of(" \t\r\n");
+            candidate = first == std::string::npos ? std::string() : candidate.substr(first, last - first + 1);
+            if (!candidate.empty() && origin == candidate) { origin_allowed = true; break; }
+            if (comma == std::string::npos) break;
+            origin_start = comma + 1;
+        }
+        if (!origin.empty() && origin_allowed) {
+            result.set(http::field::access_control_allow_origin, origin);
             result.set(http::field::vary, "Origin");
         }
         result.set(http::field::access_control_allow_methods, "GET, POST, PUT, OPTIONS");
