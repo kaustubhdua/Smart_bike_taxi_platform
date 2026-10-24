@@ -82,6 +82,21 @@ bool dispatch_one(PGconn* db, int radius_meters, int max_attempts_value) {
             "SELECT r.id::text,r.pickup_latitude::text,r.pickup_longitude::text "
             "FROM rides r WHERE r.status IN ('requested','matching') AND r.driver_id IS NULL "
             "AND NOT EXISTS (SELECT 1 FROM ride_offers o WHERE o.ride_id=r.id AND o.status='offered') "
+            "AND (EXISTS (SELECT 1 FROM driver_profiles d WHERE d.is_approved=true AND d.is_online=true "
+            "AND d.last_location_at>now()-interval '5 minutes' AND d.current_latitude IS NOT NULL "
+            "AND d.current_longitude IS NOT NULL AND NOT EXISTS (SELECT 1 FROM ride_offers tried "
+            "WHERE tried.ride_id=r.id AND tried.driver_id=d.account_id AND tried.status<>'superseded') "
+            "AND NOT EXISTS (SELECT 1 FROM driver_ride_declines declined "
+            "WHERE declined.ride_id=r.id AND declined.driver_id=d.account_id) "
+            "AND NOT EXISTS (SELECT 1 FROM rides active WHERE active.driver_id=d.account_id "
+            "AND active.status IN ('assigned','driver_arriving','in_progress')) "
+            "AND (6371000.0 * acos(least(1.0::double precision,greatest(-1.0::double precision,"
+            "sin(radians(d.current_latitude))*sin(radians(r.pickup_latitude)) + "
+            "cos(radians(d.current_latitude))*cos(radians(r.pickup_latitude))*"
+            "cos(radians(r.pickup_longitude-d.current_longitude)))))) <= " +
+            std::to_string(radius_meters) + ") OR r.created_at<=now()-interval '10 minutes' "
+            "OR (SELECT count(*) FROM ride_offers exhausted WHERE exhausted.ride_id=r.id)>=" +
+            std::to_string(max_attempts_value) + ") "
             "ORDER BY r.created_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED";
         Result ride(PQexec(db, ride_sql.c_str()));
         if (!tuples(ride)) throw std::runtime_error("dispatch worker ride selection failed");
