@@ -552,6 +552,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/accept.json" --write-out
   "$base_url/api/v1/driver/rides/$ride_id/accept")"
 test "$status" = "200"
 grep -q '"status":"assigned"' "$tmp_dir/accept.json"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$ride_id' AND driver_id='$driver_id' AND status='accepted'")" = "1"
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-busy.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
 test "$status" = "200"
@@ -586,6 +587,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/second-decline.json" --w
   "$base_url/api/v1/driver/rides/$second_ride_id/decline")"
 test "$status" = "200"
 grep -q '"status":"declined"' "$tmp_dir/second-decline.json"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$second_ride_id' AND driver_id='$driver_id' AND status='declined'")" = "1"
 
 status="$(curl --silent --show-error --output "$tmp_dir/declined-accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
