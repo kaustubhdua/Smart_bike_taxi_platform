@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-10-24. This document describes the feature branch, not a claim that the service is commercially ready.
+Last reconciled: 2026-10-24. PR #9 has been merged. The latest confirmed aggregate result passed 13/13 jobs on tested head `d0cab5d11bab857190f7232ffecc501ae0d5bca3`; this document does not claim a live deployment or commercial readiness.
 
 ## Product goal
 
@@ -34,7 +34,9 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Add explicit driver approval and a transactional event outbox foundation.
 - [x] Add smoke tests for offline queue privacy and unapproved driver rejection.
 - [x] Configure the aggregate release-readiness workflow to run on pull requests and include C++/sanitizer/benchmark, API integration (5 km and 20 km), PostgreSQL migration/recovery, web/Playwright/axe, dependency audit, CodeQL, container/Compose and CRITICAL/HIGH container scanning. [ ] Confirm every required check is green on the exact latest PR head after final changes.
-- [x] Reconcile the web README with implemented booking/auth/driver workflows and document the per-driver decline contract in OpenAPI. Remaining release PR and issue-tracker status must still be verified on the current head.
+- [x] Reconcile the web README with implemented booking/auth/driver workflows and document the per-driver decline contract in OpenAPI.
+- [x] Merge release-hardening PR #9 after all 13 aggregate release-readiness jobs passed on tested head `d0cab5d11bab857190f7232ffecc501ae0d5bca3`.
+- [ ] Re-run the release gate on the exact candidate release SHA after any subsequent code changes; a successful earlier SHA is not evidence for later commits.
 - [x] CI applies all versioned migrations, re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; Compose/container validation passes on the recorded SHA.
 
 Acceptance: every required current-head check is green; migrations 001–005 apply in order and a second migration run is a no-op.
