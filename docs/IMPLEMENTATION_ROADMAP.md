@@ -33,11 +33,11 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Add a reproducible frontend lockfile install (npm ci).
 - [x] Add explicit driver approval and a transactional event outbox foundation.
 - [x] Add smoke tests for offline queue privacy and unapproved driver rejection.
-- [x] Run the C++/sanitizer/benchmark, API integration (5 km and 20 km), PostgreSQL migration/recovery, web/Playwright/axe, dependency audit, CodeQL, container/Compose and CRITICAL/HIGH container scan workflows. Use the live PR checks to confirm the exact current head; the aggregate manual workflow is still not dispatched.
+- [x] Configure the aggregate release-readiness workflow to run on pull requests and include C++/sanitizer/benchmark, API integration (5 km and 20 km), PostgreSQL migration/recovery, web/Playwright/axe, dependency audit, CodeQL, container/Compose and CRITICAL/HIGH container scanning. [ ] Confirm every required check is green on the exact latest PR head after final changes.
 - [x] Reconcile the web README with implemented booking/auth/driver workflows and document the per-driver decline contract in OpenAPI. Remaining release PR and issue-tracker status must still be verified on the current head.
 - [x] CI applies all versioned migrations, re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; Compose/container validation passes on the recorded SHA.
 
-Acceptance: every current-head check is green, migration 001 and 002 apply in order and the second migration run is a no-op.
+Acceptance: every required current-head check is green; migrations 001–005 apply in order and a second migration run is a no-op.
 
 ## Phase 1 — transactional API and security
 
