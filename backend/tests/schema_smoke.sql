@@ -8,6 +8,12 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='004_support_reports') THEN
     RAISE EXCEPTION 'support reports migration ledger entry is missing';
   END IF;
+  IF to_regclass('public.driver_ride_declines') IS NULL THEN
+    RAISE EXCEPTION 'driver_ride_declines table was not created by migrations';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='005_driver_ride_declines') THEN
+    RAISE EXCEPTION 'driver decline migration ledger entry is missing';
+  END IF;
 END $$;
 
 
