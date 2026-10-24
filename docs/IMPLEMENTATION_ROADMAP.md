@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-10-20. This document describes the feature branch, not a claim that the service is commercially ready.
+Last reconciled: 2026-10-24. This document describes the feature branch, not a claim that the service is commercially ready.
 
 ## Product goal
 
@@ -34,7 +34,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Add explicit driver approval and a transactional event outbox foundation.
 - [x] Add smoke tests for offline queue privacy and unapproved driver rejection.
 - [x] Run the C++/sanitizer/benchmark, API integration (5 km and 20 km), PostgreSQL migration/recovery, web/Playwright/axe, dependency audit, CodeQL, container/Compose and CRITICAL/HIGH container scan workflows. Use the live PR checks to confirm the exact current head; the aggregate manual workflow is still not dispatched.
-- [ ] Ensure README, this roadmap, OpenAPI, PR description and issue tracker agree.
+- [x] Reconcile the web README with implemented booking/auth/driver workflows and document the per-driver decline contract in OpenAPI. Remaining release PR and issue-tracker status must still be verified on the current head.
 - [x] CI applies all versioned migrations, re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; Compose/container validation passes on the recorded SHA.
 
 Acceptance: every current-head check is green, migration 001 and 002 apply in order and the second migration run is a no-op.
@@ -71,9 +71,10 @@ Acceptance: a newly created driver cannot go online until explicitly approved; s
 - [x] Add authenticated SSE subscriptions scoped to ride ownership; passenger and driver workspaces consume ride-status events.
 - [x] Use persisted event IDs, Last-Event-ID replay and reconnect backoff for passenger streams.
 - [ ] Add explicit browser resynchronization and load/reconnect stress tests beyond current smoke coverage.
+- [x] Persist driver-specific decline decisions and test that declining never cancels the passenger's booking.
 - [x] Refresh driver coordinates while online with movement-aware updates and a 30-second freshness heartbeat; clear stored coordinates and timestamp when going offline/logout. [ ] Define and verify a retention/deletion policy for account data.
 - [ ] Rank eligible drivers by configured distance/ETA policy, with a provider adapter and timeout/failure behavior.
-- [ ] Test duplicate, delayed and out-of-order event delivery.
+- [ ] Test duplicate, delayed and out-of-order event delivery. [ ] Add a durable offer table, expiry worker and bounded automatic redispatch; the current queue-based decline is not a time-limited offer scheduler.
 
 Acceptance: passenger and driver converge on the same persisted ride state after refresh, disconnect, reconnect and duplicate events.
 
