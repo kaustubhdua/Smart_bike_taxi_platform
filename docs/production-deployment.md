@@ -24,7 +24,7 @@ The Caddy edge is built from upstream Caddy v2.11.7 source with Go 1.26.10 and g
 ## 1. Prepare the host and DNS
 
 1. Use a supported Linux distribution, install Docker Engine and the Docker Compose plugin, and keep the host patched.
-2. Point both the passenger host (RIDEFORGE_DOMAIN) and driver host (RIDEFORGE_DRIVER_DOMAIN) A/AAAA records to the VPS. Ensure inbound TCP 80/443 and UDP 443 (optional HTTP/3) are allowed. Both hosts serve the same built frontend; the driver hostname renders the driver-only workspace, while both use the same API and PostgreSQL records.
+2. Point both the passenger host (RIDEFORGE_DOMAIN) and driver host (RIDEFORGE_DRIVER_DOMAIN) A/AAAA records to the VPS. Ensure inbound TCP 80/443 and UDP 443 (optional HTTP/3) are allowed. Both hosts serve the same built frontend; the driver hostname renders the driver-only workspace, while both use the same API and PostgreSQL records. The admin sign-in workspace is available at `/admin` on the passenger host and requires a separately provisioned admin account.
 3. Clone the repository at the reviewed release commit. Do not deploy a moving feature branch as a release.
 
 ## 2. Configure secrets and providers
