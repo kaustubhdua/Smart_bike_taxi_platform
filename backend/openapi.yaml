@@ -503,14 +503,15 @@ components:
         note: { type: string }
     DriverQueueItem:
       type: object
-      required: [rideId, pickup, destination, farePaise, currency, createdAt, pickupDistanceMeters]
+      required: [rideId, pickup, destination, farePaise, currency, createdAt, offerExpiresAt, pickupDistanceMeters]
       properties:
         rideId: { type: string, format: uuid }
         pickup: { type: string }
         destination: { type: string }
         farePaise: { type: integer, minimum: 1 }
         currency: { type: string, enum: [INR] }
-        createdAt: { type: string }
+        createdAt: { type: string, format: date-time }
+        offerExpiresAt: { type: string, format: date-time, description: Offer expiry; expired offers are removed from the queue and redispatched. }
         distanceMeters: { type: integer, minimum: 1 }
         pickupDistanceMeters: { type: integer, minimum: 0, maximum: 100000 }
     RegisterRequest:
