@@ -204,6 +204,18 @@ paths:
         "403": { description: Driver role required }
         "404": { description: Ride not found }
         "409": { description: Another driver won assignment race or driver unavailable }
+  /driver/rides/{rideId}/decline:
+    post:
+      summary: Decline a matching request for this driver only; the passenger booking remains active
+      description: The API validates the driver's approval, online status, fresh location, active-ride state and pickup radius. A persisted decline hides this ride from this driver without cancelling it or preventing other eligible drivers from accepting.
+      parameters:
+        - $ref: "#/components/parameters/RideId"
+      responses:
+        "200": { description: Decline recorded and request hidden from this driver's queue }
+        "401": { description: Unauthenticated }
+        "403": { description: Driver role required }
+        "404": { description: Ride not found }
+        "409": { description: Ride unavailable, driver unavailable, or ride outside dispatch radius }
   /driver/rides/{rideId}/status:
     put:
       summary: Advance the assigned driver's ride lifecycle
