@@ -188,12 +188,12 @@ public:
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='005_driver_ride_declines')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 10) {
+            PQntuples(result) != 1 || PQnfields(result) != 11) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 10; ++column) {
+        for (int column = 0; column < 11; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
