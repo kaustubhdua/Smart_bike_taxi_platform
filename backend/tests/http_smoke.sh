@@ -39,6 +39,27 @@ status="$(curl --silent --show-error --output "$tmp_dir/sse-preflight.txt" --dum
   "$base_url/api/v1/rides/30000000-0000-4000-8000-000000000001/events")"
 test "$status" = "204"
 grep -qi 'Last-Event-ID' "$tmp_dir/sse-preflight-headers.txt"
+grep -qi '^Access-Control-Allow-Origin: http://localhost:5173' "$tmp_dir/sse-preflight-headers.txt"
+
+# The exact driver origin is also allowed; arbitrary origins are never reflected.
+status="$(curl --silent --show-error --output "$tmp_dir/driver-preflight.txt" --dump-header "$tmp_dir/driver-preflight-headers.txt" --write-out '%{http_code}' \
+  --request OPTIONS --header 'Origin: http://driver.localhost:5173' \
+  --header 'Access-Control-Request-Method: GET' \
+  --header 'Access-Control-Request-Headers: authorization,last-event-id' \
+  "$base_url/api/v1/rides/30000000-0000-4000-8000-000000000001/events")"
+test "$status" = "204"
+grep -qi '^Access-Control-Allow-Origin: http://driver.localhost:5173' "$tmp_dir/driver-preflight-headers.txt"
+
+status="$(curl --silent --show-error --output "$tmp_dir/untrusted-preflight.txt" --dump-header "$tmp_dir/untrusted-preflight-headers.txt" --write-out '%{http_code}' \
+  --request OPTIONS --header 'Origin: https://untrusted.example' \
+  --header 'Access-Control-Request-Method: GET' \
+  --header 'Access-Control-Request-Headers: authorization,last-event-id' \
+  "$base_url/api/v1/rides/30000000-0000-4000-8000-000000000001/events")"
+test "$status" = "204"
+if grep -qi '^Access-Control-Allow-Origin: https://untrusted.example' "$tmp_dir/untrusted-preflight-headers.txt"; then
+  echo "Untrusted origin was reflected by CORS" >&2
+  exit 1
+fi
 
 # Request parser must reject oversized bodies before buffering/dispatching them to handlers.
 python3 -c 'print("{\"padding\":\"" + "x" * 20000 + "\"}")' > "$tmp_dir/oversized.json"
