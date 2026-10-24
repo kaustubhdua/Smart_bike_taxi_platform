@@ -185,7 +185,7 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
   await expect(page.getByRole("application", { name: /Includes the driver’s latest reported location/ })).toBeVisible();
   await page.clock.fastForward(5000);
-  await expect(page.locator(".ride-confirmation")).toContainText("Status: in_progress");
+  await expect(page.locator(".ride-confirmation")).toContainText("Status: in progress");
   await expect(page.getByRole("button", { name: "Cancel request" })).toHaveCount(0);
 });
 
