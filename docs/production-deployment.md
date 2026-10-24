@@ -17,6 +17,7 @@ Internet
              C++ API :8080 ---- PostgreSQL (private Compose network)
                 |
              outbox worker
+             dispatch worker (durable 45-second offers + expiry/redispatch)
 ~~~
 
 The Caddy edge is built from upstream Caddy v2.11.7 source with Go 1.26.10 and golang.org/x/net 0.60.0 to address the currently fixed scanner findings; CI scans the API, web, and Caddy images for fixed CRITICAL/HIGH vulnerabilities. The API and web ports are bound to host loopback for local diagnostics. The public entry point is Caddy only. The web bundle uses a relative API path in this overlay, so browser requests remain same-origin and Nginx proxies them to the API. The PostgreSQL port is never published.

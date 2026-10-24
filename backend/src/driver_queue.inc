@@ -18,12 +18,14 @@ http::response<http::string_body> handle_driver_queue(
         "WITH eligible AS ("
         "SELECT r.id::text AS ride_id,r.pickup_label,r.destination_label,"
         "r.route_distance_m::text AS route_distance_m,r.quoted_fare_paise::text AS fare_paise,"
-        "r.created_at::text AS created_at,"
+        "r.created_at::text AS created_at,offer.expires_at::text AS offer_expires_at,"
         "(6371000.0 * acos(least(1.0::double precision,greatest(-1.0::double precision,"
         "sin(radians(d.current_latitude))*sin(radians(r.pickup_latitude)) + "
         "cos(radians(d.current_latitude))*cos(radians(r.pickup_latitude))*"
         "cos(radians(r.pickup_longitude-d.current_longitude)))))) AS pickup_distance_m "
-        "FROM rides r JOIN driver_profiles d ON d.account_id=$1::uuid "
+        "FROM rides r JOIN ride_offers offer ON offer.ride_id=r.id AND offer.driver_id=$1::uuid "
+        "AND offer.status='offered' AND offer.expires_at>now() "
+        "JOIN driver_profiles d ON d.account_id=$1::uuid "
         "WHERE r.status IN ('requested','matching') AND r.driver_id IS NULL "
         "AND d.is_approved=true AND d.is_online=true "
         "AND d.last_location_at>now()-interval '5 minutes' "
@@ -32,7 +34,7 @@ http::response<http::string_body> handle_driver_queue(
         "WHERE declined.ride_id=r.id AND declined.driver_id=d.account_id) "
         "AND NOT EXISTS (SELECT 1 FROM rides active WHERE active.driver_id=d.account_id "
         "AND active.status IN ('assigned','driver_arriving','in_progress'))) "
-        "SELECT ride_id,pickup_label,destination_label,route_distance_m,fare_paise,created_at,"
+        "SELECT ride_id,pickup_label,destination_label,route_distance_m,fare_paise,created_at,offer_expires_at,"
         "pickup_distance_m::integer FROM eligible WHERE pickup_distance_m<=$2::double precision "
         "ORDER BY pickup_distance_m ASC,created_at ASC LIMIT 20",
         2, nullptr, params, nullptr, nullptr, 0);
@@ -48,7 +50,8 @@ http::response<http::string_body> handle_driver_queue(
             {"distanceMeters", std::stoi(PQgetvalue(result, i, 3))},
             {"farePaise", std::stoi(PQgetvalue(result, i, 4))},
             {"createdAt", PQgetvalue(result, i, 5)},
-            {"pickupDistanceMeters", std::stoi(PQgetvalue(result, i, 6))}});
+            {"offerExpiresAt", PQgetvalue(result, i, 6)},
+            {"pickupDistanceMeters", std::stoi(PQgetvalue(result, i, 7))}});
     }
     PQclear(result);
     PQfinish(connection);

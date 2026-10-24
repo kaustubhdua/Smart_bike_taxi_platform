@@ -517,8 +517,16 @@ status="$(curl --silent --show-error --output "$tmp_dir/driver-online.json" --wr
 test "$status" = "200"
 
 # Online drivers with a fresh location can see eligible unassigned ride requests.
-status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-online.json" --write-out '%{http_code}' \
-  --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
+status=""
+for attempt in $(seq 1 20); do
+  status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-online.json" --write-out '%{http_code}' \
+    --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
+  test "$status" = "200"
+  if python3 -c 'import json,sys; ids={r["rideId"] for r in json.load(sys.stdin)["rides"]}; required=set(sys.argv[1:]); raise SystemExit(0 if required.issubset(ids) else 1)' "$ride_id" "$busy_ride_id" "$far_ride_id" < "$tmp_dir/driver-queue-online.json"; then
+    break
+  fi
+  sleep 0.25
+done
 test "$status" = "200"
 radius_meters="$((${RIDEFORGE_DISPATCH_RADIUS_KM:-20} * 1000))"
 python3 -c 'import json,sys; rides=json.load(sys.stdin)["rides"]; ids={r["rideId"] for r in rides}; radius=int(sys.argv[4]); midrange=sys.argv[5]; km=int(sys.argv[6]); assert sys.argv[1] in ids and sys.argv[2] in ids and sys.argv[3] not in ids, "required nearby/far IDs mismatch: " + repr(ids); assert all(0 <= r["pickupDistanceMeters"] <= radius for r in rides), "out-of-radius queue entries: " + repr([(r.get("rideId"),r.get("pickupDistanceMeters")) for r in rides]) + " radius=" + str(radius); assert all(r["farePaise"] > 0 for r in rides); assert (midrange in ids) == (km >= 10), "midrange visibility mismatch: present=" + str(midrange in ids) + " radius_km=" + str(km) + " distances=" + repr([(r.get("rideId"),r.get("pickupDistanceMeters")) for r in rides])' "$ride_id" "$busy_ride_id" "$far_ride_id" "$radius_meters" "$midrange_ride_id" "${RIDEFORGE_DISPATCH_RADIUS_KM:-20}" < "$tmp_dir/driver-queue-online.json"
@@ -544,6 +552,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/accept.json" --write-out
   "$base_url/api/v1/driver/rides/$ride_id/accept")"
 test "$status" = "200"
 grep -q '"status":"assigned"' "$tmp_dir/accept.json"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$ride_id' AND driver_id='$driver_id' AND status='accepted'")" = "1"
 status="$(curl --silent --show-error --output "$tmp_dir/driver-queue-busy.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides")"
 test "$status" = "200"
@@ -571,6 +580,13 @@ status="$(curl --silent --show-error --output "$tmp_dir/second-booking.json" --w
   --data '{"quoteId":"40000000-0000-4000-8000-000000000002"}' "$base_url/api/v1/rides")"
 test "$status" = "201"
 second_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/second-booking.json")"
+# The asynchronous dispatcher may need a poll cycle to persist this driver offer.
+for attempt in $(seq 1 40); do
+  offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$second_ride_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+  test "$offered" = "1" && break
+  sleep 0.25
+done
+test "$offered" = "1"
 
 # Declining hides this request only for this driver; it must not cancel the passenger's ride.
 status="$(curl --silent --show-error --output "$tmp_dir/second-decline.json" --write-out '%{http_code}' \
@@ -578,6 +594,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/second-decline.json" --w
   "$base_url/api/v1/driver/rides/$second_ride_id/decline")"
 test "$status" = "200"
 grep -q '"status":"declined"' "$tmp_dir/second-decline.json"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$second_ride_id' AND driver_id='$driver_id' AND status='declined'")" = "1"
 
 status="$(curl --silent --show-error --output "$tmp_dir/declined-accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
@@ -634,6 +651,21 @@ status="$(curl --silent --show-error --output "$tmp_dir/fourth-booking.json" --w
 test "$status" = "201"
 fourth_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/fourth-booking.json")"
 
+# Both requests need live durable offers before testing the assignment race.
+# Booking creation and dispatch are asynchronous; accepting before offer creation
+# correctly returns 409 and would not exercise the concurrent-assignment guard.
+offers_ready=0
+for attempt in $(seq 1 40); do
+  third_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$third_ride_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+  fourth_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$fourth_ride_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+  if test "$third_offered" = "1" && test "$fourth_offered" = "1"; then
+    offers_ready=1
+    break
+  fi
+  sleep 0.25
+done
+test "$offers_ready" = "1"
+
 curl --silent --show-error --output "$tmp_dir/concurrent-a.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
   "$base_url/api/v1/driver/rides/$third_ride_id/accept" > "$tmp_dir/concurrent-a.status" &
@@ -680,6 +712,20 @@ for round in $(seq 1 4); do
   test "$status" = "201"
   race_b_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/race-b-booking.json")"
 
+  # Wait until dispatch has persisted both offers; the race must test competing
+  # assignments, not the valid 409 response for a ride with no current offer.
+  offers_ready=0
+  for attempt in $(seq 1 40); do
+    race_a_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$race_a_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+    race_b_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$race_b_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+    if test "$race_a_offered" = "1" && test "$race_b_offered" = "1"; then
+      offers_ready=1
+      break
+    fi
+    sleep 0.25
+  done
+  test "$offers_ready" = "1"
+
   curl --silent --show-error --output "$tmp_dir/race-a.json" --write-out '%{http_code}' \
     --header "Authorization: Bearer $driver_token" --request POST \
     "$base_url/api/v1/driver/rides/$race_a_id/accept" > "$tmp_dir/race-a.status" &
@@ -712,6 +758,19 @@ status="$(curl --silent --show-error --output "$tmp_dir/driver-offline.json" --w
 test "$status" = "200"
 test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM driver_profiles WHERE account_id='$driver_id' AND is_online=false AND current_latitude IS NULL AND current_longitude IS NULL AND last_location_at IS NULL")" = "1"
 
+# A stale unassigned request with no eligible drivers must end in a persisted,
+# visible no-driver outcome rather than remaining pending forever.
+exhausted_ride_id="$(psql -v ON_ERROR_STOP=1 -tAqc "INSERT INTO rides (passenger_id,status,pickup_label,pickup_latitude,pickup_longitude,destination_label,destination_latitude,destination_longitude,route_distance_m,quoted_fare_paise,idempotency_key,created_at) SELECT id,'requested','Exhaustion pickup',28.53,77.35,'Exhaustion destination',28.54,77.36,2500,475,'smoke-dispatch-exhaustion-0001',now()-interval '11 minutes' FROM accounts WHERE email='smoke-passenger@example.test' RETURNING id")"
+test -n "$exhausted_ride_id"
+exhausted_status=""
+for attempt in $(seq 1 30); do
+  exhausted_status="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT status::text FROM rides WHERE id='$exhausted_ride_id'")"
+  if test "$exhausted_status" = "failed"; then break; fi
+  sleep 0.5
+done
+test "$exhausted_status" = "failed"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_events WHERE ride_id='$exhausted_ride_id' AND new_status='failed' AND details->>'reason'='no_eligible_drivers'")" = "1"
+
 # The outbox worker must publish durable ride events and not dead-letter healthy events.
 published_events=0
 for attempt in $(seq 1 20); do
@@ -723,4 +782,4 @@ test "$published_events" -gt 0
 dead_lettered_events="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_event_outbox WHERE dead_lettered_at IS NOT NULL")"
 test "$dead_lettered_events" = "0"
 
-echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, concurrent assignment races, offline location clearing, and outbox publication"
+echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, concurrent assignment races, offline location clearing, bounded no-driver exhaustion, and outbox publication"
