@@ -580,6 +580,13 @@ status="$(curl --silent --show-error --output "$tmp_dir/second-booking.json" --w
   --data '{"quoteId":"40000000-0000-4000-8000-000000000002"}' "$base_url/api/v1/rides")"
 test "$status" = "201"
 second_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/second-booking.json")"
+# The asynchronous dispatcher may need a poll cycle to persist this driver offer.
+for attempt in $(seq 1 40); do
+  offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$second_ride_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
+  test "$offered" = "1" && break
+  sleep 0.25
+done
+test "$offered" = "1"
 
 # Declining hides this request only for this driver; it must not cancel the passenger's ride.
 status="$(curl --silent --show-error --output "$tmp_dir/second-decline.json" --write-out '%{http_code}' \
