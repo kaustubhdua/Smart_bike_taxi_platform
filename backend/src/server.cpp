@@ -180,18 +180,20 @@ public:
             "to_regclass('public.rides') IS NOT NULL,"
             "to_regclass('public.ride_event_outbox') IS NOT NULL,"
             "to_regclass('public.support_reports') IS NOT NULL,"
+            "to_regclass('public.driver_ride_declines') IS NOT NULL,"
             "to_regclass('public.schema_migrations') IS NOT NULL,"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='001_initial_schema'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='002_driver_approval_and_outbox'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters'),"
-            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports')");
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='005_driver_ride_declines')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 9) {
+            PQntuples(result) != 1 || PQnfields(result) != 10) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 9; ++column) {
+        for (int column = 0; column < 10; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
@@ -537,6 +539,8 @@ public:
             "AND d.is_approved=true AND d.is_online=true "
             "AND d.last_location_at>now()-interval '5 minutes' "
             "AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL "
+            "AND NOT EXISTS (SELECT 1 FROM driver_ride_declines declined "
+            "WHERE declined.ride_id=r.id AND declined.driver_id=d.account_id) "
             "AND NOT EXISTS (SELECT 1 FROM rides active WHERE active.driver_id=d.account_id "
             "AND active.status IN ('assigned','driver_arriving','in_progress'))) "
             "SELECT ride_id,pickup_label,destination_label,route_distance_m,fare_paise,created_at,"
@@ -736,6 +740,16 @@ public:
             if (previous != "requested" && previous != "matching") {
                 throw std::domain_error("ride_not_available");
             }
+            PGresult* prior_decline = PQexecParams(connection_,
+                "SELECT 1 FROM driver_ride_declines WHERE ride_id=$1::uuid AND driver_id=$2::uuid",
+                2, nullptr, (const char*[]){ride_id.c_str(), driver_id.c_str()}, nullptr, nullptr, 0);
+            if (prior_decline == nullptr || PQresultStatus(prior_decline) != PGRES_TUPLES_OK) {
+                if (prior_decline != nullptr) PQclear(prior_decline);
+                throw std::runtime_error("Could not verify prior ride decline");
+            }
+            const bool declined = PQntuples(prior_decline) > 0;
+            PQclear(prior_decline);
+            if (declined) throw std::domain_error("ride_previously_declined");
             constexpr double earth_radius_m = 6371000.0;
             constexpr double degrees_to_radians = 3.14159265358979323846 / 180.0;
             const double lat1 = driver_latitude * degrees_to_radians;
@@ -774,6 +788,91 @@ public:
             PQclear(event);
             command("COMMIT");
             return json{{"rideId", ride_id}, {"driverId", driver_id}, {"status", "assigned"}};
+        } catch (...) {
+            PGresult* rollback = PQexec(connection_, "ROLLBACK");
+            if (rollback != nullptr) PQclear(rollback);
+            throw;
+        }
+    }
+
+    json decline_ride(const std::string& ride_id, const std::string& driver_id) {
+        const auto command = [this](const char* sql) {
+            PGresult* result = PQexec(connection_, sql);
+            if (result == nullptr || PQresultStatus(result) != PGRES_COMMAND_OK) {
+                if (result != nullptr) PQclear(result);
+                throw std::runtime_error("Database transaction command failed");
+            }
+            PQclear(result);
+        };
+        command("BEGIN");
+        try {
+            const char* params[] = {ride_id.c_str(), driver_id.c_str()};
+            PGresult* candidate = PQexecParams(connection_,
+                "SELECT r.status::text,r.driver_id::text,r.pickup_latitude::text,"
+                "r.pickup_longitude::text,d.current_latitude::text,d.current_longitude::text "
+                "FROM rides r JOIN driver_profiles d ON d.account_id=$2::uuid "
+                "WHERE r.id=$1::uuid AND d.is_approved=true AND d.is_online=true "
+                "AND d.last_location_at>now()-interval '5 minutes' "
+                "AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL "
+                "FOR UPDATE OF r,d",
+                2, nullptr, params, nullptr, nullptr, 0);
+            if (candidate == nullptr || PQresultStatus(candidate) != PGRES_TUPLES_OK) {
+                if (candidate != nullptr) PQclear(candidate);
+                throw std::runtime_error("Could not lock ride for decline");
+            }
+            if (PQntuples(candidate) != 1) {
+                PQclear(candidate);
+                throw std::domain_error("ride_not_found_or_driver_unavailable");
+            }
+            const std::string status = PQgetvalue(candidate, 0, 0);
+            const bool already_assigned = !PQgetisnull(candidate, 0, 1);
+            const double pickup_latitude = std::stod(PQgetvalue(candidate, 0, 2));
+            const double pickup_longitude = std::stod(PQgetvalue(candidate, 0, 3));
+            const double driver_latitude = std::stod(PQgetvalue(candidate, 0, 4));
+            const double driver_longitude = std::stod(PQgetvalue(candidate, 0, 5));
+            PQclear(candidate);
+            if ((status != "requested" && status != "matching") || already_assigned) {
+                throw std::domain_error("ride_not_available");
+            }
+
+            constexpr double earth_radius_m = 6371000.0;
+            constexpr double degrees_to_radians = 3.14159265358979323846 / 180.0;
+            const double lat1 = driver_latitude * degrees_to_radians;
+            const double lat2 = pickup_latitude * degrees_to_radians;
+            const double delta_lat = (pickup_latitude - driver_latitude) * degrees_to_radians;
+            const double delta_lon = (pickup_longitude - driver_longitude) * degrees_to_radians;
+            const double haversine = std::clamp(
+                std::sin(delta_lat / 2.0) * std::sin(delta_lat / 2.0) +
+                std::cos(lat1) * std::cos(lat2) *
+                std::sin(delta_lon / 2.0) * std::sin(delta_lon / 2.0), 0.0, 1.0);
+            const double pickup_distance_m = 2.0 * earth_radius_m * std::asin(std::sqrt(haversine));
+            if (pickup_distance_m > static_cast<double>(dispatch_radius_meters())) {
+                throw std::domain_error("ride_outside_dispatch_radius");
+            }
+
+            PGresult* active = PQexecParams(connection_,
+                "SELECT id::text FROM rides WHERE driver_id=$1::uuid "
+                "AND status IN ('assigned','driver_arriving','in_progress') LIMIT 1",
+                1, nullptr, &params[1], nullptr, nullptr, 0);
+            if (active == nullptr || PQresultStatus(active) != PGRES_TUPLES_OK) {
+                if (active != nullptr) PQclear(active);
+                throw std::runtime_error("Could not check active driver rides");
+            }
+            const bool has_active = PQntuples(active) > 0;
+            PQclear(active);
+            if (has_active) throw std::domain_error("driver_has_active_ride");
+
+            PGresult* inserted = PQexecParams(connection_,
+                "INSERT INTO driver_ride_declines (ride_id,driver_id) "
+                "VALUES ($1::uuid,$2::uuid) ON CONFLICT (ride_id,driver_id) DO NOTHING",
+                2, nullptr, params, nullptr, nullptr, 0);
+            if (inserted == nullptr || PQresultStatus(inserted) != PGRES_COMMAND_OK) {
+                if (inserted != nullptr) PQclear(inserted);
+                throw std::runtime_error("Could not record ride decline");
+            }
+            PQclear(inserted);
+            command("COMMIT");
+            return json{{"rideId", ride_id}, {"status", "declined"}, {"hiddenForDriver", true}};
         } catch (...) {
             PGresult* rollback = PQexec(connection_, "ROLLBACK");
             if (rollback != nullptr) PQclear(rollback);
