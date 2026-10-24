@@ -24,7 +24,7 @@ Set `VITE_API_BASE_URL` to the API origin when developing against a separately r
 - Passenger registration/login, persistent booking, cancellation, trip history, ride-status updates, support reports, and printable **demo receipts** (not tax invoices or proof of payment).
 - Driver login, online/offline availability with browser geolocation, a fresh-location/radius-filtered request queue, transactional Accept, persisted per-driver Decline, trip-state transitions, and trip history.
 - A driver decline hides that request only from that driver's queue. It does **not** cancel the passenger booking. The same driver cannot accept a request after declining it; another eligible driver may still accept.
-- Admin-only driver provisioning/approval/suspension, ride search, metrics, audit history and support-report triage.
+- Admin-only driver provisioning/approval/suspension, ride search, metrics, audit history and support-report triage. In a deployed build, the protected admin sign-in workspace is available at `/admin` on the passenger host; backend role checks remain authoritative.
 - Authenticated server-sent ride events with persisted replay; the client also refreshes state to recover after reconnects.
 
 ## Important limitations
