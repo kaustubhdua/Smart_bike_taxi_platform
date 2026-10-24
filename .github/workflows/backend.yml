@@ -120,7 +120,8 @@ jobs:
           ./build-backend/rideforge_api > /tmp/rideforge-api.log 2>&1 &
           api_pid=$!
           worker_pid=""
-          trap 'kill "$api_pid" "$provider_pid" "$worker_pid" 2>/dev/null || true' EXIT
+          dispatch_pid=""
+          trap 'kill "$api_pid" "$provider_pid" "$worker_pid" "$dispatch_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --silent --fail http://127.0.0.1:8080/api/v1/health >/dev/null; then
               break
@@ -133,12 +134,15 @@ jobs:
           done
           ./build-backend/rideforge_outbox_worker > /tmp/rideforge-outbox.log 2>&1 &
           worker_pid=$!
+          ./build-backend/rideforge_dispatch_worker > /tmp/rideforge-dispatch.log 2>&1 &
+          dispatch_pid=$!
           if ! RIDEFORGE_TEST_BASE_URL=http://127.0.0.1:8080 bash -x backend/tests/http_smoke.sh; then
             echo "API server log:"
             cat /tmp/rideforge-api.log
             echo "Mock provider log:"
             cat /tmp/rideforge-provider.log
             cat /tmp/rideforge-outbox.log
+            cat /tmp/rideforge-dispatch.log
             exit 1
           fi
           grep -q '"event":"http_request_completed"' /tmp/rideforge-api.log
@@ -159,6 +163,9 @@ jobs:
             exit 1
           fi
           worker_pid=""
+          kill -TERM "$dispatch_pid"
+          wait "$dispatch_pid"
+          dispatch_pid=""
           grep -q '"event":"outbox_worker_shutdown"' /tmp/rideforge-outbox.log
       - name: Verify migration invariants
         run: psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
