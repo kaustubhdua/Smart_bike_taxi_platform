@@ -206,3 +206,27 @@ Do not call the project “complete” until the following gates have evidence:
 8. Only then polish the showcase, publish a release tag, and mark the PR ready for review.
 
 The important distinction is between **implemented**, **tested**, **deployed**, and **operationally verified**. Track those as separate statuses; do not use one to imply the others.
+
+
+## Open-source comparative review (2026-10-24)
+
+This review informs product boundaries and acceptance criteria; it does **not** copy code or claim these projects are production-ready. Re-check each repository's current license, maintenance, dependencies, and status before any code reuse.
+
+- [Namma Yatri](https://github.com/nammayatri/nammayatri) is an India-specific, driver-centric mobility platform with an AGPL-3.0 license. Useful product lessons: transparent driver economics, operational accountability, and Indian mobility context. Its domain and network/ONDC assumptions are not a drop-in generic stack. AGPL network-copyleft obligations require legal review before reusing or modifying code.
+- [OpenRide by codelocal-cloud](https://github.com/codelocal-cloud/OpenRide) documents a clear Request → Quote → Agreement → Ride model, driver-owned terms, explainable ranking, and the principle that declining an unsuitable request should not itself be treated as misconduct. Its README identifies the project as pre-1.0 and explicitly lists incomplete durable execution and service modules. Use the invariants as design inspiration, not as evidence that its entire stack is production-ready. Its repository declares AGPL-3.0-or-later.
+- [OpenRide by adam-nelson](https://github.com/adam-nelson/openride) describes a single-operator mobility MVP and calls out driver authorities, vehicle inspections, insurance, fatigue, incident logging, and provider integrations. Its repository declares Apache-2.0; verify the current LICENSE and dependencies before reuse.
+- [Autofleet Locomotion](https://github.com/Autofleet/locomotion) is a MIT-licensed rider/passenger app, but its README says it is pre-integrated with Autofleet's backend ride engine. It is a reference for a separate passenger client, not proof that the complete backend can be self-hosted from that repository.
+- [Taluxi Open Source](https://github.com/sitatec/Taluxi-Open-Source) demonstrates a separate passenger/driver app approach, but declares GPL-3.0 and describes a location/VoIP flow that is architecturally different from RideForge. Treat it as a UI/flow reference unless GPL obligations are intentionally accepted.
+
+### What RideForge should adopt
+
+1. **Model the offer and agreement as durable state.** A request, a driver's offer, a driver's decision, an accepted assignment, and the trip are different records/states. Do not infer an offer from a queue query.
+2. **Keep the driver's Decline scoped to one offer.** It must not cancel the passenger request or silently penalize the driver. Record the decision for auditability and allow bounded redispatch to another eligible driver.
+3. **Snapshot accepted terms.** Keep quoted fare, currency, distance, and the agreed terms stable for the trip; any adjustment needs an explicit, audited rule.
+4. **Separate services by responsibility, not by duplicating data.** Passenger and driver clients can have distinct URLs while sharing one authoritative API and database.
+5. **Treat safety/compliance as workflows.** A database flag saying a driver is approved is not evidence that licence, vehicle, insurance, permits, and local operating permissions have been verified by a human or trusted provider.
+6. **Make capability status visible.** In-app queue, browser push, SMS, payment collection, refunds, emergency escalation, and public deployment each require separate implementation and evidence.
+
+### License and originality rule
+
+RideForge should retain its existing C++/React/PostgreSQL architecture unless a documented engineering decision justifies a change. Prefer original implementations of general patterns. Before copying any source, record the exact upstream commit, license, notices, modifications, dependency transitivity, and whether copyleft terms are compatible with the intended distribution/hosting model. Never copy competitor logos, branding, private assets, or user data.
