@@ -59,10 +59,20 @@ int dispatch_radius_meters() {
     return static_cast<int>(km * 1000);
 }
 
+int max_dispatch_attempts() {
+    const std::string raw = env_or("RIDEFORGE_DISPATCH_MAX_ATTEMPTS", "5");
+    if (raw.empty() || raw.find_first_not_of("0123456789") != std::string::npos)
+        throw std::runtime_error("RIDEFORGE_DISPATCH_MAX_ATTEMPTS must be an integer from 1 to 20");
+    const long value = std::stol(raw);
+    if (value < 1 || value > 20)
+        throw std::runtime_error("RIDEFORGE_DISPATCH_MAX_ATTEMPTS must be an integer from 1 to 20");
+    return static_cast<int>(value);
+}
+
 // Each pass expires stale offers, then reserves at most one eligible ride and
 // its nearest never-before-tried driver in one transaction. Unique partial
 // indexes are the final guard if multiple worker replicas race.
-bool dispatch_one(PGconn* db, int radius_meters) {
+bool dispatch_one(PGconn* db, int radius_meters, int max_attempts_value) {
     command(db, "BEGIN");
     try {
         command(db,
@@ -72,19 +82,6 @@ bool dispatch_one(PGconn* db, int radius_meters) {
             "SELECT r.id::text,r.pickup_latitude::text,r.pickup_longitude::text "
             "FROM rides r WHERE r.status IN ('requested','matching') AND r.driver_id IS NULL "
             "AND NOT EXISTS (SELECT 1 FROM ride_offers o WHERE o.ride_id=r.id AND o.status='offered') "
-            "AND EXISTS (SELECT 1 FROM driver_profiles d WHERE d.is_approved=true AND d.is_online=true "
-            "AND d.last_location_at>now()-interval '5 minutes' AND d.current_latitude IS NOT NULL "
-            "AND d.current_longitude IS NOT NULL AND NOT EXISTS (SELECT 1 FROM ride_offers tried "
-            "WHERE tried.ride_id=r.id AND tried.driver_id=d.account_id AND tried.status<>'superseded') "
-            "AND NOT EXISTS (SELECT 1 FROM driver_ride_declines declined "
-            "WHERE declined.ride_id=r.id AND declined.driver_id=d.account_id) "
-            "AND NOT EXISTS (SELECT 1 FROM rides active WHERE active.driver_id=d.account_id "
-            "AND active.status IN ('assigned','driver_arriving','in_progress')) "
-            "AND (6371000.0 * acos(least(1.0::double precision,greatest(-1.0::double precision,"
-            "sin(radians(d.current_latitude))*sin(radians(r.pickup_latitude)) + "
-            "cos(radians(d.current_latitude))*cos(radians(r.pickup_latitude))*"
-            "cos(radians(r.pickup_longitude-d.current_longitude)))))) <= " +
-            std::to_string(radius_meters) + ") "
             "ORDER BY r.created_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED";
         Result ride(PQexec(db, ride_sql.c_str()));
         if (!tuples(ride)) throw std::runtime_error("dispatch worker ride selection failed");
@@ -118,6 +115,34 @@ bool dispatch_one(PGconn* db, int radius_meters) {
             4, nullptr, driver_params, nullptr, nullptr, 0));
         if (!tuples(driver)) throw std::runtime_error("dispatch worker driver selection failed");
         if (PQntuples(driver.get()) == 0) {
+            const std::string max_attempts = std::to_string(max_attempts_value);
+            const char* exhaustion_params[] = {ride_id.c_str(), max_attempts.c_str()};
+            Result exhausted(PQexecParams(db,
+                "SELECT (SELECT count(*) FROM ride_offers WHERE ride_id=$1::uuid)::text, "
+                "(SELECT created_at <= now()-interval '10 minutes' FROM rides WHERE id=$1::uuid)",
+                1, nullptr, exhaustion_params, nullptr, nullptr, 0));
+            if (!tuples(exhausted) || PQntuples(exhausted.get()) != 1)
+                throw std::runtime_error("dispatch worker exhaustion check failed");
+            const long attempts = std::stol(PQgetvalue(exhausted.get(), 0, 0));
+            const bool timed_out = std::string(PQgetvalue(exhausted.get(), 0, 1)) == "t";
+            if (attempts >= max_attempts_value || timed_out) {
+                const char* fail_params[] = {ride_id.c_str()};
+                Result failed(PQexecParams(db,
+                    "UPDATE rides SET status='failed',updated_at=now() "
+                    "WHERE id=$1::uuid AND status IN ('requested','matching') AND driver_id IS NULL",
+                    1, nullptr, fail_params, nullptr, nullptr, 0));
+                if (!failed.get() || PQresultStatus(failed.get()) != PGRES_COMMAND_OK)
+                    throw std::runtime_error("dispatch worker could not close exhausted ride");
+                if (std::string(PQcmdTuples(failed.get())) == "1") {
+                    Result event(PQexecParams(db,
+                        "INSERT INTO ride_events (ride_id,new_status,details) "
+                        "VALUES ($1::uuid,'failed',jsonb_build_object('source','dispatch_worker','reason','no_eligible_drivers','attempts',$2::integer))",
+                        2, nullptr, exhaustion_params, nullptr, nullptr, 0));
+                    if (!event.get() || PQresultStatus(event.get()) != PGRES_COMMAND_OK)
+                        throw std::runtime_error("dispatch worker could not record exhausted ride event");
+                    std::cout << "{\"event\":\"ride_dispatch_exhausted\",\"rideId\":\"" << ride_id << "\"}" << std::endl;
+                }
+            }
             command(db, "COMMIT");
             return false;
         }
@@ -150,6 +175,7 @@ int main() {
     try {
         const int interval = poll_interval_ms();
         const int radius = dispatch_radius_meters();
+        const int max_attempts_value = max_dispatch_attempts();
         while (!stopping) {
             PGconn* db = PQconnectdb(env_or("DATABASE_URL", "").c_str());
             if (!db || PQstatus(db) != CONNECTION_OK) {
@@ -159,7 +185,7 @@ int main() {
                 continue;
             }
             try {
-                const bool dispatched = dispatch_one(db, radius);
+                const bool dispatched = dispatch_one(db, radius, max_attempts_value);
                 PQfinish(db);
                 if (!dispatched) std::this_thread::sleep_for(std::chrono::milliseconds(interval));
             } catch (const std::exception&) {
