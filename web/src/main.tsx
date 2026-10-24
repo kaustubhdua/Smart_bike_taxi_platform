@@ -4,10 +4,16 @@ import App from "./App";
 import OperationsWorkspace from "./components/OperationsWorkspace";
 import "./styles.css";
 
-const isDriverPortal = window.location.hostname.toLowerCase().startsWith("driver.");
+const hostname = window.location.hostname.toLowerCase();
+const isDriverPortal = hostname.startsWith("driver.");
+const isAdminPortal = window.location.pathname.replace(/\/+$/, "") === "/admin";
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    {isDriverPortal ? <OperationsWorkspace mode="driver" /> : <App />}
+    {isDriverPortal
+      ? <OperationsWorkspace mode="driver" />
+      : isAdminPortal
+        ? <OperationsWorkspace mode="admin" />
+        : <App />}
   </React.StrictMode>,
 );
