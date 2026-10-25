@@ -4,7 +4,7 @@
 
 **A C++17-powered bike-taxi platform with a real API, PostgreSQL bookings, and driver/admin workspaces.**
 
-Shortest-path routing · Radius-filtered driver queue · Transactional bookings · Local persistence
+Shortest-path routing · Durable 45-second driver offers · Automatic expiry/redispatch · Transactional bookings
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
 ![CI](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/cpp.yml/badge.svg)
@@ -24,7 +24,7 @@ Shortest-path routing · Radius-filtered driver queue · Transactional bookings 
 
 ## Run the complete verification suite
 
-The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. The individual workflows run on pull-request changes. Release hardening PR [#9](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/9) was merged after all 13 aggregate release-readiness jobs passed on tested head `d0cab5d11bab857190f7232ffecc501ae0d5bca3`. That is evidence for that revision, not for later changes or a live deployment. Verify fresh workflow runs on the exact release SHA before publishing.
+The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. The individual workflows run on pull-request changes. The durable-offer implementation is under PR #13; its exact-head checks must pass before it is merged. Release hardening PR [#9](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/9) was merged after all 13 aggregate release-readiness jobs passed on tested head `d0cab5d11bab857190f7232ffecc501ae0d5bca3`. That is evidence for that revision, not for later changes or a live deployment. Verify fresh workflow runs on the exact release SHA before publishing.
 
 ## Full-stack roadmap status
 
