@@ -84,3 +84,14 @@ Fill this in only with observed values:
 - Reviewer and date:
 
 No field above is pre-filled with a fabricated result.
+
+## External policy research references
+
+These are primary or official-source starting points for the compliance review, not a legal opinion and not proof that RideForge meets the requirements:
+
+- [Ministry of Road Transport and Highways — Motor Vehicle Aggregator Guidelines 2025 (PDF)](https://parivahan.gov.in/sites/default/files/NOTIFICATION%26ADVISORY/MV-Aggregators-Guidelines-2025%20-%20English%20and%20Hindi.pdf). The guidelines describe a framework for state licensing and operational requirements; confirm their implementation and any additional rules with the relevant state authority.
+- [Motor Vehicles Act, 1988, Section 93 — aggregator licensing](https://indiacode.ecourtsindia.com/mv-act/section/93/). The statutory text states that an aggregator must obtain a licence from the competent authority subject to state-prescribed conditions.
+- [Rajasthan Transport Aggregator Management Portal](https://transportaggregator.rajasthan.gov.in/) and [Rajasthan transport policies](https://transport.rajasthan.gov.in/content/transportportal/en/transport/policies.html) are examples of state-level implementation. They are not a substitute for the rules applicable to the intended operating state.
+- [Maharashtra Transport Department — aggregator rules and notifications](https://transport.maharashtra.gov.in/Site/Common/ViewPdfList.aspx?Doctype=ae4e6702-3ac3-44e4-8d70-db31c41fd41e) illustrates that state-specific bike-taxi rules may be separate from general aggregator rules.
+
+Before launch, counsel should confirm the current commencement, applicability, licensing, vehicle-class, insurance, safety, data-storage, grievance, and control-room obligations for the exact state and business model. Do not assume a central guideline alone authorizes commercial two-wheeler rides in every state.
