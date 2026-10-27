@@ -759,10 +759,16 @@ status="$(curl --silent --show-error --output "$tmp_dir/dispatch-refresh-locatio
 test "$status" = "200"
 exhausted_ride_id="30000000-0000-4000-8000-000000000099"
 max_attempts="${RIDEFORGE_DISPATCH_MAX_ATTEMPTS:-5}"
-psql -v ON_ERROR_STOP=1 -c "INSERT INTO rides (id,passenger_id,status,pickup_label,pickup_latitude,pickup_longitude,destination_label,destination_latitude,destination_longitude,route_distance_m,quoted_fare_paise,idempotency_key) SELECT '$exhausted_ride_id',id,'requested','Exhaustion pickup',28.53,77.35,'Exhaustion dropoff',28.54,77.36,2500,4500,'smoke-dispatch-max-attempts-0001' FROM accounts WHERE email='smoke-passenger@example.test'" >/dev/null
-for attempt in $(seq 1 "$max_attempts"); do
-  psql -v ON_ERROR_STOP=1 -c "INSERT INTO ride_offers (ride_id,driver_id,status,offered_at,expires_at,responded_at) VALUES ('$exhausted_ride_id','$unapproved_id','expired',now()-interval '2 minutes',now()-interval '1 minute',now()-interval '1 minute')" >/dev/null
-done
+# Seed the ride and its complete expired-offer history atomically so the live
+# dispatch worker cannot observe an unseeded ride and create an extra offer.
+psql -v ON_ERROR_STOP=1 -c "BEGIN;
+INSERT INTO rides (id,passenger_id,status,pickup_label,pickup_latitude,pickup_longitude,destination_label,destination_latitude,destination_longitude,route_distance_m,quoted_fare_paise,idempotency_key)
+SELECT '$exhausted_ride_id',id,'requested','Exhaustion pickup',28.53,77.35,'Exhaustion dropoff',28.54,77.36,2500,4500,'smoke-dispatch-max-attempts-0001'
+FROM accounts WHERE email='smoke-passenger@example.test';
+INSERT INTO ride_offers (ride_id,driver_id,status,offered_at,expires_at,responded_at)
+SELECT '$exhausted_ride_id','$unapproved_id','expired',now()-interval '2 minutes',now()-interval '1 minute',now()-interval '1 minute'
+FROM generate_series(1, $max_attempts);
+COMMIT" >/dev/null
 dispatch_exhausted=0
 for attempt in $(seq 1 40); do
   exhausted_status="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT status FROM rides WHERE id='$exhausted_ride_id'")"
