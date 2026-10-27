@@ -132,8 +132,8 @@ bool dispatch_one(PGconn* db, int radius_meters, int max_attempts_value) {
                     2, nullptr, exhausted_params, nullptr, nullptr, 0));
                 if (!event.get() || PQresultStatus(event.get()) != PGRES_COMMAND_OK)
                     throw std::runtime_error("dispatch worker could not record exhausted ride event");
-                std::cout << "{\\"event\\":\\"ride_dispatch_exhausted\\",\\"rideId\\":\\""
-                          << ride_id << "\\",\\"reason\\":\\"max_dispatch_attempts\\"}" << std::endl;
+                std::cout << "{\"event\":\"ride_dispatch_exhausted\",\"rideId\":\""
+                          << ride_id << "\",\"reason\":\"max_dispatch_attempts\"}" << std::endl;
             }
             command(db, "COMMIT");
             return false;
