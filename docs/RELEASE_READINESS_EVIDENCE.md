@@ -95,3 +95,24 @@ These are primary or official-source starting points for the compliance review, 
 - [Maharashtra Transport Department — aggregator rules and notifications](https://transport.maharashtra.gov.in/Site/Common/ViewPdfList.aspx?Doctype=ae4e6702-3ac3-44e4-8d70-db31c41fd41e) illustrates that state-specific bike-taxi rules may be separate from general aggregator rules.
 
 Before launch, counsel should confirm the current commencement, applicability, licensing, vehicle-class, insurance, safety, data-storage, grievance, and control-room obligations for the exact state and business model. Do not assume a central guideline alone authorizes commercial two-wheeler rides in every state.
+
+
+## Open-source research and reuse policy
+
+Open-source references reviewed for architecture and operational patterns:
+
+- [Namma Yatri's public mobility repository](https://github.com/nammayatri/nammayatri) is an active India-focused mobility platform. Use it as a domain-model and operational-requirements reference, not as a drop-in implementation. Its repository is AGPL-3.0; do not copy or vendor its code into RideForge unless a maintainer/legal review explicitly approves the license obligations and compatibility with RideForge's distribution model.
+- Prefer the current project's own C++/PostgreSQL architecture and small, well-scoped upstream dependencies where they meet requirements. Pin dependency versions, review license notices, run dependency vulnerability/license checks, and preserve attribution for any code actually reused.
+- Do not copy proprietary ride-hailing branding, credentials, private APIs, scraped customer data, or fabricated operational metrics. Public reference code is not evidence that the same feature is secure or suitable for this deployment.
+- Use open-source project behavior as design inspiration only. Every adopted pattern still needs RideForge-specific authorization, concurrency, migration, failure-recovery, accessibility and end-to-end tests.
+
+### Research-derived launch implications
+
+The 2025 Motor Vehicle Aggregator Guidelines include operational expectations beyond software availability, including grievance handling and driver induction training. The exact requirements and applicability must be verified with qualified counsel and the relevant state authority before operating. The application should not claim compliance merely because a support form or driver approval flag exists.
+
+Research references:
+- [MoRTH — Motor Vehicle Aggregator Guidelines 2025 (official PDF)](https://morth.gov.in/sites/default/files/circulars_document/MV-Aggregators-Guidelines-2025%20-%20English%20and%20Hindi.pdf)
+- [MoRTH — Circulars and notifications related to road transport](https://morth.nic.in/Circulars-Notifications-related-to-Road-Transport?page=3)
+- [Motor Vehicles Act, 1988, Section 93](https://indiacode.ecourtsindia.com/mv-act/section/93/)
+
+These references support further legal review; they do not establish RideForge's licensing status or authorize any specific state-level bike-taxi operation.
