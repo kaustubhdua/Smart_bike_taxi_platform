@@ -109,9 +109,10 @@ bool dispatch_one(PGconn* db, int radius_meters, int max_attempts_value) {
         // Attempt exhaustion is terminal even when a new eligible driver appears
         // between worker passes. Enforce the cap before selecting/inserting another
         // offer so an old ride can never receive max_attempts + 1 offers.
+        const char* attempt_params[] = {ride_id.c_str()};
         Result attempt_count_result(PQexecParams(db,
             "SELECT count(*)::text FROM ride_offers WHERE ride_id=$1::uuid",
-            1, nullptr, &ride_id.c_str(), nullptr, nullptr, 0));
+            1, nullptr, attempt_params, nullptr, nullptr, 0));
         if (!tuples(attempt_count_result) || PQntuples(attempt_count_result.get()) != 1)
             throw std::runtime_error("dispatch worker attempt count failed");
         const long attempt_count = std::stol(PQgetvalue(attempt_count_result.get(), 0, 0));
