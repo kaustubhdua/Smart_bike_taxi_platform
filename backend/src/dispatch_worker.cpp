@@ -105,6 +105,39 @@ bool dispatch_one(PGconn* db, int radius_meters, int max_attempts_value) {
             return false;
         }
         const std::string ride_id = PQgetvalue(ride.get(), 0, 0);
+
+        // Attempt exhaustion is terminal even when a new eligible driver appears
+        // between worker passes. Enforce the cap before selecting/inserting another
+        // offer so an old ride can never receive max_attempts + 1 offers.
+        Result attempt_count_result(PQexecParams(db,
+            "SELECT count(*)::text FROM ride_offers WHERE ride_id=$1::uuid",
+            1, nullptr, &ride_id.c_str(), nullptr, nullptr, 0));
+        if (!tuples(attempt_count_result) || PQntuples(attempt_count_result.get()) != 1)
+            throw std::runtime_error("dispatch worker attempt count failed");
+        const long attempt_count = std::stol(PQgetvalue(attempt_count_result.get(), 0, 0));
+        if (attempt_count >= max_attempts_value) {
+            const std::string attempts_text = std::to_string(attempt_count);
+            const char* exhausted_params[] = {ride_id.c_str(), attempts_text.c_str()};
+            Result failed(PQexecParams(db,
+                "UPDATE rides SET status='failed',updated_at=now() "
+                "WHERE id=$1::uuid AND status IN ('requested','matching') AND driver_id IS NULL",
+                1, nullptr, exhausted_params, nullptr, nullptr, 0));
+            if (!failed.get() || PQresultStatus(failed.get()) != PGRES_COMMAND_OK)
+                throw std::runtime_error("dispatch worker could not close exhausted ride");
+            if (std::string(PQcmdTuples(failed.get())) == "1") {
+                Result event(PQexecParams(db,
+                    "INSERT INTO ride_events (ride_id,new_status,details) "
+                    "VALUES ($1::uuid,'failed',jsonb_build_object('source','dispatch_worker','reason','max_dispatch_attempts','attempts',$2::integer))",
+                    2, nullptr, exhausted_params, nullptr, nullptr, 0));
+                if (!event.get() || PQresultStatus(event.get()) != PGRES_COMMAND_OK)
+                    throw std::runtime_error("dispatch worker could not record exhausted ride event");
+                std::cout << "{\\"event\\":\\"ride_dispatch_exhausted\\",\\"rideId\\":\\""
+                          << ride_id << "\\",\\"reason\\":\\"max_dispatch_attempts\\"}" << std::endl;
+            }
+            command(db, "COMMIT");
+            return false;
+        }
+
         const std::string pickup_lat = PQgetvalue(ride.get(), 0, 1);
         const std::string pickup_lon = PQgetvalue(ride.get(), 0, 2);
         const std::string radius = std::to_string(radius_meters);
