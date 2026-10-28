@@ -46,6 +46,7 @@ jobs:
       RIDEFORGE_JWT_SECRET: local-ci-secret-that-must-never-be-used-in-production-123456
       RIDEFORGE_DOMAIN: rideforge.example.test
       RIDEFORGE_PUBLIC_ORIGIN: https://rideforge.example.test
+      RIDEFORGE_ALLOWED_ORIGINS: https://rideforge.example.test,https://driver.rideforge.example.test
     steps:
       - uses: actions/checkout@v4
       - name: Validate local Compose interpolation
