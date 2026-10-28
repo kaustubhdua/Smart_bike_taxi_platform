@@ -124,10 +124,10 @@ export async function calculateRoute(
   const routeUrl = `${routingBase}/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson&steps=false`;
   const response = await fetch(routeUrl, { signal, headers: { "Accept-Language": "en" } });
   if (!response.ok) throw new Error("The routing service is temporarily unavailable.");
-  const result = await response.json() as OsrmRouteResponse;
-  const route = result?.routes?.[0];
+  const routeResponse = await response.json() as OsrmRouteResponse;
+  const route = routeResponse?.routes?.[0];
   const coordinates: unknown = route?.geometry?.coordinates;
-  if (result?.code !== "Ok" || !route || !Array.isArray(coordinates) || coordinates.length < 2) {
+  if (routeResponse?.code !== "Ok" || !route || !Array.isArray(coordinates) || coordinates.length < 2) {
     throw new Error("No drivable route was found for these locations.");
   }
   if (
