@@ -2,118 +2,94 @@
 
 **Assessment date:** 2026-10-28  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Dispatch-fix revision:** `28bbad3e7469ad753eebb52fe960917efb78664c` (PR #15 merge)  
-**Reviewed revision:** `e74c8ca80a747867b472548ecabcba1dc51af2af` (main after PR #18; CI evidence below)
-**Decision:** **Not production-ready for public/commercial rides yet.** The codebase has a substantial full-stack MVP, but external deployment, operational, legal, safety, and real-device evidence remain release gates.
+**Current main SHA:** `8c6ee2ed12e3cff339c98b4389dacff708e525bb`  
+**Release decision:** **Not ready for public/commercial rides.** The repository has a substantial full-stack MVP and recent engineering fixes, but no verified public staging deployment, real two-device journey, operational service, driver/vehicle compliance process, or transport-authority/legal approval.
 
-This document deliberately separates implementation evidence from claims that require a live environment. A merged PR, green CI run, screenshot, local Compose stack, or demo booking is not proof of a commercially operational transport service.
+This report distinguishes repository implementation and automated CI from evidence that requires real infrastructure. A green build, local Compose stack, mock-provider browser test, or demo receipt is not proof of a commercially operating taxi service.
 
-## Evidence reviewed
+## Recent engineering changes and exact-candidate evidence
 
-- The current main revision at this assessment is `415b7d5cefeca0684053a16d4a2ece8b4bb1a606`. It includes the PR #15 dispatch fix and PR #16 documentation corrections; the earlier `e67fe208722c44aad1252cead2985e1f39f6ffad` revision was the pre-PR #15 baseline.
-- PR #13 adds migration `006_durable_driver_offers.sql`, the C++ dispatch worker, 45-second offers, expiration/redispatch, offer-aware queue and acceptance/decline behavior, Compose/Docker wiring, and API/schema/browser-test updates.
-- PR #9 is merged. Its recorded aggregate release-readiness run passed 13 jobs on the earlier tested revision `d0cab5d11bab857190f7232ffecc501ae0d5bca3`. That result must not be represented as a fresh full-suite result for the current main SHA.
-- The repository contains separate passenger and driver web experiences, a C++ API, PostgreSQL migrations, an outbox worker, authenticated SSE, Compose deployment templates, and operational/security documentation.
-- PR #15's bounded dispatch-attempt fix was merged to main as `28bbad3e7469ad753eebb52fe960917efb78664c` after all 13 jobs in the full release-readiness workflow passed on exact tested head `ec8780b20beef1470047f23f73f9705ac148f5a6`. See [full release-readiness run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466789) and [API smoke run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466885). PR #16's documentation corrections were merged as `415b7d5cefeca0684053a16d4a2ece8b4bb1a606`. Fresh CI runs for the PR #16 head `ffe72e56ed877d7154c16a5e386a9033fb8ae018` also passed all eight workflows, including the 13-job release-readiness suite. The current-main full suite is [run 40628698136](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40628698136) and has now completed all 13 reported jobs successfully: GCC/Clang tests, ASan/UBSan, API smoke at 5 km and 20 km, PostgreSQL migration/recovery, web typecheck/build/browser E2E, container/Compose validation, container vulnerability scan, npm dependency audit, and C++/JavaScript CodeQL. This is CI evidence for the current-main revision only; it is not proof of a live deployment, external two-device ride journey, operational readiness, or legal authorization. Issue #2 and issue #3 remain open; issue #10 still tracks concurrency, recovery and deployed-journey verification. Issue #17 records that `main` is not protected and required status checks are not enforced.
+| Change | Merge SHA | Exact candidate CI evidence | Result |
+|---|---|---|---|
+| Route/geocode caches, malformed-provider validation (PR #20) | `f4e9a5d2f8db17d678e2b97292ada976b0a18868` | [Full release readiness, run 40648144882](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40648144882), candidate `c7853cc84928bba3cf9f00ed157378e5cf91b948` | 13/13 jobs passed; browser tests reported 25 passed, 1 skipped. |
+| Bounded per-process PostgreSQL pool (PR #21) | `dafd28504f80e252887b2467648a78f33e5d6726` | [Full release readiness, run 40648486771](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40648486771), candidate `5ece2fe492b998eb2109504c09199552e56617c7` | 13/13 jobs passed, including concurrent connection smoke tests. |
+| Production driver/admin entry routing (PR #22) | `82f0f7a53ca0dc3e382152f75a6c70923166d596` | [Full release readiness, run 40650689471](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40650689471), candidate `f85dad1fa6f64a8dda1cf530dedf712db4fea76b` | All 13 jobs passed. |
+| Dispatch expiry/ride lock-order hardening (PR #23) | `8c6ee2ed12e3cff339c98b4389dacff708e525bb` | [Full release readiness, run 40651307975](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40651307975), candidate `0fc4bb5cf54adfb03cc4b583a63b7175e36dec3d` | All 13 jobs passed. Main-branch workflows for the merge SHA are running separately and were not yet complete at the time of this report. |
+| Debounce location geocoding while typing (PR #26) | Not merged | [PR #26](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/26), candidate `1ae3ad8b05662d5720715b73491f775167ba7aaa` | CI queued at time of report; not yet validated or merged. |
 
-## Capability status
+The latest main revision `8c6ee2ed12e3cff339c98b4389dacff708e525bb` has its own workflow runs; at the time of this report, the full release-readiness run was queued and the container scan was in progress. Do not describe post-merge main CI as green until those exact-SHA runs complete.
 
-| Area | Status | Evidence / limitation |
+## Capability and limitation matrix
+
+| Area | Status | What is still missing |
 |---|---|---|
-| Passenger and driver web experiences | Implemented in repository | Build and browser tests exist; a public deployment was not verified in this assessment. |
-| PostgreSQL-backed accounts, quotes, rides and history | Implemented in repository | Migrations and API smoke tests exist; no production database is configured. |
-| Timed driver offers and sequential redispatch | Implemented in main | PR #13 adds durable offers and a worker. This does not establish behavior under production load. |
-| Single-driver assignment protections | Implemented in code; needs stronger operational proof | Transactional guards exist; retain explicit concurrent accept/cancel/expiry tests and repeat them against PostgreSQL. |
-| Live ride updates | Implemented in repository | Authenticated SSE and persisted-event replay exist; reconnect storms, real mobile background behavior and production load are not proven. |
-| Maps and road routing | Integrated with public evaluation endpoints by default | Public Nominatim/OSRM endpoints are not a production SLA. Select a provider or operate suitable infrastructure and verify terms, capacity, and attribution. |
-| Browser push / SMS | Not verified as implemented | Do not promise background driver alerts or say an SMS was sent unless a real provider integration is configured and tested. |
-| Payments, refunds, driver payouts | Not implemented as a commercial flow | Demo receipts and stored final fares are not payment evidence. |
-| Driver identity, licence, vehicle, insurance and permits | Operational process required | An admin approval flag is not real-world document verification. |
-| Safety/emergency response | Operational process required | A support report form is not an emergency-response service. |
-| Public URLs, DNS, TLS and hosting | Not verified | The repository contains templates, not verified live passenger/driver URLs. |
-| Monitoring, off-host backups and recovery objectives | Not verified in a live environment | Documented procedures must be configured and rehearsed on the chosen host. |
-| India/state-specific legal and privacy compliance | External review required | Obtain qualified advice and transport-authority confirmation for the exact operating state and two-wheeler model before real rides. |
+| Passenger booking, accounts, history and cancellation | Implemented in repository | Verified public deployment and real-device end-to-end evidence. |
+| Driver workspace, queue, timed offers and redispatch | Implemented in repository | Real driver onboarding/verification, push/background alert proof, race/restart/load tests. |
+| Admin workspace | Implemented in repository | Production access controls and tested operator procedures. |
+| PostgreSQL persistence and migrations | Implemented in repository | Production database, least-privilege roles, off-host backup and restore rehearsal. |
+| Live ride events (SSE/outbox) | Implemented in repository | Production reconnect/load measurements and alerts for lag/dead letters. |
+| PostgreSQL API pool | Bounded to 12 connections per API process, 2-second acquisition wait | Aggregate connection budgeting across replicas/workers and representative saturation/load tests. It is not a shared cross-replica pool. |
+| Maps/geocoding/routing | Public OSM Nominatim and OSRM evaluation endpoints are defaults; route caching and malformed-response validation are implemented | Public endpoints do not provide a commercial SLA. Nominatim's one-request/second ceiling applies across all users of an application, and its policy prohibits client-side autocomplete. A browser-local queue is not an application-wide limiter. Configure a suitable provider or self-hosted stack, with global rate limiting, caching, terms and attribution. |
+| Payments/refunds/driver payouts | Not implemented as a real commercial money flow | Provider integration, server-verified webhooks, idempotency, refunds, reconciliation and ledger. Demo receipts are not payment evidence. |
+| Driver identity, licence, vehicle, insurance and permits | Not verified by the software alone | Documented real-world verification and competent-authority checks before activating drivers. |
+| Emergency response and support | A support-report workflow exists | Staffed response process, ownership, escalation, response-time expectations and tested incident procedures. A form is not an emergency service. |
+| Public HTTPS URLs, DNS and hosting | Not verified | Real deployed origins, TLS/DNS, persistent database, managed secrets, CORS allowlist and public smoke test. |
+| Monitoring, recovery and privacy | Procedures documented; live operation not evidenced | Alerts, retention/deletion, account revocation, encrypted off-host backups, restore drill, measured RPO/RTO and incident runbook rehearsal. |
+| Legal authorization | Not established | Qualified legal advice and transport-authority confirmation for the intended state, vehicle class and business model. |
 
-## Required gates before a controlled pilot
+## Release gates
 
-### Gate A — exact-revision engineering verification
-- [x] Run the full release-readiness workflow on the exact PR #15 candidate SHA, including the bounded-retry regression, before merging that fix. All 13 jobs passed on `ec8780b20beef1470047f23f73f9705ac148f5a6`; the merge commit is `28bbad3e7469ad753eebb52fe960917efb78664c`.
-- [x] Verify C++ warnings-as-errors, sanitizers, backend smoke tests at 5 km and 20 km dispatch radii, PostgreSQL migration/recovery, web typecheck/build, desktop/mobile E2E, accessibility, dependency audit, CodeQL, container build and vulnerability scanning on that exact candidate. This is CI evidence, not proof of a live deployment.
-- [ ] Add/retain deterministic PostgreSQL tests for simultaneous accept, accept-vs-expiry, cancellation races, worker restart, duplicate worker execution, no eligible drivers, and cross-account/role authorization. The bounded retry exhaustion regression is covered by PR #15 and passed on its exact candidate SHA.
-- [ ] Stress-test the dispatch worker and SSE/outbox under representative concurrency. Record test conditions and measured results; do not infer capacity from a single local run.
-- [ ] Confirm readiness fails closed when any required schema/migration or dependency is unavailable.
+### A. Engineering and concurrency
+- [x] Exact-candidate CI passed for PRs #20, #21, #22 and #23 as listed above.
+- [ ] Confirm current-main CI passes on `8c6ee2ed12e3cff339c98b4389dacff708e525bb`.
+- [ ] Merge PR #26 only after its exact head passes browser, accessibility, build, security and full release-readiness checks.
+- [ ] Add deterministic PostgreSQL race/recovery coverage for concurrent accept, accept-vs-expiry, cancellation races, worker restart, duplicate worker execution and cross-role/cross-account authorization.
+- [ ] Load-test API, pool saturation, dispatch worker and SSE/outbox with recorded workload, latency, error rates and recovery behavior.
+- [ ] Budget total PostgreSQL connections across all API replicas plus dispatch/outbox workers before scaling.
 
-### Gate B — actual staging deployment
-- [ ] Choose a host and configure the production Compose overlay, persistent database storage, firewall, TLS, and DNS.
-- [ ] Configure independent strong secrets outside source control; verify secret rotation and restore procedures.
-- [ ] Deploy passenger and driver entry points to real HTTPS origins and allow only those exact origins in CORS.
-- [ ] Replace public evaluation routing endpoints with a provider/self-hosted service appropriate to the intended traffic and terms.
-- [ ] Run the full workflow from two independent devices over the public internet: passenger request, eligible driver offer, decline/expiry redispatch, accept, arrival, trip start, completion, history, cancellation, and reconnect recovery.
-- [ ] Record actual public URLs, deployed SHA, timestamps, CI run links, redacted logs and real-device results. Do not invent screenshots, metrics, delivery receipts, or successful test outcomes.
+### B. Real staging deployment
+- [ ] Select and explicitly configure the hosting workspace/provider, persistent database, secrets, DNS, TLS, firewall and CORS origins.
+- [ ] Replace public demo routing/geocoding defaults with a suitable contracted or self-hosted service and application-wide request limits.
+- [ ] Deploy passenger and driver origins and record the exact deployed SHA.
+- [ ] Run an end-to-end journey from two independent real devices over public HTTPS: passenger request, driver offer, decline/expiry redispatch, accept, arrival, trip start, completion, history, cancellation and reconnect recovery.
+- [ ] Keep evidence real: public URLs, timestamps, CI links, redacted logs and actual test results. Do not manufacture screenshots, metrics or delivery receipts.
 
-### Gate C — operations and privacy
-- [ ] Configure monitoring and alerting for API errors/latency, database saturation, dispatch offer outcomes, worker health, outbox backlog/dead letters, and backup failures.
-- [ ] Create encrypted off-host backups and successfully restore them in a separate environment; record measured recovery time and recovery point.
-- [ ] Define location consent, access controls, retention/deletion, account suspension/revocation, support ownership, incident escalation, and emergency disclosures.
-- [ ] Verify drivers and vehicles using a documented real-world process before enabling real rides.
-- [ ] Obtain state-specific legal/transport-authority review and qualified privacy advice before inviting customers or collecting real trip data.
+### C. Operations, privacy and safety
+- [ ] Configure monitoring/alerts for API errors and latency, DB saturation, dispatch outcomes, worker health, outbox backlog/dead letters and backup failures.
+- [ ] Create encrypted off-host backups and successfully restore to a separate environment; record measured recovery point and recovery time.
+- [ ] Define consent, location retention/deletion, access logging, account suspension/revocation, support ownership, incident escalation and emergency disclosures.
+- [ ] Verify driver identity, licence, vehicle, insurance and permits through a documented process.
+- [ ] Obtain qualified state-specific legal/privacy review and written transport-authority confirmation before real rides.
 
-### Gate D — commercial features, if offered
-- [ ] If collecting money, integrate a real payment provider with server-verified webhooks, idempotency, refunds, reconciliation, and a ledger for fees and driver payables.
-- [ ] If offering background alerts, implement and test browser push or an external notification provider on supported real devices; distinguish accepted, sent, delivered, and opened states.
-- [ ] Publish only services that are actually available. Clearly label estimates and demo-only functions.
+### D. Commercial features, only if offered
+- [ ] Integrate real payments only with server-verified provider webhooks, idempotency, refunds, reconciliation and driver payout accounting.
+- [ ] Implement and test real push/SMS delivery before promising background alerts; distinguish queued, accepted, sent, delivered and opened.
+- [ ] Publish only features and service guarantees that have actually been implemented and tested.
+
+## External primary-source research
+
+- [Haryana Transport Department — Aggregator Policy notification dated 21 May 2026](https://haryanatransport.gov.in/en/content/aggregator-policy-transport-department-notification-no-13920166ti-dated-21st-may-2026). Relevant to intended Haryana/NCR operations; applicability and vehicle eligibility require competent-authority/legal confirmation.
+- [MoRTH — Motor Vehicle Aggregator Guidelines 2025 (PDF)](https://parivahan.gov.in/sites/default/files/NOTIFICATION%26ADVISORY/MV-Aggregators-Guidelines-2025%20-%20English%20and%20Hindi.pdf). Starting point for licensing and operational review, not proof of RideForge compliance.
+- [Nominatim Usage Policy](https://operations.osmfoundation.org/policies/nominatim/). Public service limit is one request/second per application across all users; client-side autocomplete is prohibited; commercial use requires careful capacity/policy planning.
+- [OpenStreetMap Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/). Public standard tiles are best-effort with no SLA, require attribution/caching and may be blocked for policy violations.
 
 ## Safe release wording
 
-Until Gates A–C have evidence, describe RideForge as a **full-stack bike-taxi MVP with a PostgreSQL-backed booking/dispatch implementation and a self-hosting template**. Do not describe it as a live taxi service, claim payments are processed, claim driver documents are verified, promise emergency response, or publish unmeasured availability/performance metrics.
+Until the gates above are evidenced, describe RideForge as a **full-stack bike-taxi MVP with PostgreSQL-backed booking/dispatch code and a self-hosting template**. Do not describe it as a live taxi service, claim that payments are processed or driver documents verified, promise emergency response, or publish unmeasured availability/performance figures.
 
 ## Evidence log template
 
-Fill this in only with observed values:
+Fill only with observed values:
 
-- Candidate SHA:
-- Full release-readiness workflow URL and conclusion:
-- Staging passenger URL:
-- Staging driver URL:
+- Candidate and deployed SHA:
+- Full release-readiness workflow URL/conclusion:
+- Passenger HTTPS URL:
+- Driver HTTPS URL:
 - Deployment timestamp:
-- PostgreSQL migration/recovery result:
+- Migration/recovery result:
 - Two-device end-to-end result:
-- Concurrent accept/cancel/expiry test result:
-- Real Android/iOS device matrix:
-- Backup restore result and measured recovery time:
+- Race/load test conditions and measured results:
+- Backup restore result and measured RPO/RTO:
+- Driver/vehicle verification owner and procedure:
+- Legal/transport authority reviewer:
 - Open P0/P1 issues:
-- Reviewer and date:
-
-No field above is pre-filled with a fabricated result.
-
-## External policy research references
-
-These are primary or official-source starting points for the compliance review, not a legal opinion and not proof that RideForge meets the requirements:
-
-- [Ministry of Road Transport and Highways — Motor Vehicle Aggregator Guidelines 2025 (PDF)](https://parivahan.gov.in/sites/default/files/NOTIFICATION%26ADVISORY/MV-Aggregators-Guidelines-2025%20-%20English%20and%20Hindi.pdf). The guidelines describe a framework for state licensing and operational requirements; confirm their implementation and any additional rules with the relevant state authority.
-- [Motor Vehicles Act, 1988, Section 93 — aggregator licensing](https://indiacode.ecourtsindia.com/mv-act/section/93/). The statutory text states that an aggregator must obtain a licence from the competent authority subject to state-prescribed conditions.
-- [Rajasthan Transport Aggregator Management Portal](https://transportaggregator.rajasthan.gov.in/) and [Rajasthan transport policies](https://transport.rajasthan.gov.in/content/transportportal/en/transport/policies.html) are examples of state-level implementation. They are not a substitute for the rules applicable to the intended operating state.
-- [Maharashtra Transport Department — aggregator rules and notifications](https://transport.maharashtra.gov.in/Site/Common/ViewPdfList.aspx?Doctype=ae4e6702-3ac3-44e4-8d70-db31c41fd41e) illustrates that state-specific bike-taxi rules may be separate from general aggregator rules.
-
-Before launch, counsel should confirm the current commencement, applicability, licensing, vehicle-class, insurance, safety, data-storage, grievance, and control-room obligations for the exact state and business model. Do not assume a central guideline alone authorizes commercial two-wheeler rides in every state.
-
-
-## Open-source research and reuse policy
-
-Open-source references reviewed for architecture and operational patterns:
-
-- [Namma Yatri's public mobility repository](https://github.com/nammayatri/nammayatri) is an active India-focused mobility platform. Use it as a domain-model and operational-requirements reference, not as a drop-in implementation. Its repository is AGPL-3.0; do not copy or vendor its code into RideForge unless a maintainer/legal review explicitly approves the license obligations and compatibility with RideForge's distribution model.
-- Prefer the current project's own C++/PostgreSQL architecture and small, well-scoped upstream dependencies where they meet requirements. Pin dependency versions, review license notices, run dependency vulnerability/license checks, and preserve attribution for any code actually reused.
-- Do not copy proprietary ride-hailing branding, credentials, private APIs, scraped customer data, or fabricated operational metrics. Public reference code is not evidence that the same feature is secure or suitable for this deployment.
-- Use open-source project behavior as design inspiration only. Every adopted pattern still needs RideForge-specific authorization, concurrency, migration, failure-recovery, accessibility and end-to-end tests.
-
-### Research-derived launch implications
-
-The 2025 Motor Vehicle Aggregator Guidelines include operational expectations beyond software availability, including grievance handling and driver induction training. The exact requirements and applicability must be verified with qualified counsel and the relevant state authority before operating. The application should not claim compliance merely because a support form or driver approval flag exists.
-
-Research references:
-- [MoRTH — Motor Vehicle Aggregator Guidelines 2025 (official PDF)](https://morth.gov.in/sites/default/files/circulars_document/MV-Aggregators-Guidelines-2025%20-%20English%20and%20Hindi.pdf)
-- [MoRTH — Circulars and notifications related to road transport](https://morth.nic.in/Circulars-Notifications-related-to-Road-Transport?page=3)
-- [Motor Vehicles Act, 1988, Section 93](https://indiacode.ecourtsindia.com/mv-act/section/93/)
-
-These references support further legal review; they do not establish RideForge's licensing status or authorize any specific state-level bike-taxi operation.
