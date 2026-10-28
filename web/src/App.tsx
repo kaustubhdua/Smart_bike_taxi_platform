@@ -69,27 +69,35 @@ export default function App() {
     setQuote(null);
     setRouteError("");
     // Driver/admin hosts must not trigger passenger-facing geocoding/routing work.
+    // Debounce edits so typing an address is not treated as a stream of searches.
     if (isRoleWorkspaceHost || mode === "driver" || mode === "admin" ||
-        !pickup || !destination || pickup === destination) {
+        pickup.trim().length < 3 || destination.trim().length < 3 || pickup === destination) {
       setRouteLoading(false);
       return () => controller.abort();
     }
-    setRouteLoading(true);
-    calculateRoute(pickup, destination, controller.signal)
-      .then(result => setRoute({
-        km: result.distanceKm,
-        mins: result.durationMinutes,
-        path: "Road route",
-        geometry: result.geometry,
-        provider: result.provider,
-      }))
-      .catch(error => {
-        if (error instanceof Error && error.name !== "AbortError") setRouteError(error.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setRouteLoading(false);
-      });
-    return () => controller.abort();
+    setRouteLoading(false);
+    const timer = setTimeout(() => {
+      if (controller.signal.aborted) return;
+      setRouteLoading(true);
+      calculateRoute(pickup, destination, controller.signal)
+        .then(result => setRoute({
+          km: result.distanceKm,
+          mins: result.durationMinutes,
+          path: "Road route",
+          geometry: result.geometry,
+          provider: result.provider,
+        }))
+        .catch(error => {
+          if (error instanceof Error && error.name !== "AbortError") setRouteError(error.message);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setRouteLoading(false);
+        });
+    }, 1200);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [pickup, destination, mode, isRoleWorkspaceHost]);
 
   useEffect(() => {
