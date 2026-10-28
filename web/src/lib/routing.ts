@@ -28,6 +28,70 @@ const ROUTE_CACHE_MAX_ENTRIES = 100;
 type CachedRoute = { result: RouteResult; expiresAt: number };
 const routeCache = new Map<string, CachedRoute>();
 
+// Successful geocodes are cached separately so changing only one endpoint does
+// not repeatedly look up the unchanged endpoint.
+const GEOCODE_CACHE_TTL_MS = 10 * 60 * 1000;
+const GEOCODE_CACHE_MAX_ENTRIES = 200;
+type CachedCoordinates = { coordinates: [number, number]; expiresAt: number };
+const geocodeCache = new Map<string, CachedCoordinates>();
+
+// Serialize uncached public Nominatim requests in this browser tab. The public
+// service has a strict application-wide limit; this local limiter helps avoid
+// accidental bursts but is not a cross-user or production rate limiter.
+let geocodeQueue: Promise<void> = Promise.resolve();
+let nextGeocodeAt = 0;
+
+async function acquireGeocodeSlot(signal: AbortSignal): Promise<void> {
+  let release!: () => void;
+  const previous = geocodeQueue;
+  geocodeQueue = new Promise<void>(resolve => { release = resolve; });
+  await previous;
+  try {
+    abortIfNeeded(signal);
+    const waitMs = Math.max(0, nextGeocodeAt - Date.now());
+    if (waitMs > 0) {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          signal.removeEventListener("abort", onAbort);
+          resolve();
+        }, waitMs);
+        const onAbort = () => {
+          clearTimeout(timer);
+          signal.removeEventListener("abort", onAbort);
+          reject(new DOMException("Location lookup cancelled.", "AbortError"));
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    }
+    abortIfNeeded(signal);
+    nextGeocodeAt = Date.now() + 1100;
+  } finally {
+    release();
+  }
+}
+
+function cachedCoordinates(key: string): [number, number] | null {
+  const entry = geocodeCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    geocodeCache.delete(key);
+    return null;
+  }
+  geocodeCache.delete(key);
+  geocodeCache.set(key, entry);
+  return [...entry.coordinates] as [number, number];
+}
+
+function rememberCoordinates(key: string, coordinates: [number, number]): void {
+  geocodeCache.delete(key);
+  geocodeCache.set(key, { coordinates: [...coordinates] as [number, number], expiresAt: Date.now() + GEOCODE_CACHE_TTL_MS });
+  while (geocodeCache.size > GEOCODE_CACHE_MAX_ENTRIES) {
+    const oldestKey = geocodeCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    geocodeCache.delete(oldestKey);
+  }
+}
+
 function routeCacheKey(pickup: string, destination: string): string {
   return `${pickup.trim().toLocaleLowerCase("en-US")}\u0000${destination.trim().toLocaleLowerCase("en-US")}`;
 }
@@ -67,6 +131,12 @@ function abortIfNeeded(signal: AbortSignal): void {
 }
 
 async function geocode(place: string, signal: AbortSignal): Promise<[number, number]> {
+  abortIfNeeded(signal);
+  const cacheKey = place.trim().toLocaleLowerCase("en-US");
+  const cached = cachedCoordinates(cacheKey);
+  if (cached) return cached;
+  await acquireGeocodeSlot(signal);
+
   const query = new URLSearchParams({
     q: `${place}, Noida, Uttar Pradesh, India`,
     format: "jsonv2",
@@ -82,8 +152,12 @@ async function geocode(place: string, signal: AbortSignal): Promise<[number, num
   if (!match) throw new Error(`We couldn't find “${place}”. Try a more specific pickup or destination.`);
   const lat = Number(match.lat);
   const lon = Number(match.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error("The location service returned invalid coordinates.");
-  return [lon, lat];
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+    throw new Error("The location service returned invalid coordinates.");
+  }
+  const coordinates: [number, number] = [lon, lat];
+  rememberCoordinates(cacheKey, coordinates);
+  return [...coordinates] as [number, number];
 }
 
 /**
@@ -103,23 +177,6 @@ export async function calculateRoute(
 
   // Nominatim's public service policy asks clients to stay at or below 1 request/sec.
   const start = await geocode(pickup, signal);
-  await new Promise<void>((resolve, reject) => {
-    if (signal.aborted) {
-      reject(new DOMException("Route lookup cancelled.", "AbortError"));
-      return;
-    }
-    let timer: ReturnType<typeof setTimeout>;
-    const onAbort = () => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", onAbort);
-      reject(new DOMException("Route lookup cancelled.", "AbortError"));
-    };
-    timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, 1100);
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
   const end = await geocode(destination, signal);
   const routeUrl = `${routingBase}/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson&steps=false`;
   const response = await fetch(routeUrl, { signal, headers: { "Accept-Language": "en" } });
