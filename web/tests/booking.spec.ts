@@ -138,3 +138,38 @@ test("reuses a recent route for the same pickup and destination", async ({ page 
   await expect.poll(() => routeRequests).toBe(2);
   await expect.poll(() => geocodingRequests).toBe(3);
 });
+
+
+test("rejects malformed road-route coordinates instead of drawing them", async ({ page }) => {
+  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ lat: "28.54", lon: "77.34", display_name: query }]),
+    });
+  });
+  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "Ok",
+        routes: [{
+          distance: 5200,
+          duration: 840,
+          geometry: { type: "LineString", coordinates: [[999, 28.53], [77.34, 28.54]] },
+        }],
+      }),
+    });
+  });
+  await page.route("https://{s}.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://a.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://b.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
+
+  await page.goto("/");
+  await expect(page.getByText(/invalid route data/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
+  await expect(page.locator(".fare-amount")).toContainText("—");
+});
