@@ -67,6 +67,15 @@ jobs:
             exit 1
           fi
           grep -q 'RIDEFORGE_ALLOWED_ORIGINS' origin-config-error.txt
+      - name: Ensure production config fails without explicit routing providers
+        shell: bash
+        run: |
+          for required in RIDEFORGE_GEOCODING_URL RIDEFORGE_ROUTING_URL VITE_GEOCODING_BASE_URL VITE_ROUTING_BASE_URL; do
+            if env -u "$required" docker compose -f compose.yaml -f compose.production.yaml config --quiet >/dev/null 2>&1; then
+              echo "Production config unexpectedly accepted missing $required" >&2
+              exit 1
+            fi
+          done
       - name: Build backend API, outbox worker and admin bootstrap image
         run: docker build --tag rideforge-backend-ci:latest ./backend
       - name: Build web image for local Compose
