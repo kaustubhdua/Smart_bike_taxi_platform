@@ -2,7 +2,7 @@
 
 **Assessment date:** 2026-10-28  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Current main SHA:** `8c6ee2ed12e3cff339c98b4389dacff708e525bb`  
+**Current main SHA:** `d2e1cd1449d471d6fd3bdc58e0457675446c2d84`  
 **Release decision:** **Not ready for public/commercial rides.** The repository has a substantial full-stack MVP and recent engineering fixes, but no verified public staging deployment, real two-device journey, operational service, driver/vehicle compliance process, or transport-authority/legal approval.
 
 This report distinguishes repository implementation and automated CI from evidence that requires real infrastructure. A green build, local Compose stack, mock-provider browser test, or demo receipt is not proof of a commercially operating taxi service.
@@ -15,9 +15,9 @@ This report distinguishes repository implementation and automated CI from eviden
 | Bounded per-process PostgreSQL pool (PR #21) | `dafd28504f80e252887b2467648a78f33e5d6726` | [Full release readiness, run 40648486771](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40648486771), candidate `5ece2fe492b998eb2109504c09199552e56617c7` | 13/13 jobs passed, including concurrent connection smoke tests. |
 | Production driver/admin entry routing (PR #22) | `82f0f7a53ca0dc3e382152f75a6c70923166d596` | [Full release readiness, run 40650689471](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40650689471), candidate `f85dad1fa6f64a8dda1cf530dedf712db4fea76b` | All 13 jobs passed. |
 | Dispatch expiry/ride lock-order hardening (PR #23) | `8c6ee2ed12e3cff339c98b4389dacff708e525bb` | [Full release readiness, run 40651307975](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40651307975), candidate `0fc4bb5cf54adfb03cc4b583a63b7175e36dec3d` | All 13 jobs passed. Main-branch workflows for the merge SHA are running separately and were not yet complete at the time of this report. |
-| Debounce location geocoding while typing (PR #26) | Not merged | [PR #26](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/26), candidate `1ae3ad8b05662d5720715b73491f775167ba7aaa` | CI queued at time of report; not yet validated or merged. |
+| Debounce location geocoding while typing (PR #26) | `d2e1cd1449d471d6fd3bdc58e0457675446c2d84` | [Full release readiness, run 40651766311](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40651766311), candidate `1ae3ad8b05662d5720715b73491f775167ba7aaa` | All 13 jobs passed; browser workflow reported 31 passed, 1 skipped. |
 
-The latest main revision `8c6ee2ed12e3cff339c98b4389dacff708e525bb` has its own workflow runs; at the time of this report, the full release-readiness run was queued and the container scan was in progress. Do not describe post-merge main CI as green until those exact-SHA runs complete.
+The latest main revision `d2e1cd1449d471d6fd3bdc58e0457675446c2d84` has its own workflow runs; at the time of this report, current-main verification was still pending. Do not describe post-merge main CI as green until those exact-SHA runs complete.
 
 ## Capability and limitation matrix
 
@@ -42,7 +42,7 @@ The latest main revision `8c6ee2ed12e3cff339c98b4389dacff708e525bb` has its own 
 ### A. Engineering and concurrency
 - [x] Exact-candidate CI passed for PRs #20, #21, #22 and #23 as listed above.
 - [ ] Confirm current-main CI passes on `8c6ee2ed12e3cff339c98b4389dacff708e525bb`.
-- [ ] Merge PR #26 only after its exact head passes browser, accessibility, build, security and full release-readiness checks.
+- [x] Merge PR #26 after its exact head passed the 13-job full release-readiness suite and browser E2E (31 passed, 1 skipped).
 - [ ] Add deterministic PostgreSQL race/recovery coverage for concurrent accept, accept-vs-expiry, cancellation races, worker restart, duplicate worker execution and cross-role/cross-account authorization.
 - [ ] Load-test API, pool saturation, dispatch worker and SSE/outbox with recorded workload, latency, error rates and recovery behavior.
 - [ ] Budget total PostgreSQL connections across all API replicas plus dispatch/outbox workers before scaling.
