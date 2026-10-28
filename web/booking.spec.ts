@@ -618,7 +618,7 @@ test("reuses a recent route for the same pickup and destination", async ({ page 
   await expect.poll(() => routeRequests).toBe(1);
   await expect.poll(() => geocodingRequests).toBe(2);
 
-  const destination = page.getByRole("textbox", { name: "Drop-off point" });
+  const destination = page.getByRole("combobox", { name: "Drop-off point" });
   await destination.fill("Sector 62");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => routeRequests).toBe(2);
@@ -662,7 +662,7 @@ test("rejects malformed road-route coordinates instead of drawing them", async (
   await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
 
   await page.goto("/");
-  await expect(page.getByText(/invalid route data/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".quote-details").getByText(/invalid route data/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
   await expect(page.locator(".fare-amount")).toContainText("—");
 });
