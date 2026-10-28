@@ -23,12 +23,17 @@ function apiUrl(base: string, path: string): string {
 
 export default function App() {
   const reduceMotion = useReducedMotion();
-  const showInternalWorkspaces = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const hostname = window.location.hostname.toLowerCase();
+  const isDriverHost = hostname.startsWith("driver.");
+  const isAdminPath = window.location.pathname.replace(/\/+$/, "") === "/admin";
+  const isRoleWorkspaceHost = isDriverHost || isAdminPath;
+  const showInternalWorkspaces = hostname === "localhost" || hostname === "127.0.0.1";
   const [pickup, setPickup] = useState(locations[0]);
   const [destination, setDestination] = useState(locations[2]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
-  const [mode, setMode] = useState<"ride" | "driver" | "admin" | "insights">("ride");
+  const [mode, setMode] = useState<"ride" | "driver" | "admin" | "insights">(() =>
+    isDriverHost ? "driver" : isAdminPath ? "admin" : "ride");
   const [apiState, setApiState] = useState<"idle" | "checking" | "offline">("idle");
   const [route, setRoute] = useState<{ km: number; mins: number; path: string; geometry: Array<[number, number]>; provider: string } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -63,7 +68,9 @@ export default function App() {
     setRoute(null);
     setQuote(null);
     setRouteError("");
-    if (!pickup || !destination || pickup === destination) {
+    // Driver/admin hosts must not trigger passenger-facing geocoding/routing work.
+    if (isRoleWorkspaceHost || mode === "driver" || mode === "admin" ||
+        !pickup || !destination || pickup === destination) {
       setRouteLoading(false);
       return () => controller.abort();
     }
@@ -83,7 +90,7 @@ export default function App() {
         if (!controller.signal.aborted) setRouteLoading(false);
       });
     return () => controller.abort();
-  }, [pickup, destination]);
+  }, [pickup, destination, mode, isRoleWorkspaceHost]);
 
   useEffect(() => {
     if (!quote?.expiresAt) return;
@@ -691,20 +698,20 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={isRoleWorkspaceHost ? "app-shell role-workspace" : "app-shell"}>
       <div className="top-strip"><span className="pulse-dot" /> <span>THE BETTER WAY TO GET THERE</span><span className="strip-divider" /> Built for the city, designed around you</div>
       <header className="site-header">
         <a className="brand" href="#top">
           <span className="brand-mark"><Bike size={22} strokeWidth={2.3} /></span>
           <span>rideforge<span className="brand-period">.</span><small>URBAN MOBILITY</small></span>
         </a>
-        <nav className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
+        {!isRoleWorkspaceHost && <nav className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
           <button className={mode === "ride" ? "nav-link active" : "nav-link"} onClick={() => { setMode("ride"); setMenuOpen(false); }}>Book a ride</button>
           {showInternalWorkspaces && <button className={mode === "driver" ? "nav-link active" : "nav-link"} onClick={() => { setMode("driver"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Drive with us</button>}
           {showInternalWorkspaces && <button className={mode === "admin" ? "nav-link active" : "nav-link"} onClick={() => { setMode("admin"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Admin console</button>}
           <button className={mode === "insights" ? "nav-link active" : "nav-link"} onClick={() => { setMode("insights"); setMenuOpen(false); setNotice(""); document.getElementById("lab")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); }}>How it works</button>
-        </nav>
-        <div className="header-actions"><a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety first</a><button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button><button className="header-cta" onClick={scrollToBooking}>Get moving <ArrowUpRight size={16} /></button></div>
+        </nav>}
+        {!isRoleWorkspaceHost && <div className="header-actions"><a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety first</a><button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button><button className="header-cta" onClick={scrollToBooking}>Get moving <ArrowUpRight size={16} /></button></div>}
       </header>
 
       <main id="top">

@@ -72,3 +72,17 @@
 
 /* Visually hidden content remains available to assistive technology. */
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+
+
+/* Production role entry points are focused workspaces, not passenger marketing pages. */
+.app-shell.role-workspace .hero,
+.app-shell.role-workspace #booking,
+.app-shell.role-workspace .value-section,
+.app-shell.role-workspace .lab-section,
+.app-shell.role-workspace .closing-cta,
+.app-shell.role-workspace .site-footer,
+.app-shell.role-workspace .mobile-bottom-bar{display:none!important}
+.app-shell.role-workspace #operations{min-height:calc(100vh - 82px);padding:42px 24px 72px;background:var(--paper)}
+.app-shell.role-workspace #operations .section-intro{max-width:760px;margin:0 auto 28px}
+.app-shell.role-workspace #operations .booking-layout{max-width:980px}
+@media(max-width:720px){.app-shell.role-workspace #operations{min-height:calc(100vh - 72px);padding:32px 18px 48px}}
