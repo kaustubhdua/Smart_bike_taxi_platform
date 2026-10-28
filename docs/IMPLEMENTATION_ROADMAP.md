@@ -46,7 +46,7 @@ Acceptance: every required current-head check is green; migrations 001–005 app
 - [ ] Expand cross-account and cross-role authorization tests for every protected endpoint.
 - [ ] Test same-key booking retries, payload conflicts, expired/consumed quotes, cancellation races and concurrent driver acceptance.
 - [ ] Verify event rows and outbox rows commit/rollback together.
-- [ ] Add a shared PostgreSQL connection pool or explicit bounded database concurrency strategy; current deployment is a single-process demo and should not be horizontally scaled.
+- [x] Implement a bounded per-process PostgreSQL connection pool (12 connections, 2-second acquisition timeout, rollback/session reset before reuse). [ ] Verify pool behavior under concurrent load and budget aggregate connections before horizontal scaling; a per-process pool is not shared across replicas.
 - [ ] Make account deactivation/revocation take effect promptly; document the short-lived token model.
 - [ ] Add distributed rate limits before horizontally scaling.
 - [ ] Review malformed JSON, oversized headers/bodies, route path parsing, SQLSTATE mapping, and safe error/log behavior.
@@ -101,7 +101,7 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [x] Add structured redacted request-completion logs, correlation IDs, SIGTERM/SIGINT handling, and bounded graceful draining.
 - [x] Bound routing-provider HTTP connect/total timeouts and HTTP socket read/write deadlines.
 - [x] Bound PostgreSQL connection-establishment time to five seconds in Compose API, migration and outbox-worker services via libpq `PGCONNECT_TIMEOUT`.
-- [ ] Add a shared PostgreSQL connection pool or explicit bounded database concurrency strategy; add broader SSE connection observability.
+- [x] Implement a bounded per-process PostgreSQL connection pool (12 connections, 2-second acquisition timeout). [ ] Validate pool capacity under concurrent load, size aggregate connections before horizontal scaling, and add broader SSE connection observability.
 - [x] Document local and Compose backup/restore procedures and add a CI recovery smoke test.
 - [ ] Complete a production backup/restore drill and rehearse schema upgrade/rollback recovery.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.
