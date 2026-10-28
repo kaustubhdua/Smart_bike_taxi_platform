@@ -75,9 +75,17 @@ int max_dispatch_attempts() {
 bool dispatch_one(PGconn* db, int radius_meters, int max_attempts_value) {
     command(db, "BEGIN");
     try {
+        // Expire offers in a short, separate transaction. The API acceptance
+        // path locks the ride row before its offer row; keeping expired-offer
+        // row locks while selecting/locking rides would invert that lock order
+        // and can deadlock at the expiry boundary.
         command(db,
             "UPDATE ride_offers SET status='expired',responded_at=now() "
             "WHERE status='offered' AND expires_at<=now()");
+        command(db, "COMMIT");
+
+        // Never hold offer-expiry locks while acquiring ride-row locks.
+        command(db, "BEGIN");
         const std::string ride_sql =
             "SELECT r.id::text,r.pickup_latitude::text,r.pickup_longitude::text "
             "FROM rides r WHERE r.status IN ('requested','matching') AND r.driver_id IS NULL "
