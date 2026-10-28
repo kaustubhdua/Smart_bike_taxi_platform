@@ -125,16 +125,16 @@ test("reuses a recent route for the same pickup and destination", async ({ page 
   await expect.poll(() => routeRequests).toBe(1);
   await expect.poll(() => geocodingRequests).toBe(2);
 
-  const pickup = page.getByRole("textbox", { name: "Pickup point" });
-  await pickup.fill("Sector 62");
+  const destination = page.getByRole("textbox", { name: "Drop-off point" });
+  await destination.fill("Sector 62");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => routeRequests).toBe(2);
-  await expect.poll(() => geocodingRequests).toBe(4);
+  // The pickup stayed the same, so its geocode should have been reused.
+  await expect.poll(() => geocodingRequests).toBe(3);
 
-  // Returning to the original pair must use the recent cached result and avoid
-  // another pair of geocoding calls plus a road-routing call.
-  await pickup.fill("JIIT Sector 128");
+  // Returning to the original pair must use the recent cached route result.
+  await destination.fill("Sector 18 Market");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => routeRequests).toBe(2);
-  await expect.poll(() => geocodingRequests).toBe(4);
+  await expect.poll(() => geocodingRequests).toBe(3);
 });
