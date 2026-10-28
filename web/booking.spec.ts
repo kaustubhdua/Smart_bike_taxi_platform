@@ -584,3 +584,106 @@ test("passenger applies authenticated server-sent ride events without waiting fo
   await page.clock.fastForward(5000);
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
 });
+
+test("reuses a recent route for the same pickup and destination", async ({ page }) => {
+  let geocodingRequests = 0;
+  let routeRequests = 0;
+  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
+    geocodingRequests += 1;
+    const url = new URL(route.request().url());
+    const query = url.searchParams.get("q") ?? "";
+    const isJiIT = query.includes("JIIT");
+    const isSector62 = query.includes("Sector 62");
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{
+        lat: isJiIT ? "28.535" : isSector62 ? "28.628" : "28.55",
+        lon: isJiIT ? "77.35" : isSector62 ? "77.37" : "77.34",
+        display_name: query,
+      }]),
+    });
+  });
+  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
+    routeRequests += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(routeFixture) });
+  });
+  await page.route("https://{s}.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://a.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://b.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
+
+  await page.goto("/");
+  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => routeRequests).toBe(1);
+  await expect.poll(() => geocodingRequests).toBe(2);
+
+  const destination = page.getByRole("combobox", { name: "Drop-off point" });
+  await destination.fill("Sector 62");
+  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => routeRequests).toBe(2);
+  // The pickup stayed the same, so its geocode should have been reused.
+  await expect.poll(() => geocodingRequests).toBe(3);
+
+  // Returning to the original pair must use the recent cached route result.
+  await destination.fill("Sector 18 Market");
+  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => routeRequests).toBe(2);
+  await expect.poll(() => geocodingRequests).toBe(3);
+});
+
+
+test("rejects malformed road-route coordinates instead of drawing them", async ({ page }) => {
+  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ lat: "28.54", lon: "77.34", display_name: query }]),
+    });
+  });
+  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "Ok",
+        routes: [{
+          distance: 5200,
+          duration: 840,
+          geometry: { type: "LineString", coordinates: [[999, 28.53], [77.34, 28.54]] },
+        }],
+      }),
+    });
+  });
+  await page.route("https://{s}.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://a.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://b.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
+
+  await page.goto("/");
+  await expect(page.locator(".quote-details").getByText(/invalid route data/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
+  await expect(page.locator(".fare-amount")).toContainText("—");
+});
+
+test("production driver and admin entry points open the correct role workspace", async ({ page }) => {
+  let geocodingRequests = 0;
+  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
+    geocodingRequests += 1;
+    await route.abort();
+  });
+
+  await page.goto("http://driver.localhost:4173");
+  await expect(page.getByRole("heading", { name: "Your next ride starts here." })).toBeVisible();
+  await expect(page.getByText("Driver sign in")).toBeVisible();
+  await expect(page.locator("#booking")).toBeHidden();
+  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toHaveCount(0);
+
+  await page.goto("http://127.0.0.1:4173/admin");
+  await expect(page.getByRole("heading", { name: "Operations, backed by data." })).toBeVisible();
+  await expect(page.getByText("Admin sign in")).toBeVisible();
+  await expect(page.locator("#booking")).toBeHidden();
+  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toHaveCount(0);
+  expect(geocodingRequests).toBe(0);
+});
