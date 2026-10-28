@@ -21,10 +21,9 @@ Shortest-path routing · Durable 45-second driver offers · Automatic expiry/red
 
 ---
 
-
 ## Run the complete verification suite
 
-The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. The individual workflows run on pull-request changes. Durable driver offers and expiry/redispatch were merged in PR [#13](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/13). Release hardening PR [#9](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/9) was merged after all 13 aggregate release-readiness jobs passed on tested head `d0cab5d11bab857190f7232ffecc501ae0d5bca3`. That result is evidence for that revision, not for later changes or a live deployment. The production-readiness evidence and release gates are documented in [`docs/RELEASE_READINESS_EVIDENCE.md`](docs/RELEASE_READINESS_EVIDENCE.md). At the latest review, PR [#15](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/15) is testing a bounded-dispatch-attempt fix; do not treat it as merged or verified until its current-head CI checks pass. Always verify fresh workflow runs on the exact release SHA before publishing.
+The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. Durable driver offers and expiry/redispatch were merged in PR [#13](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/13). The bounded dispatch-attempt exhaustion fix was merged in PR [#15](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/15), after the full release-readiness workflow passed all 13 jobs on tested PR head `ec8780b20beef1470047f23f73f9705ac148f5a6`. See [the exact full-suite run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466789) and [API smoke run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466885). These results validate that tested revision, not a live deployment or production operations. The production-readiness evidence and release gates are documented in [`docs/RELEASE_READINESS_EVIDENCE.md`](docs/RELEASE_READINESS_EVIDENCE.md). Always verify fresh workflow runs on the exact release SHA before publishing.
 
 ## Full-stack roadmap status
 
@@ -105,7 +104,6 @@ The design is original and may incorporate licensed open-source components selec
 
 The following sections document the original academic command-line simulation. Its local-file persistence and synchronous/manual workflows are separate from the RideForge full-stack API, PostgreSQL database, and web application described above.
 
-
 Smart Bike Taxi Platform is an interactive terminal application that demonstrates how core DSA concepts can support a simplified ride-hailing workflow. It uses a small, illustrative Noida road network and lets users register riders and drivers, request and cancel rides, dispatch requests, estimate fares, and review ride history.
 
 > The C++ console application is an academic simulation. The separate web/API stack supports persisted passenger bookings, protected driver acceptance/lifecycle operations, browser-geolocation-based driver availability, and admin driver approval. Live ride-status events and an active-trip driver-location marker are supported; real payments, verified driver identity, and real safety operations are not available.
@@ -167,8 +165,8 @@ V = locations, E = roads, D = eligible drivers. Hash table performance depends o
 ├── .github/workflows/cpp.yml  # GCC, Clang, and sanitizer CI
 ├── CMakeLists.txt             # Portable build and CTest configuration
 ├── graph/Graph.h              # Graph and Dijkstra
-├── models/Models.h            # Rider, driver, request, ride models
-├── storage/Storage.h          # Versioned local save/load
+├── models/Models.h             # Rider, driver, request, ride models
+├── storage/Storage.h           # Versioned local save/load
 ├── structures/HashTable.h     # Linear-probing hash table
 ├── main.cpp                   # Interactive application
 ├── tests.cpp                  # Unit and persistence tests
@@ -197,7 +195,7 @@ Run the generated `smart_bike_taxi` (or `smart_bike_taxi.exe` on Windows) from t
 
 ```powershell
 g++ -std=c++17 -Wall -Wextra -Wpedantic main.cpp -o smart_bike_taxi.exe
-.\smart_bike_taxi.exe
+.\\smart_bike_taxi.exe
 ```
 
 **Linux / macOS (direct compiler)**
@@ -233,7 +231,7 @@ Enter location names exactly as listed by **Show locations**.
 
 ```powershell
 g++ -std=c++17 -Wall -Wextra -Wpedantic tests.cpp -o tests.exe
-.\tests.exe
+.\\tests.exe
 ```
 
 **Linux / macOS**
