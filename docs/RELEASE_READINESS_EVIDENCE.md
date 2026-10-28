@@ -2,18 +2,18 @@
 
 **Assessment date:** 2026-10-28  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Reviewed revision:** `68daf4d95f2e67416010d5f28466017bfc6c2eec` (main)  
+**Reviewed revision:** `28bbad3e7469ad753eebb52fe960917efb78664c` (main after PR #15)  
 **Decision:** **Not production-ready for public/commercial rides yet.** The codebase has a substantial full-stack MVP, but external deployment, operational, legal, safety, and real-device evidence remain release gates.
 
 This document deliberately separates implementation evidence from claims that require a live environment. A merged PR, green CI run, screenshot, local Compose stack, or demo booking is not proof of a commercially operational transport service.
 
 ## Evidence reviewed
 
-- Main points to `68daf4d95f2e67416010d5f28466017bfc6c2eec`, which merged PR #13 (durable timed driver offers).
+- Main points to `e67fe208722c44aad1252cead2985e1f39f6ffad`, which includes PR #13 (durable timed driver offers) and the merged release-readiness evidence report from PR #14.
 - PR #13 adds migration `006_durable_driver_offers.sql`, the C++ dispatch worker, 45-second offers, expiration/redispatch, offer-aware queue and acceptance/decline behavior, Compose/Docker wiring, and API/schema/browser-test updates.
 - PR #9 is merged. Its recorded aggregate release-readiness run passed 13 jobs on the earlier tested revision `d0cab5d11bab857190f7232ffecc501ae0d5bca3`. That result must not be represented as a fresh full-suite result for the current main SHA.
 - The repository contains separate passenger and driver web experiences, a C++ API, PostgreSQL migrations, an outbox worker, authenticated SSE, Compose deployment templates, and operational/security documentation.
-- The latest repository metadata reviewed showed no open pull requests. Issue #2 and issue #3 remain open; issue #10 still describes the durable-offer work even though its main implementation was merged by PR #13.
+- PR #15's bounded dispatch-attempt fix was merged to main as `28bbad3e7469ad753eebb52fe960917efb78664c` after all 13 jobs in the full release-readiness workflow passed on exact tested head `ec8780b20beef1470047f23f73f9705ac148f5a6`. See [full release-readiness run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466789) and [API smoke run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466885). PR #16 contains this documentation refresh. Issue #2 and issue #3 remain open; issue #10 still tracks concurrency, recovery and deployed-journey verification.
 
 ## Capability status
 
@@ -36,8 +36,8 @@ This document deliberately separates implementation evidence from claims that re
 ## Required gates before a controlled pilot
 
 ### Gate A — exact-revision engineering verification
-- [ ] Run the full release-readiness workflow on the exact candidate SHA after PR #13.
-- [ ] Verify C++ warnings-as-errors, sanitizers, backend smoke tests, PostgreSQL migration/recovery, web typecheck/build, desktop/mobile E2E, accessibility, dependency audit, CodeQL, container build and vulnerability scanning.
+- [x] Run the full release-readiness workflow on the exact PR #15 candidate SHA, including the bounded-retry regression, before merging that fix. All 13 jobs passed on `ec8780b20beef1470047f23f73f9705ac148f5a6`; the merge commit is `28bbad3e7469ad753eebb52fe960917efb78664c`.
+- [x] Verify C++ warnings-as-errors, sanitizers, backend smoke tests at 5 km and 20 km dispatch radii, PostgreSQL migration/recovery, web typecheck/build, desktop/mobile E2E, accessibility, dependency audit, CodeQL, container build and vulnerability scanning on that exact candidate. This is CI evidence, not proof of a live deployment.
 - [ ] Add/retain deterministic PostgreSQL tests for simultaneous accept, accept-vs-expiry, cancellation races, worker restart, duplicate worker execution, no eligible drivers, bounded retries, and cross-account/role authorization.
 - [ ] Stress-test the dispatch worker and SSE/outbox under representative concurrency. Record test conditions and measured results; do not infer capacity from a single local run.
 - [ ] Confirm readiness fails closed when any required schema/migration or dependency is unavailable.

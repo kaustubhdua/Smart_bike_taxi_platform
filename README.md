@@ -21,10 +21,9 @@ Shortest-path routing · Durable 45-second driver offers · Automatic expiry/red
 
 ---
 
-
 ## Run the complete verification suite
 
-The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. The individual workflows run on pull-request changes. The durable-offer implementation is under PR #13; its exact-head checks must pass before it is merged. Release hardening PR [#9](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/9) was merged after all 13 aggregate release-readiness jobs passed on tested head `d0cab5d11bab857190f7232ffecc501ae0d5bca3`. That is evidence for that revision, not for later changes or a live deployment. Verify fresh workflow runs on the exact release SHA before publishing.
+The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. Durable driver offers and expiry/redispatch were merged in PR [#13](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/13). The bounded dispatch-attempt exhaustion fix was merged in PR [#15](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/15), after the full release-readiness workflow passed all 13 jobs on tested PR head `ec8780b20beef1470047f23f73f9705ac148f5a6`. See [the exact full-suite run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466789) and [API smoke run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466885). These results validate that tested revision, not a live deployment or production operations. The production-readiness evidence and release gates are documented in [`docs/RELEASE_READINESS_EVIDENCE.md`](docs/RELEASE_READINESS_EVIDENCE.md). Always verify fresh workflow runs on the exact release SHA before publishing.
 
 ## Full-stack roadmap status
 
@@ -57,7 +56,7 @@ npm run typecheck
 npm run build
 ```
 
-The web CI workflow runs typechecking and a production build. The web interface requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. The API calculates and persists a five-minute demo quote in PostgreSQL; the UI supports passenger registration/sign-in, ride confirmation, cancellation, trip history, printable demo receipts, and support reports. The driver workspace includes a live queue with persisted per-driver Decline (without cancelling the passenger booking), trip history and a gross completed-fare summary, not a payout ledger; the admin workspace includes bounded ride search and support-report triage. Playwright desktop/mobile E2E, axe accessibility audit, high-severity npm audit and gzip budgets run in CI. Public demo routing endpoints are for evaluation only. Drivers manually accept eligible requests in the driver workspace. Passenger status uses authenticated server-sent events with REST polling/reconnect recovery; the API exposes only the driver's latest fresh location while online, not a historical GPS trail. Time-limited offer delivery/expiry, automatic sequential redispatch, driver/admin push subscriptions, and push notifications are not implemented. A driver can persistently decline a queued request; that request remains active for other eligible drivers. Lockfile-backed installs now use the committed `web/package-lock.json` and `npm ci`; deployment verification remains open in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
+The web CI workflow runs typechecking and a production build. The web interface requests real road geometry through configurable geocoding/routing adapters and an interactive OpenStreetMap view. The API calculates and persists a five-minute demo quote in PostgreSQL; the UI supports passenger registration/sign-in, ride confirmation, cancellation, trip history, printable demo receipts, and support reports. The driver workspace includes a live queue with persisted per-driver Decline (without cancelling the passenger booking), trip history and a gross completed-fare summary, not a payout ledger; the admin workspace includes bounded ride search and support-report triage. Playwright desktop/mobile E2E, axe accessibility audit, high-severity npm audit and gzip budgets run in CI. Public demo routing endpoints are for evaluation only. Drivers manually accept eligible requests in the driver workspace. Passenger status uses authenticated server-sent events with REST polling/reconnect recovery; the API exposes only the driver's latest fresh location while online, not a historical GPS trail. Durable 45-second driver offers, expiry and automatic sequential redispatch are implemented in the backend. Background driver/admin push subscriptions and push notifications are not implemented. A driver can persistently decline a queued request; that request remains active for other eligible drivers. Lockfile-backed installs now use the committed `web/package-lock.json` and `npm ci`; deployment verification remains open in [issue #3](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3).
 
 ### C++ tests and benchmark
 
@@ -104,7 +103,6 @@ The design is original and may incorporate licensed open-source components selec
 ## Original C++17 terminal simulation (legacy DSA component)
 
 The following sections document the original academic command-line simulation. Its local-file persistence and synchronous/manual workflows are separate from the RideForge full-stack API, PostgreSQL database, and web application described above.
-
 
 Smart Bike Taxi Platform is an interactive terminal application that demonstrates how core DSA concepts can support a simplified ride-hailing workflow. It uses a small, illustrative Noida road network and lets users register riders and drivers, request and cancel rides, dispatch requests, estimate fares, and review ride history.
 
@@ -167,8 +165,8 @@ V = locations, E = roads, D = eligible drivers. Hash table performance depends o
 ├── .github/workflows/cpp.yml  # GCC, Clang, and sanitizer CI
 ├── CMakeLists.txt             # Portable build and CTest configuration
 ├── graph/Graph.h              # Graph and Dijkstra
-├── models/Models.h            # Rider, driver, request, ride models
-├── storage/Storage.h          # Versioned local save/load
+├── models/Models.h             # Rider, driver, request, ride models
+├── storage/Storage.h           # Versioned local save/load
 ├── structures/HashTable.h     # Linear-probing hash table
 ├── main.cpp                   # Interactive application
 ├── tests.cpp                  # Unit and persistence tests
@@ -197,7 +195,7 @@ Run the generated `smart_bike_taxi` (or `smart_bike_taxi.exe` on Windows) from t
 
 ```powershell
 g++ -std=c++17 -Wall -Wextra -Wpedantic main.cpp -o smart_bike_taxi.exe
-.\smart_bike_taxi.exe
+.\\smart_bike_taxi.exe
 ```
 
 **Linux / macOS (direct compiler)**
@@ -233,7 +231,7 @@ Enter location names exactly as listed by **Show locations**.
 
 ```powershell
 g++ -std=c++17 -Wall -Wextra -Wpedantic tests.cpp -o tests.exe
-.\tests.exe
+.\\tests.exe
 ```
 
 **Linux / macOS**
