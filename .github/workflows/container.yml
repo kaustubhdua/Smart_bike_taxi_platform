@@ -47,6 +47,10 @@ jobs:
       RIDEFORGE_DOMAIN: rideforge.example.test
       RIDEFORGE_PUBLIC_ORIGIN: https://rideforge.example.test
       RIDEFORGE_ALLOWED_ORIGINS: https://rideforge.example.test,https://driver.rideforge.example.test
+      RIDEFORGE_GEOCODING_URL: https://nominatim.openstreetmap.org/search
+      RIDEFORGE_ROUTING_URL: https://router.project-osrm.org/route/v1/driving
+      VITE_GEOCODING_BASE_URL: https://nominatim.openstreetmap.org/search
+      VITE_ROUTING_BASE_URL: https://router.project-osrm.org/route/v1/driving
     steps:
       - uses: actions/checkout@v4
       - name: Validate local Compose interpolation
