@@ -21,6 +21,13 @@ grep -qi '^Cache-Control: no-store' "$tmp_dir/health.headers"
 grep -qi '^X-Content-Type-Options: nosniff' "$tmp_dir/health.headers"
 grep -qi '^Referrer-Policy: no-referrer' "$tmp_dir/health.headers"
 
+# Burst health requests to exercise the bounded per-process PostgreSQL pool.
+# The pool allows at most 12 API connections; the remaining allowance covers
+# the dedicated dispatch/outbox workers and test tooling.
+seq 1 24 | xargs -P 24 -I '{}' sh -c 'curl --silent --show-error --fail "$1/api/v1/health" >/dev/null' sh "$base_url"
+connections="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND backend_type='client backend' AND pid <> pg_backend_pid()")"
+test "$connections" -le 16
+
 # Readiness must fail closed if the current migration ledger is incomplete.
 psql -v ON_ERROR_STOP=1 -c "DELETE FROM schema_migrations WHERE version = '002_driver_approval_and_outbox'" >/dev/null
 status="$(curl --silent --show-error --output "$tmp_dir/not-ready.json" --write-out '%{http_code}' "$base_url/api/v1/ready")"

@@ -11,9 +11,11 @@
 #include <atomic>
 #include <csignal>
 #include <chrono>
+#include <condition_variable>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <deque>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -164,16 +166,117 @@ std::pair<int, int> route(const Location& pickup, const Location& destination) {
     return {static_cast<int>(std::ceil(meters)), static_cast<int>(std::ceil(seconds))};
 }
 
-class Database {
+class DatabasePool {
 public:
-    explicit Database(const std::string& url) : connection_(PQconnectdb(url.c_str())) {
-        if (connection_ == nullptr || PQstatus(connection_) != CONNECTION_OK) {
-            std::string error = connection_ == nullptr ? "PostgreSQL allocation failed" : PQerrorMessage(connection_);
-            if (connection_ != nullptr) PQfinish(connection_);
-            connection_ = nullptr;
-            throw std::runtime_error("Database unavailable: " + error);
+    static DatabasePool& instance() {
+        static DatabasePool pool;
+        return pool;
+    }
+
+    PGconn* acquire(const std::string& url) {
+        const auto deadline = std::chrono::steady_clock::now() + kAcquireTimeout;
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (has_url_ && url_ != url) {
+            throw std::runtime_error("Database URL changed while the process was running");
+        }
+        if (!has_url_) {
+            url_ = url;
+            has_url_ = true;
+        }
+
+        for (;;) {
+            if (!idle_.empty()) {
+                PGconn* connection = idle_.front();
+                idle_.pop_front();
+                if (PQstatus(connection) == CONNECTION_OK &&
+                    PQtransactionStatus(connection) == PQTRANS_IDLE) {
+                    return connection;
+                }
+                PQfinish(connection);
+                if (total_ > 0) --total_;
+                cv_.notify_one();
+                continue;
+            }
+
+            if (total_ < kMaxConnections) {
+                ++total_;
+                lock.unlock();
+                PGconn* connection = PQconnectdb(url.c_str());
+                if (connection != nullptr && PQstatus(connection) == CONNECTION_OK &&
+                    PQtransactionStatus(connection) == PQTRANS_IDLE) {
+                    return connection;
+                }
+                const std::string error = connection == nullptr
+                    ? "PostgreSQL allocation failed" : PQerrorMessage(connection);
+                if (connection != nullptr) PQfinish(connection);
+                lock.lock();
+                if (total_ > 0) --total_;
+                lock.unlock();
+                cv_.notify_one();
+                throw std::runtime_error("Database unavailable: " + error);
+            }
+
+            if (!cv_.wait_until(lock, deadline, [this] {
+                    return !idle_.empty() || total_ < kMaxConnections;
+                })) {
+                throw std::runtime_error("Database connection pool is saturated");
+            }
         }
     }
+
+    void release(PGconn* connection) noexcept {
+        if (connection == nullptr) return;
+        bool reusable = PQstatus(connection) == CONNECTION_OK;
+        if (reusable) {
+            const auto transaction_status = PQtransactionStatus(connection);
+            if (transaction_status == PQTRANS_INTRANS || transaction_status == PQTRANS_INERROR) {
+                PGresult* rollback = PQexec(connection, "ROLLBACK");
+                reusable = rollback != nullptr && PQresultStatus(rollback) == PGRES_COMMAND_OK;
+                if (rollback != nullptr) PQclear(rollback);
+            } else if (transaction_status != PQTRANS_IDLE) {
+                reusable = false;
+            }
+        }
+        // Reset session-level state before sharing the connection with another request.
+        if (reusable) {
+            PGresult* reset = PQexec(connection, "DISCARD ALL");
+            reusable = reset != nullptr && PQresultStatus(reset) == PGRES_COMMAND_OK;
+            if (reset != nullptr) PQclear(reset);
+        }
+        reusable = reusable && PQstatus(connection) == CONNECTION_OK;
+        if (!reusable) PQfinish(connection);
+
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (reusable) {
+                idle_.push_back(connection);
+            } else if (total_ > 0) {
+                --total_;
+            }
+        }
+        cv_.notify_one();
+    }
+
+    ~DatabasePool() {
+        for (PGconn* connection : idle_) {
+            if (connection != nullptr) PQfinish(connection);
+        }
+    }
+
+private:
+    static constexpr std::size_t kMaxConnections = 12;
+    static constexpr std::chrono::milliseconds kAcquireTimeout{2000};
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    std::deque<PGconn*> idle_;
+    std::size_t total_{};
+    std::string url_;
+    bool has_url_{};
+};
+
+class Database {
+public:
+    explicit Database(const std::string& url) : connection_(DatabasePool::instance().acquire(url)) {}
     bool schema_ready() {
         PGresult* result = PQexec(connection_,
             "SELECT to_regclass('public.accounts') IS NOT NULL,"
@@ -201,7 +304,7 @@ public:
         PQclear(result);
         return ready;
     }
-    ~Database() { if (connection_ != nullptr) PQfinish(connection_); }
+    ~Database() { if (connection_ != nullptr) DatabasePool::instance().release(connection_); }
     Database(const Database&) = delete;
     Database& operator=(const Database&) = delete;
 
