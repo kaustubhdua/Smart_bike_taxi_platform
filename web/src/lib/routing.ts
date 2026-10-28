@@ -125,16 +125,20 @@ export async function calculateRoute(
   const response = await fetch(routeUrl, { signal, headers: { "Accept-Language": "en" } });
   if (!response.ok) throw new Error("The routing service is temporarily unavailable.");
   const result = await response.json() as OsrmRouteResponse;
-  const route = result.routes?.[0];
-  if (result.code !== "Ok" || !route || route.geometry.coordinates.length < 2) {
+  const route = result?.routes?.[0];
+  const coordinates: unknown = route?.geometry?.coordinates;
+  if (result?.code !== "Ok" || !route || !Array.isArray(coordinates) || coordinates.length < 2) {
     throw new Error("No drivable route was found for these locations.");
   }
   if (
     !Number.isFinite(route.distance) || route.distance <= 0 ||
     !Number.isFinite(route.duration) || route.duration <= 0 ||
-    route.geometry.coordinates.some(([longitude, latitude]) =>
-      !Number.isFinite(longitude) || !Number.isFinite(latitude) ||
-      longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90)
+    coordinates.some((coordinate: unknown) => {
+      if (!Array.isArray(coordinate) || coordinate.length < 2) return true;
+      const [longitude, latitude] = coordinate;
+      return !Number.isFinite(longitude) || !Number.isFinite(latitude) ||
+        longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90;
+    })
   ) {
     throw new Error("The routing service returned invalid route data. Please try again.");
   }
