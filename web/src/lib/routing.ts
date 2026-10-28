@@ -20,6 +20,52 @@ const geocodingBase = (import.meta.env.VITE_GEOCODING_BASE_URL as string | undef
 const routingBase = (import.meta.env.VITE_ROUTING_BASE_URL as string | undefined)
   ?? "https://router.project-osrm.org/route/v1/driving";
 
+// A short, in-memory cache avoids repeating external geocoding/routing work when
+// a user revisits the same pickup/drop-off pair. It is intentionally bounded and
+// expires quickly so route changes are not hidden for long.
+const ROUTE_CACHE_TTL_MS = 2 * 60 * 1000;
+const ROUTE_CACHE_MAX_ENTRIES = 100;
+type CachedRoute = { result: RouteResult; expiresAt: number };
+const routeCache = new Map<string, CachedRoute>();
+
+function routeCacheKey(pickup: string, destination: string): string {
+  return `${pickup.trim().toLocaleLowerCase("en-US")}\u0000${destination.trim().toLocaleLowerCase("en-US")}`;
+}
+
+function copyRoute(result: RouteResult): RouteResult {
+  return {
+    ...result,
+    geometry: result.geometry.map(([longitude, latitude]) => [longitude, latitude] as [number, number]),
+  };
+}
+
+function cachedRoute(key: string): RouteResult | null {
+  const entry = routeCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    routeCache.delete(key);
+    return null;
+  }
+  // Refresh insertion order so the Map also behaves as a small LRU cache.
+  routeCache.delete(key);
+  routeCache.set(key, entry);
+  return copyRoute(entry.result);
+}
+
+function rememberRoute(key: string, result: RouteResult): void {
+  routeCache.delete(key);
+  routeCache.set(key, { result: copyRoute(result), expiresAt: Date.now() + ROUTE_CACHE_TTL_MS });
+  while (routeCache.size > ROUTE_CACHE_MAX_ENTRIES) {
+    const oldestKey = routeCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    routeCache.delete(oldestKey);
+  }
+}
+
+function abortIfNeeded(signal: AbortSignal): void {
+  if (signal.aborted) throw new DOMException("Route lookup cancelled.", "AbortError");
+}
+
 async function geocode(place: string, signal: AbortSignal): Promise<[number, number]> {
   const query = new URLSearchParams({
     q: `${place}, Noida, Uttar Pradesh, India`,
@@ -50,6 +96,11 @@ export async function calculateRoute(
   destination: string,
   signal: AbortSignal,
 ): Promise<RouteResult> {
+  abortIfNeeded(signal);
+  const key = routeCacheKey(pickup, destination);
+  const cached = cachedRoute(key);
+  if (cached) return cached;
+
   // Nominatim's public service policy asks clients to stay at or below 1 request/sec.
   const start = await geocode(pickup, signal);
   await new Promise<void>((resolve, reject) => {
@@ -78,11 +129,22 @@ export async function calculateRoute(
   if (result.code !== "Ok" || !route || route.geometry.coordinates.length < 2) {
     throw new Error("No drivable route was found for these locations.");
   }
-  return {
+  if (
+    !Number.isFinite(route.distance) || route.distance <= 0 ||
+    !Number.isFinite(route.duration) || route.duration <= 0 ||
+    route.geometry.coordinates.some(([longitude, latitude]) =>
+      !Number.isFinite(longitude) || !Number.isFinite(latitude) ||
+      longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90)
+  ) {
+    throw new Error("The routing service returned invalid route data. Please try again.");
+  }
+  const result: RouteResult = {
     distanceKm: route.distance / 1000,
     durationMinutes: Math.max(1, Math.round(route.duration / 60)),
     geometry: route.geometry.coordinates,
     provider: "OpenStreetMap + OSRM demo service",
   };
+  rememberRoute(key, result);
+  return copyRoute(result);
 }
 
