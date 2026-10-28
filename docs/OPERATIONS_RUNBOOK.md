@@ -2,7 +2,7 @@
 
 ## Status and operating boundary
 
-The default Compose setup is a local evaluation environment. The compose.production.yaml overlay provides a self-hosted HTTPS deployment template, but it has not been deployed or load-tested and does not provide a production SLA. Do not use real passenger/driver personal data or real-money payments in the demo.
+The default Compose setup is a local evaluation environment. The compose.production.yaml overlay provides a self-hosted HTTPS deployment template, but it has not been deployed or load-tested and does not provide a production SLA. Do not use real passenger/driver personal data or real-money payments in the demo. When using the production overlay, set `RIDEFORGE_ALLOWED_ORIGINS` explicitly to a comma-separated exact-origin allowlist containing both `https://$RIDEFORGE_DOMAIN` and `https://$RIDEFORGE_DRIVER_DOMAIN` (including the actual hostnames). The overlay now fails closed if this variable is missing; it will not silently allow only the passenger origin and break driver API calls.
 
 ## Local startup
 
