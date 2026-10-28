@@ -2,18 +2,19 @@
 
 **Assessment date:** 2026-10-28  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Reviewed revision:** `28bbad3e7469ad753eebb52fe960917efb78664c` (main after PR #15)  
+**Dispatch-fix revision:** `28bbad3e7469ad753eebb52fe960917efb78664c` (PR #15 merge)  
+**Current main checked:** `415b7d5cefeca0684053a16d4a2ece8b4bb1a606` (documentation refresh; latest run below)
 **Decision:** **Not production-ready for public/commercial rides yet.** The codebase has a substantial full-stack MVP, but external deployment, operational, legal, safety, and real-device evidence remain release gates.
 
 This document deliberately separates implementation evidence from claims that require a live environment. A merged PR, green CI run, screenshot, local Compose stack, or demo booking is not proof of a commercially operational transport service.
 
 ## Evidence reviewed
 
-- Main points to `e67fe208722c44aad1252cead2985e1f39f6ffad`, which includes PR #13 (durable timed driver offers) and the merged release-readiness evidence report from PR #14.
+- The current main revision at this assessment is `415b7d5cefeca0684053a16d4a2ece8b4bb1a606`. It includes the PR #15 dispatch fix and PR #16 documentation corrections; the earlier `e67fe208722c44aad1252cead2985e1f39f6ffad` revision was the pre-PR #15 baseline.
 - PR #13 adds migration `006_durable_driver_offers.sql`, the C++ dispatch worker, 45-second offers, expiration/redispatch, offer-aware queue and acceptance/decline behavior, Compose/Docker wiring, and API/schema/browser-test updates.
 - PR #9 is merged. Its recorded aggregate release-readiness run passed 13 jobs on the earlier tested revision `d0cab5d11bab857190f7232ffecc501ae0d5bca3`. That result must not be represented as a fresh full-suite result for the current main SHA.
 - The repository contains separate passenger and driver web experiences, a C++ API, PostgreSQL migrations, an outbox worker, authenticated SSE, Compose deployment templates, and operational/security documentation.
-- PR #15's bounded dispatch-attempt fix was merged to main as `28bbad3e7469ad753eebb52fe960917efb78664c` after all 13 jobs in the full release-readiness workflow passed on exact tested head `ec8780b20beef1470047f23f73f9705ac148f5a6`. See [full release-readiness run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466789) and [API smoke run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466885). PR #16 contains this documentation refresh. Issue #2 and issue #3 remain open; issue #10 still tracks concurrency, recovery and deployed-journey verification.
+- PR #15's bounded dispatch-attempt fix was merged to main as `28bbad3e7469ad753eebb52fe960917efb78664c` after all 13 jobs in the full release-readiness workflow passed on exact tested head `ec8780b20beef1470047f23f73f9705ac148f5a6`. See [full release-readiness run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466789) and [API smoke run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466885). PR #16 contains earlier documentation corrections. The current-main full suite is [run 40628698136](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40628698136) and has now completed all 13 reported jobs successfully: GCC/Clang tests, ASan/UBSan, API smoke at 5 km and 20 km, PostgreSQL migration/recovery, web typecheck/build/browser E2E, container/Compose validation, container vulnerability scan, npm dependency audit, and C++/JavaScript CodeQL. This is CI evidence for the current-main revision only; it is not proof of a live deployment, external two-device ride journey, operational readiness, or legal authorization. Issue #2 and issue #3 remain open; issue #10 still tracks concurrency, recovery and deployed-journey verification.
 
 ## Capability status
 
