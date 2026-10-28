@@ -751,6 +751,38 @@ for round in $(seq 1 4); do
   done
 done
 
+# A ride that has exhausted its configured offer budget must fail closed even
+# when a new eligible driver is online; it must never receive attempt N+1.
+status="$(curl --silent --show-error --output "$tmp_dir/dispatch-refresh-location.json" --write-out '%{http_code}' \
+  --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $driver_token" \
+  --data '{"online":true,"latitude":28.53,"longitude":77.35}' "$base_url/api/v1/driver/availability")"
+test "$status" = "200"
+exhausted_ride_id="30000000-0000-4000-8000-000000000099"
+max_attempts="${RIDEFORGE_DISPATCH_MAX_ATTEMPTS:-5}"
+# Seed the ride and its complete expired-offer history atomically so the live
+# dispatch worker cannot observe an unseeded ride and create an extra offer.
+psql -v ON_ERROR_STOP=1 -c "BEGIN;
+INSERT INTO rides (id,passenger_id,status,pickup_label,pickup_latitude,pickup_longitude,destination_label,destination_latitude,destination_longitude,route_distance_m,quoted_fare_paise,idempotency_key)
+SELECT '$exhausted_ride_id',id,'requested','Exhaustion pickup',28.53,77.35,'Exhaustion dropoff',28.54,77.36,2500,4500,'smoke-dispatch-max-attempts-0001'
+FROM accounts WHERE email='smoke-passenger@example.test';
+INSERT INTO ride_offers (ride_id,driver_id,status,offered_at,expires_at,responded_at)
+SELECT '$exhausted_ride_id','$unapproved_id','expired',now()-interval '2 minutes',now()-interval '1 minute',now()-interval '1 minute'
+FROM generate_series(1, $max_attempts);
+COMMIT" >/dev/null
+dispatch_exhausted=0
+for attempt in $(seq 1 40); do
+  exhausted_status="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT status FROM rides WHERE id='$exhausted_ride_id'")"
+  if test "$exhausted_status" = "failed"; then
+    dispatch_exhausted=1
+    break
+  fi
+  sleep 0.25
+done
+test "$dispatch_exhausted" = "1"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$exhausted_ride_id' AND status='offered'")" = "0"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$exhausted_ride_id'")" = "$max_attempts"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_events WHERE ride_id='$exhausted_ride_id' AND new_status='failed' AND details->>'reason'='max_dispatch_attempts'")" = "1"
+
 # Going offline must not require or retain precise coordinates.
 status="$(curl --silent --show-error --output "$tmp_dir/driver-offline.json" --write-out '%{http_code}' \
   --request PUT --header 'Content-Type: application/json' --header "Authorization: Bearer $driver_token" \
