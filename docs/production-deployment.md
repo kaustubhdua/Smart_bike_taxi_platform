@@ -39,7 +39,7 @@ openssl rand -hex 32
 
 Generate two independent values. Set POSTGRES_PASSWORD to the first value, use that exact same value in DATABASE_URL, and set RIDEFORGE_JWT_SECRET to the second. Set RIDEFORGE_DOMAIN and RIDEFORGE_DRIVER_DOMAIN to the two real DNS hostnames. Set RIDEFORGE_PUBLIC_ORIGIN to the passenger origin (including https://), and set RIDEFORGE_ALLOWED_ORIGINS to the comma-separated exact HTTPS origins for both hosts. The API matches origins exactly; do not use wildcard origins. Set a real contact identifier in RIDEFORGE_USER_AGENT.
 
-The sample public Nominatim/OSRM endpoints are for development/evaluation and do not provide commercial capacity or an uptime agreement. Replace them with contracted or self-hosted services before real-world use. Keep the .env file out of Git and restrict host access.
+The `.env.production.example` uses reserved nonfunctional `.example` provider URLs intentionally. Replace them with contracted or self-hosted services for both the backend and browser build before deployment. Public Nominatim/OSRM demo endpoints do not provide commercial capacity or an uptime agreement. Keep the `.env` file out of Git and restrict host access.
 
 ## 3. Validate and start
 

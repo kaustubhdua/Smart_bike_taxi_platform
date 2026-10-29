@@ -1,12 +1,16 @@
 services:
   api:
     environment:
-      RIDEFORGE_ALLOWED_ORIGINS: ${RIDEFORGE_ALLOWED_ORIGINS:-${RIDEFORGE_PUBLIC_ORIGIN:?Set RIDEFORGE_PUBLIC_ORIGIN in .env}}
+      RIDEFORGE_ALLOWED_ORIGINS: ${RIDEFORGE_ALLOWED_ORIGINS:?Set RIDEFORGE_ALLOWED_ORIGINS to comma-separated passenger and driver HTTPS origins in .env}
+      RIDEFORGE_GEOCODING_URL: ${RIDEFORGE_GEOCODING_URL:?Set RIDEFORGE_GEOCODING_URL to a contracted or self-hosted geocoder in .env}
+      RIDEFORGE_ROUTING_URL: ${RIDEFORGE_ROUTING_URL:?Set RIDEFORGE_ROUTING_URL to a contracted or self-hosted router in .env}
 
   web:
     build:
       args:
         VITE_API_BASE_URL: ""
+        VITE_GEOCODING_BASE_URL: ${VITE_GEOCODING_BASE_URL:?Set VITE_GEOCODING_BASE_URL to a contracted or self-hosted geocoder in .env}
+        VITE_ROUTING_BASE_URL: ${VITE_ROUTING_BASE_URL:?Set VITE_ROUTING_BASE_URL to a contracted or self-hosted router in .env}
 
   caddy:
     image: rideforge-caddy:production
