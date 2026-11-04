@@ -1,3 +1,4 @@
+BEGIN;
 -- Keep application data accessible only to the trusted backend PostgreSQL connection.
 -- The browser must use the RideForge API; it must never access these tables through PostgREST.
 ALTER TABLE public.schema_migrations ENABLE ROW LEVEL SECURITY;
@@ -40,3 +41,7 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.enqueue_ride_event_notification() FROM PUBLIC, anon, authenticated;
+
+INSERT INTO public.schema_migrations (version) VALUES ('007_lock_down_public_data_api')
+ON CONFLICT (version) DO NOTHING;
+COMMIT;
