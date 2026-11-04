@@ -3,8 +3,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates cmake g++ make libboost-dev libcurl4-openssl-dev libpq-dev libssl-dev nlohmann-json3-dev \
     && rm -rf /var/lib/apt/lists/*
-WORKDIR /src
-COPY . .
+WORKDIR /src/backend
+COPY backend/ ./
 RUN cmake -S . -B /build -DCMAKE_BUILD_TYPE=Release && cmake --build /build --target rideforge_api rideforge_admin_bootstrap rideforge_outbox_worker rideforge_dispatch_worker --parallel
 
 FROM ubuntu:24.04 AS runtime
@@ -17,9 +17,9 @@ COPY --from=build /build/rideforge_api /usr/local/bin/rideforge_api
 COPY --from=build /build/rideforge_admin_bootstrap /usr/local/bin/rideforge_admin_bootstrap
 COPY --from=build /build/rideforge_outbox_worker /usr/local/bin/rideforge_outbox_worker
 COPY --from=build /build/rideforge_dispatch_worker /usr/local/bin/rideforge_dispatch_worker
-COPY migrations /opt/rideforge/migrations
-COPY scripts/migrate-if-needed.sh /usr/local/bin/rideforge_migrate
-COPY entrypoint-render.sh /usr/local/bin/rideforge_render_entrypoint
+COPY backend/migrations /opt/rideforge/migrations
+COPY backend/scripts/migrate-if-needed.sh /usr/local/bin/rideforge_migrate
+COPY backend/entrypoint-render.sh /usr/local/bin/rideforge_render_entrypoint
 RUN chmod 0555 /usr/local/bin/rideforge_render_entrypoint /usr/local/bin/rideforge_migrate
 USER 10001:10001
 EXPOSE 8080
