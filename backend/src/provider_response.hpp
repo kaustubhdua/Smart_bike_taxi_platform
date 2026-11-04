@@ -11,7 +11,7 @@ namespace rideforge_http {
 inline constexpr std::size_t kMaxProviderResponseBytes = 1024U * 1024U;
 
 inline std::size_t append_bounded_response(char* data, std::size_t size,
-                                           std::size_t count, void* target) {
+                                           std::size_t count, void* target) noexcept {
     if (target == nullptr || (size != 0 && count > kMaxProviderResponseBytes / size)) {
         return 0;
     }
@@ -25,7 +25,12 @@ inline std::size_t append_bounded_response(char* data, std::size_t size,
     if (bytes == 0) return 0;
     if (data == nullptr) return 0;
 
-    body->append(data, bytes);
+    try {
+        body->append(data, bytes);
+    } catch (...) {
+        // Never let a C++ exception unwind through libcurl's C callback.
+        return 0;
+    }
     return bytes;
 }
 
