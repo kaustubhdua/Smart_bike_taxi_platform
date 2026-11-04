@@ -729,3 +729,25 @@ test("debounces location edits instead of geocoding every keystroke", async ({ p
   await expect.poll(() => geocodingRequests).toBe(3);
   await expect.poll(() => routeRequests).toBe(2);
 });
+
+test("rejects an oversized routing-provider response before parsing or rendering it", async ({ page }) => {
+  let routeRequests = 0;
+  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ lat: "28.55", lon: "77.34", display_name: query }]),
+    });
+  });
+  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
+    routeRequests += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: "x".repeat(1024 * 1024 + 1) });
+  });
+  await page.route("**://*.tile.openstreetmap.org/**", route => route.abort());
+
+  await page.goto("/");
+  await expect(page.getByText(/The routing service returned an oversized response/)).toBeVisible({ timeout: 15_000 });
+  expect(routeRequests).toBe(1);
+  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
+});
