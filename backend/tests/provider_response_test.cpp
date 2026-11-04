@@ -7,19 +7,19 @@
 
 int main() {
     std::string body;
-    const std::string initial = "provider response";
+    std::string initial = "provider response";
     assert(rideforge_http::append_bounded_response(
-        const_cast<char*>(initial.data()), 1, initial.size(), &body) == initial.size());
+        initial.data(), 1, initial.size(), &body) == initial.size());
     assert(body == initial);
 
-    const std::string fill(rideforge_http::kMaxProviderResponseBytes - body.size(), 'x');
+    std::string fill(rideforge_http::kMaxProviderResponseBytes - body.size(), 'x');
     assert(rideforge_http::append_bounded_response(
-        const_cast<char*>(fill.data()), 1, fill.size(), &body) == fill.size());
+        fill.data(), 1, fill.size(), &body) == fill.size());
     assert(body.size() == rideforge_http::kMaxProviderResponseBytes);
 
-    const std::string overflow = "x";
+    std::string overflow = "x";
     assert(rideforge_http::append_bounded_response(
-        const_cast<char*>(overflow.data()), 1, overflow.size(), &body) == 0);
+        overflow.data(), 1, overflow.size(), &body) == 0);
     assert(body.size() == rideforge_http::kMaxProviderResponseBytes);
 
     std::string untouched;
