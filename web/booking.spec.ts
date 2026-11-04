@@ -747,7 +747,7 @@ test("rejects an oversized routing-provider response before parsing or rendering
   await page.route("**://*.tile.openstreetmap.org/**", route => route.abort());
 
   await page.goto("/");
-  await expect(page.getByText(/The routing service returned an oversized response/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".quote-row").filter({ hasText: "Estimated route" })).toContainText(/The routing service returned an oversized response/, { timeout: 15_000 });
   expect(routeRequests).toBe(1);
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
 });
