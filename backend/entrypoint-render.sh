@@ -3,8 +3,18 @@ set -Eeuo pipefail
 
 # Render runs the API and both durable background workers in one web-service
 # container because its free web-service tier does not provide background
-# workers. If any process exits, stop the others so the platform restarts the
-# whole service rather than silently losing dispatch or outbox processing.
+# workers. Migrations use a separate owner connection; the API/workers use the
+# non-superuser rideforge_app role. If any child exits, stop siblings so the
+# platform restarts the whole service instead of silently losing a worker.
+
+runtime_database_url="${DATABASE_URL:?DATABASE_URL (private runtime role) is required}"
+migration_database_url="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL (migration owner) is required}"
+
+export DATABASE_URL="$migration_database_url"
+export RIDEFORGE_MIGRATIONS_DIR=/opt/rideforge/migrations
+/usr/local/bin/rideforge_migrate
+export DATABASE_URL="$runtime_database_url"
+unset MIGRATION_DATABASE_URL
 
 pids=()
 shutdown() {
@@ -28,7 +38,7 @@ pids+=("$!")
 pids+=("$!")
 
 # Wait until one service exits; a worker crash must not leave a degraded API
-# accepting bookings while offers/outbox events are no longer processed.
+# accepting bookings while offers/outbox processing are no longer running.
 set +e
 wait -n "${pids[@]}"
 status=$?
