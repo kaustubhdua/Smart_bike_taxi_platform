@@ -18,6 +18,9 @@ createdb "$target_db"
 DATABASE_URL="$DATABASE_URL" sh backend/scripts/backup.sh "$temporary_dir/source.dump"
 restore_url="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${target_db}"
 DATABASE_URL="$restore_url" sh backend/scripts/restore.sh "$temporary_dir/source.dump"
-psql -v ON_ERROR_STOP=1 -d "$target_db" -tAc "SELECT count(*) FROM schema_migrations WHERE version IN ('001_initial_schema','002_driver_approval_and_outbox','003_outbox_dead_letters','004_support_reports')" | grep -Fx '4'
-psql -v ON_ERROR_STOP=1 -d "$target_db" -tAc "SELECT to_regclass('public.support_reports') IS NOT NULL" | grep -Fx 't'
+source_versions="$(psql -v ON_ERROR_STOP=1 -d "$DATABASE_URL" -Atqc "SELECT string_agg(version, ',' ORDER BY version) FROM schema_migrations")"
+restored_versions="$(psql -v ON_ERROR_STOP=1 -d "$restore_url" -Atqc "SELECT string_agg(version, ',' ORDER BY version) FROM schema_migrations")"
+test -n "$source_versions"
+test "$source_versions" = "$restored_versions"
+psql -v ON_ERROR_STOP=1 -d "$target_db" -tAc "SELECT to_regclass('public.support_reports') IS NOT NULL AND to_regclass('public.ride_offers') IS NOT NULL AND to_regclass('public.ride_offers_one_active_per_ride') IS NOT NULL" | grep -Fx 't'
 echo "PASS: backup and restore scripts restore schema and migration history into an empty database"
