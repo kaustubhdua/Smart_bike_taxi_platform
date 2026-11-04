@@ -23,4 +23,4 @@ COPY entrypoint-render.sh /usr/local/bin/rideforge_render_entrypoint
 RUN chmod 0555 /usr/local/bin/rideforge_render_entrypoint /usr/local/bin/rideforge_migrate
 USER 10001:10001
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/rideforge_api"]
+ENTRYPOINT ["/usr/local/bin/rideforge_render_entrypoint"]
