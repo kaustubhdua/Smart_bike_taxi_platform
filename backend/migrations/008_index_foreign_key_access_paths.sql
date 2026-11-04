@@ -1,3 +1,4 @@
+BEGIN;
 -- Cover foreign-key lookups used by admin history, idempotency cleanup,
 -- dispatch/outbox history, and support-report triage.
 CREATE INDEX IF NOT EXISTS admin_audit_events_actor_id_idx
@@ -19,3 +20,7 @@ CREATE INDEX IF NOT EXISTS support_reports_resolved_by_idx
 CREATE INDEX IF NOT EXISTS support_reports_ride_id_idx
   ON public.support_reports (ride_id)
   WHERE ride_id IS NOT NULL;
+
+INSERT INTO public.schema_migrations (version) VALUES ('008_index_foreign_key_access_paths')
+ON CONFLICT (version) DO NOTHING;
+COMMIT;
