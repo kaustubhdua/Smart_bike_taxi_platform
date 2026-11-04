@@ -34,6 +34,50 @@ const GEOCODE_CACHE_TTL_MS = 10 * 60 * 1000;
 const GEOCODE_CACHE_MAX_ENTRIES = 200;
 type CachedCoordinates = { coordinates: [number, number]; expiresAt: number };
 const geocodeCache = new Map<string, CachedCoordinates>();
+const MAX_GEOCODING_RESPONSE_BYTES = 64 * 1024;
+const MAX_ROUTING_RESPONSE_BYTES = 1024 * 1024;
+
+async function readJsonBounded<T>(response: Response, maxBytes: number, errorMessage: string): Promise<T> {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    try { await response.body?.cancel(); } catch { /* The body may already be closed. */ }
+    throw new Error(errorMessage);
+  }
+
+  const body = response.body;
+  if (!body) {
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > maxBytes) throw new Error(errorMessage);
+    return JSON.parse(text) as T;
+  }
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        try { await reader.cancel(); } catch { /* The stream may already be closed. */ }
+        throw new Error(errorMessage);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(bytes)) as T;
+}
+
 
 // Serialize uncached public Nominatim requests in this browser tab. The public
 // service has a strict application-wide limit; this local limiter helps avoid
@@ -147,7 +191,7 @@ async function geocode(place: string, signal: AbortSignal): Promise<[number, num
     headers: { "Accept-Language": "en" },
   });
   if (!response.ok) throw new Error("Location search is temporarily unavailable.");
-  const results = await response.json() as GeocodingResult[];
+  const results = await readJsonBounded<GeocodingResult[]>(response, MAX_GEOCODING_RESPONSE_BYTES, "The location service returned an oversized response.");
   const match = results[0];
   if (!match) throw new Error(`We couldn't find “${place}”. Try a more specific pickup or destination.`);
   const lat = Number(match.lat);
@@ -181,7 +225,7 @@ export async function calculateRoute(
   const routeUrl = `${routingBase}/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson&steps=false`;
   const response = await fetch(routeUrl, { signal, headers: { "Accept-Language": "en" } });
   if (!response.ok) throw new Error("The routing service is temporarily unavailable.");
-  const routeResponse = await response.json() as OsrmRouteResponse;
+  const routeResponse = await readJsonBounded<OsrmRouteResponse>(response, MAX_ROUTING_RESPONSE_BYTES, "The routing service returned an oversized response.");
   const route = routeResponse?.routes?.[0];
   const coordinates: unknown = route?.geometry?.coordinates;
   if (routeResponse?.code !== "Ok" || !route || !Array.isArray(coordinates) || coordinates.length < 2) {
