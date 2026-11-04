@@ -36,10 +36,10 @@ Implemented or documented in this branch:
 - Committed `web/package-lock.json` and `npm ci` in web CI.
 - CI workflows for C++, API/HTTP smoke tests, database migration checks, web build/E2E/accessibility, and Compose/container checks.
 
-## Remaining release gaps — reviewed 2026-10-28
+## Remaining release gaps — reviewed 2026-11-05
 The following are not claimed as complete merely because the relevant code or workflow exists:
 - Deterministic PostgreSQL race coverage for simultaneous accepts, accept-vs-expiry, cancellation, worker restart/duplicate execution, and cross-account/role authorization.
-- A bounded PostgreSQL connection pool. The API currently opens a database connection in request handlers; pool design and concurrency/load tests remain a release-hardening task.
+- The API now has a bounded process-local PostgreSQL connection pool (12 connections per API process, 2-second acquisition timeout, rollback/session reset before reuse). Remaining work: test saturation under representative concurrency and budget aggregate connections across API replicas plus workers; this is not a shared cross-replica pool.
 - Dispatch matching based on real road ETA and fresh driver locations; current eligibility and sequential offer logic is not a fully optimized commercial matching engine.
 - Production routing/geocoding provider and terms. Public Nominatim/OSRM endpoints are evaluation defaults, not a production SLA.
 - Commercial payment processing, refunds, reconciliation, driver payouts, and real SMS/push delivery are not implemented as verified end-to-end provider flows. Demo receipts are not payment proof.
@@ -49,7 +49,7 @@ The following are not claimed as complete merely because the relevant code or wo
 
 Implemented in the repository (but still requiring operational validation) are driver provisioning/approval/suspension APIs, admin ride search/metrics, support reports with audited resolution, durable 45-second driver offers with expiry/redispatch, the outbox worker, authenticated SSE with persisted-event replay, and Compose deployment templates.
 
-**Exact-main CI evidence:** full release-readiness run [40628698136](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40628698136) passed all 13 jobs on main revision `415b7d5cefeca0684053a16d4a2ece8b4bb1a606`. This validates that code revision in CI only; it is not proof of a deployed service or external passenger/driver journey. Always verify fresh checks on the exact candidate SHA.
+**Exact-main CI evidence:** the latest main revision identified in the 2026-11-05 audit is `e234e434dad8cda26a90cb096722eaa5c1faeab0` (PR #28 merge). This audit did not retrieve a completed full release-readiness result for that exact SHA. Historical full-suite success on older commits remains useful regression evidence but is not current-main verification. Always verify fresh checks on the exact candidate SHA; a CI pass is not proof of a deployed service or external passenger/driver journey.
 
 ## Prioritized implementation plan
 
@@ -58,7 +58,7 @@ Implemented in the repository (but still requiring operational validation) are d
 1. **Make CI evidence deterministic**
    - Capture the exact current PR head SHA and confirm every required workflow ran on that SHA.
    - Fix README, roadmap, OpenAPI and PR claims so they agree.
-   - Ensure Compose starts from an empty database, applies migrations 001 and 002 in order, and a second startup performs no schema changes.
+   - Ensure Compose starts from an empty database, applies every ordered migration and a second startup performs no schema changes; the migration ledger and schema invariants must be checked against the full current migration set.
    - Keep `npm ci`; add a documented Node version and lockfile consistency check.
 
    Acceptance: all required checks green on one SHA; clean-volume Compose smoke and repeat-start test pass; release notes contain the verified SHA and evidence links.
@@ -83,7 +83,7 @@ Implemented in the repository (but still requiring operational validation) are d
    Acceptance: repeated concurrency tests pass reliably against real PostgreSQL, not just mocks; database constraints remain the final integrity guard.
 
 4. **Review authentication implementation against current guidance**
-   - The current security helper uses PBKDF2-HMAC-SHA-256 with 210,000 iterations. Compare against current OWASP guidance and benchmark a safe upgrade path to a higher work factor or Argon2id; include a versioned hash format and rehash-on-success migration strategy.
+   - The current security helper uses versioned PBKDF2-HMAC-SHA-256 hashes with 600,000 iterations and bounded verification parameters. Keep this work factor covered by tests and benchmark login latency under representative load; assess Argon2id only as a separately reviewed migration.
    - Enforce password length/size limits before expensive hashing, generic login errors, account-aware throttling and bounded memory/CPU use.
    - Validate JWT algorithm/signature, expiry, issuer/audience if present, token structure and secret configuration. Fail startup if a weak/default production secret is used.
    - Add revocation/session rotation strategy before treating bearer tokens as production sessions.
@@ -92,7 +92,7 @@ Implemented in the repository (but still requiring operational validation) are d
    Acceptance: security tests and a written threat model pass review; production configuration fails closed; performance cost of password verification is measured.
 
 5. **Protect expensive third-party routing calls**
-   - Bound response size and timeouts for geocoding/routing; validate content type and all numeric values; reject non-finite and unreasonable distance/duration values.
+   - Provider timeouts and numeric/coordinate validation are implemented. The unbounded response-body callback is being hardened in the current release-hardening candidate with a 1 MiB cap and CTest coverage; treat it as incomplete until the exact PR head passes backend and full release-readiness CI. Content-type validation and unreasonable distance/duration caps still need review.
    - Add provider-specific concurrency limits, short-lived cache for normalized route lookups, circuit-breaker behavior and clear degraded-mode responses.
    - Keep public Nominatim/OSRM endpoints for demos only; configure a contracted or self-hosted provider for a deployed demo.
    - Do not allow arbitrary caller-controlled provider URLs; they can create SSRF risk.
