@@ -16,11 +16,11 @@ ALTER TABLE public.ride_offers ENABLE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
 
--- Prevent later tables/sequences created by the migration owner from inheriting
--- default client privileges.
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+-- Apply default privilege restrictions to objects created by the current
+-- migration owner, whether that owner is postgres (Supabase) or the CI role.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
   REVOKE ALL PRIVILEGES ON TABLES FROM anon, authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
   REVOKE ALL PRIVILEGES ON SEQUENCES FROM anon, authenticated;
 
 -- The trigger still needs to enqueue events when a backend transaction inserts
