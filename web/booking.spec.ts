@@ -714,7 +714,7 @@ test("debounces location edits instead of geocoding every keystroke", async ({ p
   await expect.poll(() => geocodingRequests).toBe(2);
   await expect.poll(() => routeRequests).toBe(1);
 
-  const pickup = page.getByRole("textbox", { name: "Pickup point" });
+  const pickup = page.getByRole("combobox", { name: "Pickup point" });
   await pickup.fill("Sec");
   await page.waitForTimeout(400);
   await expect.poll(() => geocodingRequests).toBe(2);
