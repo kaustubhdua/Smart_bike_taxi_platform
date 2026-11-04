@@ -83,7 +83,7 @@ jobs:
       - name: Verify public data API lockdown, private runtime role and FK indexes
         run: |
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity" | grep -Fx '0'
-          psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_tables t WHERE schemaname = 'public' AND (has_table_privilege('anon', format('%I.%I', schemaname, tablename), 'ALL') OR has_table_privilege('authenticated', format('%I.%I', schemaname, tablename), 'ALL'))" | grep -Fx '0'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_tables t WHERE schemaname = 'public' AND (has_table_privilege('anon', format('%I.%I', schemaname, tablename), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_table_privilege('authenticated', format('%I.%I', schemaname, tablename), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))" | grep -Fx '0'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'S' AND (has_sequence_privilege('anon', c.oid, 'USAGE,SELECT,UPDATE') OR has_sequence_privilege('authenticated', c.oid, 'USAGE,SELECT,UPDATE'))" | grep -Fx '0'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT prosecdef AND proconfig @> ARRAY['search_path=pg_catalog, public'] FROM pg_proc WHERE oid = 'public.enqueue_ride_event_notification()'::regprocedure" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT rolcanlogin AND rolbypassrls AND NOT rolsuper FROM pg_roles WHERE rolname = 'rideforge_app'" | grep -Fx 't'
