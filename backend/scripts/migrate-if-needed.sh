@@ -8,7 +8,11 @@ migrations_dir="${RIDEFORGE_MIGRATIONS_DIR:-/migrations}"
 schema_file="${RIDEFORGE_SCHEMA_FILE:-}"
 
 psql_db() {
-  psql -h "$db_host" -U "$db_user" -d "$db_name" "$@"
+  if [ -n "${DATABASE_URL:-}" ]; then
+    psql "$DATABASE_URL" "$@"
+  else
+    psql -h "$db_host" -U "$db_user" -d "$db_name" "$@"
+  fi
 }
 
 migration_table="$(psql_db -tAc "SELECT to_regclass('public.schema_migrations')")"

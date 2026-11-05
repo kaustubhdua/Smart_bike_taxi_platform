@@ -4,6 +4,7 @@
 #include <libpq-fe.h>
 #include <nlohmann/json.hpp>
 #include "security.hpp"
+#include "provider_response.hpp"
 
 #include <algorithm>
 #include <array>
@@ -80,18 +81,12 @@ int dispatch_radius_meters() {
     return static_cast<int>(kilometers * 1000UL);
 }
 
-size_t append_body(char* data, size_t size, size_t count, void* target) {
-    const auto bytes = size * count;
-    static_cast<std::string*>(target)->append(data, bytes);
-    return bytes;
-}
-
 HttpResult get_json(const std::string& url) {
     CURL* curl = curl_easy_init();
     if (curl == nullptr) throw std::runtime_error("HTTP client unavailable");
     std::string body;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, append_body);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, rideforge_http::append_bounded_response);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 2500L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 6000L);
@@ -291,14 +286,17 @@ public:
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='003_outbox_dead_letters'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='004_support_reports'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='005_driver_ride_declines'),"
-            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='006_durable_driver_offers')");
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='006_durable_driver_offers'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='007_lock_down_public_data_api'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='008_index_foreign_key_access_paths'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='009_create_private_backend_role')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 13) {
+            PQntuples(result) != 1 || PQnfields(result) != 16) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 13; ++column) {
+        for (int column = 0; column < 16; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);

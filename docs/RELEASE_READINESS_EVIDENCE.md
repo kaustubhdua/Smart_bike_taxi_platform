@@ -1,11 +1,13 @@
 # RideForge Release Readiness Evidence
 
-**Assessment date:** 2026-10-28  
+**Assessment date:** 2026-11-05  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Current main SHA:** `d2e1cd1449d471d6fd3bdc58e0457675446c2d84`  
+**Current main SHA:** `e234e434dad8cda26a90cb096722eaa5c1faeab0`  
 **Release decision:** **Not ready for public/commercial rides.** The repository has a substantial full-stack MVP and recent engineering fixes, but no verified public staging deployment, real two-device journey, operational service, driver/vehicle compliance process, or transport-authority/legal approval.
 
 This report distinguishes repository implementation and automated CI from evidence that requires real infrastructure. A green build, local Compose stack, mock-provider browser test, or demo receipt is not proof of a commercially operating taxi service.
+
+The current main branch now includes PR #28 (`test(web): cover debounced location lookups in active suite`) at merge commit `e234e434dad8cda26a90cb096722eaa5c1faeab0`. The merged test exercises the pickup-edit debounce in the active Playwright suite. The connector audit did not return a current-main workflow conclusion for this merge SHA, so this assessment does not claim that current-main CI is green. PR-candidate results and current-main results must remain separate.
 
 ## Recent engineering changes and exact-candidate evidence
 
@@ -17,7 +19,7 @@ This report distinguishes repository implementation and automated CI from eviden
 | Dispatch expiry/ride lock-order hardening (PR #23) | `8c6ee2ed12e3cff339c98b4389dacff708e525bb` | [Full release readiness, run 40651307975](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40651307975), candidate `0fc4bb5cf54adfb03cc4b583a63b7175e36dec3d` | All 13 jobs passed. Main-branch workflows for the merge SHA are running separately and were not yet complete at the time of this report. |
 | Debounce location geocoding while typing (PR #26) | `d2e1cd1449d471d6fd3bdc58e0457675446c2d84` | [Full release readiness, run 40651766311](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40651766311), candidate `1ae3ad8b05662d5720715b73491f775167ba7aaa` | All 13 jobs passed; browser workflow reported 31 passed, 1 skipped. |
 
-The latest main revision `d2e1cd1449d471d6fd3bdc58e0457675446c2d84` has its own workflow runs; at the time of this report, current-main verification was still pending. Do not describe post-merge main CI as green until those exact-SHA runs complete.
+The latest main revision `e234e434dad8cda26a90cb096722eaa5c1faeab0` requires its own exact-SHA workflow verification. The merged PR's test presence does not substitute for confirming the full release-readiness workflow on main. Do not describe current-main CI as green until those exact-SHA runs complete.
 
 ## Capability and limitation matrix
 
