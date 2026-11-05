@@ -77,7 +77,7 @@ jobs:
             fi
           done
       - name: Build backend API, outbox worker and admin bootstrap image
-        run: docker build --tag rideforge-backend-ci:latest ./backend
+        run: docker build --file backend/Dockerfile --tag rideforge-backend-ci:latest .
       - name: Build web image for local Compose
         run: docker build --build-arg VITE_API_BASE_URL=http://localhost:8080 --tag rideforge-web-ci:latest ./web
       - name: Build production web and Caddy images
