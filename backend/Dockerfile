@@ -9,7 +9,7 @@ RUN cmake -S . -B /build -DCMAKE_BUILD_TYPE=Release && cmake --build /build --ta
 
 FROM ubuntu:24.04 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ca-certificates curl libcurl4 libpq5 libssl3 bash postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --create-home rideforge
