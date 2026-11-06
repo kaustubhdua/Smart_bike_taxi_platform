@@ -45,6 +45,9 @@ services:
       RIDEFORGE_ROUTING_URL: ${RIDEFORGE_ROUTING_URL:-https://router.project-osrm.org/route/v1/driving}
       RIDEFORGE_JWT_SECRET: ${RIDEFORGE_JWT_SECRET}
       RIDEFORGE_DISPATCH_RADIUS_KM: ${RIDEFORGE_DISPATCH_RADIUS_KM:-20}
+    # The image entrypoint is the single-container Render launcher; Compose runs
+    # the API and workers as separate services.
+    entrypoint: ["/usr/local/bin/rideforge_api"]
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:
