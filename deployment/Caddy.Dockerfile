@@ -5,7 +5,7 @@ RUN git clone --depth 1 --branch v2.11.7 https://github.com/caddyserver/caddy.gi
 # Keep the Caddy build on patched Go and module releases. go-jose v4.1.6
 # fixes CVE-2026-116587 (unbounded RSA JWK validation CPU cost).
 RUN go mod edit \
-      -require=golang.org/x/net@v0.60.0 \
+      -require=golang.org/x/net@v0.62.0 \
       -require=github.com/go-jose/go-jose/v4@v4.1.6 \
     && go mod tidy \
     && test "$(go list -m -f '{{.Version}}' github.com/go-jose/go-jose/v4)" = "v4.1.6" \
