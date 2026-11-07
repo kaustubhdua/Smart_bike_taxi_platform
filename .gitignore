@@ -20,3 +20,5 @@ web/test-results/
 web/playwright-report/
 build/
 build-bench/
+build-*/
+*.tsbuildinfo
