@@ -88,12 +88,12 @@ int main() {
         std::chrono::system_clock::now().time_since_epoch()).count();
     const std::string subject = "10000000-0000-4000-8000-000000000001";
     const std::string valid_role = "passenger";
-    const auto claims = [&](std::int64_t issued, std::int64_t expiry) {
+    const auto make_claims = [&](std::int64_t issued, std::int64_t expiry) {
         return rideforge_security::json{{"iss", "rideforge-api"}, {"aud", "rideforge-web"},
             {"sub", subject}, {"role", valid_role}, {"iat", issued}, {"exp", expiry}};
     };
     assert(rideforge_security::verify_access_token(
-        signed_claims(claims(now, now + 900), secret), secret).subject == subject);
+        signed_claims(make_claims(now, now + 900), secret), secret).subject == subject);
 
     const auto rejects_claims = [&](const rideforge_security::json& value) {
         bool rejected_claims = false;
@@ -104,16 +104,16 @@ int main() {
         }
         assert(rejected_claims);
     };
-    auto missing_iat = claims(now, now + 900);
+    auto missing_iat = make_claims(now, now + 900);
     missing_iat.erase("iat");
     rejects_claims(missing_iat);
-    rejects_claims(claims(now + 120, now + 900));
-    rejects_claims(claims(now, now + 901));
-    rejects_claims(claims(now, now - 1));
-    auto empty_subject = claims(now, now + 900);
+    rejects_claims(make_claims(now + 120, now + 900));
+    rejects_claims(make_claims(now, now + 901));
+    rejects_claims(make_claims(now, now - 1));
+    auto empty_subject = make_claims(now, now + 900);
     empty_subject["sub"] = "";
     rejects_claims(empty_subject);
-    auto invalid_role = claims(now, now + 900);
+    auto invalid_role = make_claims(now, now + 900);
     invalid_role["role"] = "superuser";
     rejects_claims(invalid_role);
     assert(!rideforge_security::verify_password(password, "pbkdf2_sha256$600000junk$bad$bad"));
