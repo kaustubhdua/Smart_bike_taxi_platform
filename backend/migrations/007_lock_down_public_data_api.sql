@@ -14,15 +14,24 @@ ALTER TABLE public.support_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.driver_ride_declines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ride_offers ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
-REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
-
+-- The anon and authenticated roles exist on Supabase. Plain PostgreSQL (the
+-- Compose stack and CI) does not have them, so only touch the ones that exist.
 -- Apply default privilege restrictions to objects created by the current
 -- migration owner, whether that owner is postgres (Supabase) or the CI role.
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE ALL PRIVILEGES ON TABLES FROM anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE ALL PRIVILEGES ON SEQUENCES FROM anon, authenticated;
+DO $block$
+DECLARE
+  browser_role text;
+BEGIN
+  FOREACH browser_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = browser_role) THEN
+      EXECUTE format('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM %I', browser_role);
+      EXECUTE format('REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM %I', browser_role);
+      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM %I', browser_role);
+      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL PRIVILEGES ON SEQUENCES FROM %I', browser_role);
+    END IF;
+  END LOOP;
+END
+$block$;
 
 -- The trigger still needs to enqueue events when a backend transaction inserts
 -- a ride event. Use a fixed search_path and fully-qualified target table.
@@ -40,7 +49,18 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.enqueue_ride_event_notification() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.enqueue_ride_event_notification() FROM PUBLIC;
+DO $block$
+DECLARE
+  browser_role text;
+BEGIN
+  FOREACH browser_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = browser_role) THEN
+      EXECUTE format('REVOKE ALL ON FUNCTION public.enqueue_ride_event_notification() FROM %I', browser_role);
+    END IF;
+  END LOOP;
+END
+$block$;
 
 INSERT INTO public.schema_migrations (version) VALUES ('007_lock_down_public_data_api')
 ON CONFLICT (version) DO NOTHING;
