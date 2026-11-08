@@ -38,6 +38,7 @@ inline std::vector<unsigned char> base64url_decode(std::string value) {
         throw std::invalid_argument("Invalid base64url input");
     }
     const std::string original = value;
+    if (original.empty()) return {};
     for (char& ch : value) {
         const bool valid = (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
             (ch >= '0' && ch <= '9') || ch == '-' || ch == '_';
