@@ -179,7 +179,7 @@ inline Claims verify_access_token(const std::string& token, const std::string& s
     // This service issues 15-minute access tokens. Accept a small clock skew,
     // but reject future-issued, already-expired, overlong or inverted windows.
     if (issued_at > now + 60 || expiry <= now || expiry <= issued_at ||
-        expiry - issued_at > 900 || expiry > now + 960) {
+        expiry > issued_at + 900 || expiry > now + 960) {
         throw std::invalid_argument("Invalid access token lifetime");
     }
     const std::string role = claims["role"].get<std::string>();
