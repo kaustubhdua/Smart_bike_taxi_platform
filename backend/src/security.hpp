@@ -59,7 +59,9 @@ inline std::vector<unsigned char> base64url_decode(std::string value) {
         throw std::invalid_argument("Invalid base64url input");
     }
     return decoded;
-}inline std::string password_hash(std::string_view password) {
+}
+
+inline std::string password_hash(std::string_view password) {
     constexpr int iterations = 600000;
     std::array<unsigned char, 16> salt{};
     std::array<unsigned char, 32> derived{};
@@ -104,7 +106,9 @@ inline bool verify_password(std::string_view password, const std::string& encode
     } catch (...) {
         return false;
     }
-}inline std::string sign_access_token(const std::string& subject, const std::string& role,
+}
+
+inline std::string sign_access_token(const std::string& subject, const std::string& role,
                                      const std::string& secret) {
     if (secret.size() < 32) throw std::runtime_error("RIDEFORGE_JWT_SECRET must contain at least 32 characters");
     if (subject.empty() || subject.size() > 128 ||
