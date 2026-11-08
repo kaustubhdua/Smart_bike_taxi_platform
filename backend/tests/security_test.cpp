@@ -62,6 +62,21 @@ int main() {
     }
     assert(rejected);
 
+    rejected = false;
+    try {
+        (void)rideforge_security::sign_access_token("", "passenger", secret);
+    } catch (const std::invalid_argument&) {
+        rejected = true;
+    }
+    assert(rejected);
+    rejected = false;
+    try {
+        (void)rideforge_security::sign_access_token("subject", "superuser", secret);
+    } catch (const std::invalid_argument&) {
+        rejected = true;
+    }
+    assert(rejected);
+
     // Password-hash metadata is parsed strictly; partial integer parses and
     // extra fields must never be accepted as valid PBKDF2 records.
     auto malformed_iterations = encoded;
