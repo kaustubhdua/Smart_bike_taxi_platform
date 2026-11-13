@@ -7,28 +7,10 @@ set -Eeuo pipefail
 # non-superuser rideforge_app role. If any child exits, stop siblings so the
 # platform restarts the whole service instead of silently losing a worker.
 
-database_url_template="${DATABASE_URL_TEMPLATE:?DATABASE_URL_TEMPLATE (session-pooler URI with __RIDEFORGE_PASSWORD__ placeholder) is required}"
+source /usr/local/bin/rideforge_build_runtime_database_url
+rideforge_build_runtime_database_url
+runtime_database_url="$DATABASE_URL"
 migration_database_url="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL (migration owner) is required}"
-: "${RIDEFORGE_APP_PASSWORD:?RIDEFORGE_APP_PASSWORD is required to provision the runtime role}"
-
-case "$database_url_template" in
-  *__RIDEFORGE_PASSWORD__*) ;;
-  *)
-    echo "DATABASE_URL_TEMPLATE must contain the __RIDEFORGE_PASSWORD__ placeholder." >&2
-    exit 1
-    ;;
-esac
-case "$database_url_template" in
-  *__RIDEFORGE_PASSWORD__*__RIDEFORGE_PASSWORD__*)
-    echo "DATABASE_URL_TEMPLATE must contain the password placeholder exactly once." >&2
-    exit 1
-    ;;
-esac
-
-# Render generates standard base64. Percent-encode its reserved URI characters
-# before substituting the password; never print the resulting connection string.
-encoded_runtime_password="$(printf '%s' "$RIDEFORGE_APP_PASSWORD" | sed -e 's/+/%2B/g' -e 's,/,%2F,g' -e 's/=/%3D/g')"
-runtime_database_url="${database_url_template//__RIDEFORGE_PASSWORD__/$encoded_runtime_password}"
 
 export DATABASE_URL="$migration_database_url"
 export RIDEFORGE_MIGRATIONS_DIR=/opt/rideforge/migrations
