@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 
 
 async function blockMapTiles(page: import("@playwright/test").Page) {
-  await page.route("**://*.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://tile.openstreetmap.org/**", route => route.abort());
 }
 test("calculates road route and shows a fare only after a valid server quote", async ({ page }) => {
   await blockMapTiles(page);
@@ -31,6 +31,7 @@ test("calculates road route and shows a fare only after a valid server quote", a
   await expect(page.getByRole("application", { name: /Interactive road map from/ })).toBeVisible();
   await expect(page.locator("#route-map-description")).toContainText("route distance, estimated duration and fare");
   await expect(page.locator(".leaflet-control-attribution a[href*='openstreetmap.org/copyright']")).toBeVisible();
+  expect(page.url()).not.toContain("tile.openstreetmap.org");
   await expect(page.locator(".fare-amount")).toContainText("₹47.50");
   await expect(page.locator(".inline-notice")).toContainText("This checks the quote only");
 });
