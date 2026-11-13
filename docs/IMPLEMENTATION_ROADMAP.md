@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-11-13. PR #44 has been merged as `d7a90e24977119618f079ae7f8c1623aae97899d` after all 13 jobs passed on exact candidate `b386f4db8da4b5d0817963252d525ac7d0af9610`. Post-merge main workflows are still running; see `docs/RELEASE_READINESS_EVIDENCE.md` for exact-SHA evidence. No live deployment or commercial readiness is claimed.
+Last reconciled: 2026-11-13. PR #44 and PR #46 are merged; PR #46 added expired-offer acceptance regression coverage and passed all 13 release-readiness jobs on exact candidate `71f25e9053eb3349bd3daff35ee51a0bad409b47`. Main SHA `cd0361f9d491a7423f61338a2210cc75ce1a3508` is undergoing its post-merge full release-readiness run. PR #48 contains the runtime database credential separation work and remains unmerged pending exact-head CI. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live deployment or commercial readiness is claimed.
 
 ## Product goal
 
@@ -50,7 +50,7 @@ Acceptance: every required current-head check is green; migrations 001–009 app
 - [x] Make account deactivation/revocation take effect promptly (per-request active/role check, ≤5 s cache, fails closed); the short-lived token model is documented in `docs/HARDENING_AND_TESTING.md`.
 - [ ] Add distributed rate limits before horizontally scaling. (Per-process limits, trusted-proxy client-IP resolution, IPv6 /64 keys and a per-account login throttle are in place and tested; they are not shared across replicas.)
 - [ ] Complete a full SQLSTATE-to-HTTP mapping review and document retryable versus permanent database errors. (Malformed IDs, oversized bodies, auth header forms, and 4xx-not-5xx behavior are now covered by adversarial tests.)
-- [ ] Add least-privilege runtime database roles; [x] dependency audit, CodeQL and CRITICAL/HIGH container image scans pass on the recorded SHA.
+- [x] Separate migration-owner credentials from the non-superuser `rideforge_app` runtime role; CI verifies role attributes, password login, grants and API/worker connectivity. [ ] Verify the deployed role and restrict database network access.
 
 Acceptance: adversarial integration tests pass and no client can read or mutate another account's ride.
 
