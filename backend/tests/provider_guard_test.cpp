@@ -229,6 +229,21 @@ void pacing_gate_is_thread_safe() {
     assert(total_wait_ms == 10LL * (799LL * 800LL / 2LL));
 }
 
+void ttl_cache_expires_and_is_bounded() {
+    using ms = std::chrono::milliseconds;
+    TtlCache<int> cache(2, ms(25));
+    cache.put("first", 1);
+    cache.put("second", 2);
+    assert(cache.get("first").value() == 1);
+    cache.put("third", 3);
+    assert(!cache.get("first").has_value());
+    assert(cache.get("second").value() == 2);
+    assert(cache.get("third").value() == 3);
+    std::this_thread::sleep_for(ms(35));
+    assert(!cache.get("second").has_value());
+    assert(!cache.get("third").has_value());
+}
+
 void pacing_configuration() {
     using ms = std::chrono::milliseconds;
     assert(default_pacing_for("https://nominatim.openstreetmap.org/search") == ms(1000));
@@ -254,6 +269,7 @@ int main() {
     pacing_gate_spaces_calls_and_sheds_excess();
     pacing_gate_is_thread_safe();
     pacing_configuration();
+    ttl_cache_expires_and_is_bounded();
     breaker_state_machine();
     limiter_bounds_in_flight();
     failure_classification();
