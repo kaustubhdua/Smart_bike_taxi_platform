@@ -67,6 +67,8 @@ if [ -n "${RIDEFORGE_APP_PASSWORD:-}" ]; then
     echo "RIDEFORGE_APP_PASSWORD must contain at least 32 characters." >&2
     exit 1
   fi
-  psql_db -v ON_ERROR_STOP=1 -v app_password="$RIDEFORGE_APP_PASSWORD" \
-    -c "ALTER ROLE rideforge_app PASSWORD :'app_password'"
+  # The alphabet is restricted above, so embedding this value in the SQL
+  # literal is safe. psql does not interpolate :'variables' inside -c strings.
+  psql_db -v ON_ERROR_STOP=1 \
+    -c "ALTER ROLE rideforge_app PASSWORD '$RIDEFORGE_APP_PASSWORD'"
 fi
