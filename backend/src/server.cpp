@@ -413,12 +413,12 @@ public:
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='012_runtime_role_least_privilege'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='013_runtime_role_sequence_least_privilege')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 19) {
+            PQntuples(result) != 1 || PQnfields(result) != 20) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 19; ++column) {
+        for (int column = 0; column < 20; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
