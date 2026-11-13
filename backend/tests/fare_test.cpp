@@ -25,9 +25,9 @@ void fare_rounding_and_breakdown() {
     assert(one_meter.distance_fare_paise == 2);
     assert(one_meter.total_fare_paise == 2002);
 
-    const auto 999m = calculate_demo_fare(999);
-    assert(999m.distance_fare_paise == 1099);
-    assert(999m.total_fare_paise == 3099);
+    const auto nine_hundred_ninety_nine_meters = calculate_demo_fare(999);
+    assert(nine_hundred_ninety_nine_meters.distance_fare_paise == 1099);
+    assert(nine_hundred_ninety_nine_meters.total_fare_paise == 3099);
 
     const auto one_km = calculate_demo_fare(1000);
     assert(one_km.distance_fare_paise == 1100);
