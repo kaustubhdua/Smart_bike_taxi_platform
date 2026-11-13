@@ -182,3 +182,43 @@ Source review after PR #51 found a real multi-replica race: separate dispatch wo
 The follow-up branch `fix/dispatch-one-offer-per-driver` adds migration 011 with a fail-closed duplicate preflight and unique partial index on `ride_offers(driver_id) WHERE status='offered'`. The dispatch worker excludes drivers with active offers both in ride eligibility and final driver selection; the unique index remains the final race guard. CI schema smoke verifies the index and rejects a second active offer for the same driver, and the API integration suite runs two dispatch-worker processes against PostgreSQL with multiple rides/drivers.
 
 The migration was applied to the connected Supabase project. The migration ledger records 011, the index is unique with the expected predicate, and there were zero active offers at application time. Do not mark the code fix complete until the exact PR head passes CI and is merged.
+
+
+
+## Current deployment and release evidence — 2026-11-13
+
+### Merged mainline changes
+
+- PR [#61](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/61) merged to main as `a1eff3bfe4a6e99f668bbf8c2d4796beda084f2d`. Its exact candidate `e2420b39f3d35dcf33a97f629e4ed830cf24cc5c` passed all seven top-level workflow runs, including [Full release readiness run 43441762858](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43441762858), C++/API/PostgreSQL/web/container tests, CodeQL and container vulnerability scan. The change isolates the accept-vs-expiry test fixture from the live dispatcher.
+- Mainline already includes PRs #53, #54 and #57 for per-driver active-offer exclusion, driver/admin experience and Render Blueprint adoption.
+
+### Render deployment observation
+
+- The existing static service is live at [https://rideforge-web.onrender.com](https://rideforge-web.onrender.com), deployed from commit `0f69d9fc735aa0cea330cd4672ec2c721bd1a03d` (PR #57) at 2026-11-13 14:09:38 UTC.
+- The existing API service [rideforge-api-final](https://dashboard.render.com/web/srv-dbloqnom7kps73br5ojg) built its image, but deployment `dep-dbrhk556e07s73bo8kcg` failed at runtime. Its exact startup error was `DATABASE_URL (private runtime role) is required`; no API health/readiness or full-stack E2E pass is claimed.
+- The Render Blueprint intentionally adopts the two existing free services and does not create a Render database. The existing Supabase project remains the database.
+
+### Supabase production database recheck
+
+- Project `rideforge-production` is `ACTIVE_HEALTHY`, Postgres 17.11 in `ap-south-1`.
+- Migration history records 001–011; 12 application tables are present and all 12 have RLS enabled.
+- `anon` and `authenticated` have no table privileges in the public schema. The backend role `rideforge_app` is LOGIN, non-superuser, has a password verifier, has table DML but not TRUNCATE, and has BYPASSRLS. Tables are owned by `postgres`, not the app role. This is a privileged backend-only role; the password must never enter browser variables, source control or chat.
+- The earlier statement above that the `rideforge_app` password was unset is superseded by this read-only recheck. Its current password verifier does not establish that Render has the matching runtime URL configured; PR #59 provisions the generated Render password during deployment.
+
+### Open exact-head candidates
+
+- PR [#59](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/59), head `6dcab19cd55afe65d2411434ca1cb57d58c2e992`: Render-generated runtime password, password-free URI template, URL-encoding helper and CI tests. All exact-head checks were queued at this snapshot.
+- PR [#60](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/60), head `f25fa7b70a1cb2c6c19492b2ae68ac0393e72f72`: explicit server-side quote routing, bounded GeoJSON, Noida geocoding context, policy-compliant OSM tile host and persistent demo-only notice. All exact-head checks were queued at this snapshot.
+- PR [#62](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/62), head `97f57e1e3291cabc98f1f3f913348d774a3ceba7`: UP aggregator licensing/vehicle/driver/fare/DPDP research and OSM/OSRM provider restrictions. All exact-head checks were queued at this snapshot.
+- PR [#63](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/63), head `b7510bcccbac74b12f5c2ac6423a34d2ca069494`: process-level dispatch-worker restart recovery regression. All exact-head checks were queued at this snapshot.
+
+### Remaining non-negotiable gates
+
+1. Pass exact-head CI for PRs #59, #60, #62 and #63 before merging.
+2. Configure protected `DATABASE_URL_TEMPLATE` (actual Supabase Session-pooler host copied from Connect; runtime username `rideforge_app.PROJECT_REF`; literal `__RIDEFORGE_PASSWORD__` placeholder) and protected `MIGRATION_DATABASE_URL` (owner Session-pooler URI) in Render.
+3. Merge the validated candidates, sync the Render Blueprint, redeploy the API, and verify `/api/v1/health` and `/api/v1/ready`.
+4. Run passenger, driver and admin E2E journeys against the deployed SHA using separate sessions/devices; verify workers, reconnect/replay, cancellation, expiry/redispatch and support triage.
+5. Complete production provider capacity, distributed rate limiting, load/connection-budget tests, monitoring/alerts, off-host backup restore, privacy retention/deletion and manual mobile/accessibility QA.
+6. Keep real passenger transport disabled until UP licensing, transport-motorcycle eligibility, driver screening/training/insurance, CAQM/NCR constraints, required independent app-security certification, 24x7 safety operations and qualified legal/privacy review are evidenced.
+
+The static frontend being live is not a full-stack deployment. No commercial rides, payment processing, verified driver onboarding, staffed emergency dispatch or transport authorization are claimed.
