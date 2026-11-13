@@ -102,7 +102,7 @@ The user has explicitly deferred creating/configuring Vercel until repository en
 
 Vercel can host the static React/Vite frontend. It is not a direct runtime for the existing persistent C++ API, dispatch worker and PostgreSQL LISTEN/NOTIFY outbox worker. If Vercel is selected for the frontend, a persistent compute host is still needed for those backend processes. Alternatively, the backend can be deliberately rewritten into serverless/queue-driven components, but that is a separate architecture migration requiring new concurrency, recovery and integration tests.
 
-Do not deploy or merge Render-specific changes merely to keep the existing Render service alive. PR #66 is retained as a deferred option; PR #64 contains the CI-only fixes.
+The existing Render API service is configured with auto-deploy enabled on `main` and the `checksPass` trigger. Therefore, merging any PR to `main` can initiate a Render deployment even though the user has deferred Vercel/hosting work. Do not merge any PR until the hosting decision is confirmed or the user explicitly disables Render auto-deploy. No live Render service setting has been changed. Do not deploy or merge Render-specific changes merely to keep the existing Render service alive. PR #66 is closed with its branch retained as a deferred option; PR #64 contains the CI-only fixes.
 
 ## 9. Explicitly out of scope until providers/approvals exist
 
