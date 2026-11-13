@@ -232,18 +232,17 @@ void pacing_gate_is_thread_safe() {
 void ttl_cache_expires_and_is_bounded() {
     using ms = std::chrono::milliseconds;
     TtlCache<int> cache(2, ms(25));
-    cache.put("first", 1);
-    cache.put("second", 2);
-    assert(cache.get("first").value() == 1);
-    cache.put("third", 3);
-    assert(!cache.get("first").has_value());
-    assert(cache.get("second").value() == 2);
-    assert(cache.get("third").value() == 3);
-    std::this_thread::sleep_for(ms(35));
-    assert(!cache.get("second").has_value());
-    assert(!cache.get("third").has_value());
+    const auto t0 = TtlCache<int>::Clock::now();
+    cache.put("first", 1, t0);
+    cache.put("second", 2, t0 + ms(5));
+    assert(cache.get("first", t0 + ms(1)).value() == 1);
+    cache.put("third", 3, t0 + ms(10));
+    assert(!cache.get("first", t0 + ms(11)).has_value());
+    assert(cache.get("second", t0 + ms(11)).value() == 2);
+    assert(cache.get("third", t0 + ms(11)).value() == 3);
+    assert(!cache.get("second", t0 + ms(31)).has_value());
+    assert(!cache.get("third", t0 + ms(36)).has_value());
 }
-
 void pacing_configuration() {
     using ms = std::chrono::milliseconds;
     assert(default_pacing_for("https://nominatim.openstreetmap.org/search") == ms(1000));
