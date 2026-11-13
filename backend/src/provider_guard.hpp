@@ -22,13 +22,18 @@
 namespace rideforge_provider {
 
 inline bool is_public_nominatim_url(std::string_view url) {
+    std::string normalized(url);
+    for (char& ch : normalized) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    const std::string_view value(normalized);
     constexpr std::string_view https = "https://nominatim.openstreetmap.org";
     constexpr std::string_view http = "http://nominatim.openstreetmap.org";
-    const auto has_host = [url](std::string_view prefix) {
-        if (url.substr(0, prefix.size()) != prefix) return false;
-        return url.size() == prefix.size() || url[prefix.size()] == '/' ||
-               url[prefix.size()] == ':' || url[prefix.size()] == '?' ||
-               url[prefix.size()] == '#';
+    const auto has_host = [value](std::string_view prefix) {
+        if (value.substr(0, prefix.size()) != prefix) return false;
+        return value.size() == prefix.size() || value[prefix.size()] == '/' ||
+               value[prefix.size()] == ':' || value[prefix.size()] == '?' ||
+               value[prefix.size()] == '#';
     };
     return has_host(https) || has_host(http);
 }
