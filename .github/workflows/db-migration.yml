@@ -51,7 +51,7 @@ jobs:
     env:
       PGHOST: localhost
       DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
-      RIDEFORGE_APP_PASSWORD: rideforge_app_test_password_32_characters_minimum
+      RIDEFORGE_APP_PASSWORD: B0jrphAPOY7pg92AN0c9MN4yecczLMdwnx4OkA1KFUk=
       PGPORT: 5432
       PGDATABASE: rideforge_test
       PGUSER: rideforge
@@ -63,6 +63,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
+      - name: Verify Render runtime database URL construction
+        run: bash backend/tests/render_database_url_test.sh
       - name: Create Supabase compatibility roles for local PostgreSQL
         run: |
           psql -v ON_ERROR_STOP=1 -c "CREATE ROLE anon NOLOGIN"

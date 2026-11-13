@@ -7,15 +7,20 @@ set -Eeuo pipefail
 # non-superuser rideforge_app role. If any child exits, stop siblings so the
 # platform restarts the whole service instead of silently losing a worker.
 
-runtime_database_url="${DATABASE_URL:?DATABASE_URL (private runtime role) is required}"
+export RIDEFORGE_APP_PASSWORD="${RIDEFORGE_RUNTIME_ROLE_PASSWORD:?RIDEFORGE_RUNTIME_ROLE_PASSWORD is required}"
+source /usr/local/bin/rideforge_build_runtime_database_url
+rideforge_build_runtime_database_url
 migration_database_url="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL (migration owner) is required}"
-: "${RIDEFORGE_APP_PASSWORD:?RIDEFORGE_APP_PASSWORD is required to provision the runtime role}"
+rideforge_validate_migration_database_url
+runtime_database_url="$DATABASE_URL"
 
 export DATABASE_URL="$migration_database_url"
 export RIDEFORGE_MIGRATIONS_DIR=/opt/rideforge/migrations
 /usr/local/bin/rideforge_migrate
 export DATABASE_URL="$runtime_database_url"
-unset MIGRATION_DATABASE_URL
+# The password is already embedded in DATABASE_URL; do not leak the standalone
+# credential into the API/worker process environments.
+unset MIGRATION_DATABASE_URL RIDEFORGE_APP_PASSWORD RIDEFORGE_RUNTIME_ROLE_PASSWORD
 
 pids=()
 shutdown() {

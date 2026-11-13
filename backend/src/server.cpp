@@ -374,7 +374,10 @@ public:
     }
 
 private:
-    static constexpr std::size_t kMaxConnections = 12;
+    // Supabase Nano's default shared-pooler pool is 15 connections per role.
+    // Keep the API at 10 so the dispatch/outbox workers and health/maintenance
+    // activity retain headroom instead of exhausting the role's session pool.
+    static constexpr std::size_t kMaxConnections = 10;
     static constexpr std::chrono::milliseconds kAcquireTimeout{2000};
     std::mutex mutex_;
     std::condition_variable cv_;
@@ -406,14 +409,15 @@ public:
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='008_index_foreign_key_access_paths'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='009_create_private_backend_role'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='010_runtime_role_database_access'),"
-            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='011_one_active_offer_per_driver')");
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='011_one_active_offer_per_driver'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='012_runtime_role_least_privilege')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 18) {
+            PQntuples(result) != 1 || PQnfields(result) != 19) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 18; ++column) {
+        for (int column = 0; column < 19; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);
