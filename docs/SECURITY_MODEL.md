@@ -35,6 +35,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - Driver profiles default to unapproved; suspension forces the driver offline.
 - The API bounds request bodies/headers, applies socket timeouts and rate-limits auth/quote requests in-process.
 - Ride-event insertion automatically creates a durable outbox row in the same transaction.
+- Compose migrations run with the database-owner credential, while the API and both workers use the non-superuser `rideforge_app` login. Its password is provisioned by the migration runner, it has no CREATEDB/CREATEROLE/SUPERUSER rights, and it has only the table/sequence privileges needed by the backend. It has BYPASSRLS because the API enforces object ownership and role authorization; browser roles have no direct table grants.
 
 ## Important limitations
 
@@ -50,7 +51,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 
 - [ ] Rotate all deployment secrets; never use example values in public environments.
 - [ ] Serve the API only over HTTPS behind a correctly configured reverse proxy.
-- [ ] Use least-privilege database roles and a restricted network path to PostgreSQL.
+- [x] Separate migration-owner and runtime credentials; API/workers use the non-superuser `rideforge_app` role. [ ] Verify the deployed role and restrict network access to PostgreSQL.
 - [ ] Add shared/distributed rate limits and connection pooling; [x] request IDs and redacted structured logs are implemented.
 - [ ] Test BOLA/IDOR across passenger, driver and admin identities.
 - [ ] Test stale, revoked, malformed and wrong-role tokens.
