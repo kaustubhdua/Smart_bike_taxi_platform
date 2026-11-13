@@ -751,3 +751,43 @@ test("rejects an oversized routing-provider response before parsing or rendering
   expect(routeRequests).toBe(1);
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
 });
+
+
+test("driver and admin portals have same-origin routes and driver polls offers before expiry", async ({ page }) => {
+  await page.context().grantPermissions(["geolocation"]);
+  await page.setGeolocation({ latitude: 28.53, longitude: 77.35 });
+
+  await page.route("http://api.test/api/v1/auth/login", async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        accessToken: "driver-test-token",
+        account: { email: "driver@example.test", displayName: "Test Driver", role: "driver" },
+      }),
+    });
+  });
+  await page.route("http://api.test/api/v1/driver/availability", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ online: true }) });
+  });
+
+  let queueReads = 0;
+  await page.route("http://api.test/api/v1/driver/rides", async route => {
+    queueReads += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [] }) });
+  });
+
+  await page.goto("/driver");
+  await expect(page.getByRole("heading", { name: "Driver sign in" })).toBeVisible();
+  await page.getByLabel("Email").fill("driver@example.test");
+  await page.getByLabel("Password").fill("a-long-driver-password-123");
+  await page.getByRole("button", { name: /Sign in securely/ }).click();
+  await page.getByRole("button", { name: /Use my location and go online/ }).click();
+
+  // One read comes from enabling availability, one from the effect's initial
+  // refresh, and another must arrive on the five-second polling cadence.
+  await expect.poll(() => queueReads, { timeout: 12_000 }).toBeGreaterThanOrEqual(3);
+
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Admin sign in" })).toBeVisible();
+});
