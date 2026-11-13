@@ -191,6 +191,59 @@ inline std::string limiter_key(std::string_view client_address) {
     return ip::address_v6(bytes).to_string() + "/64";
 }
 
+// Per-key fixed-window request limiter with a hard memory ceiling. New keys are
+// rejected when the table is full of live windows; expired keys are reclaimed
+// before rejecting. This intentionally fails closed rather than allowing an
+// attacker to grow memory by sending requests from unbounded source addresses.
+class RateLimiter {
+public:
+    using clock = std::chrono::steady_clock;
+
+    explicit RateLimiter(unsigned limit, std::size_t max_keys = 10000,
+                         std::chrono::seconds window = std::chrono::minutes(1))
+        : limit_(limit), max_keys_(max_keys), window_(window) {}
+
+    bool allow(const std::string& key, clock::time_point now = clock::now()) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto found = entries_.find(key);
+        if (found != entries_.end() && now - found->second.window_start >= window_) {
+            entries_.erase(found);
+            found = entries_.end();
+        }
+        if (found == entries_.end()) {
+            if (entries_.size() >= max_keys_) evict_expired(now);
+            if (entries_.size() >= max_keys_) return false;
+            found = entries_.emplace(key, Entry{now, 0}).first;
+        }
+        if (++found->second.count > limit_) return false;
+        return true;
+    }
+
+    std::size_t size() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return entries_.size();
+    }
+
+private:
+    struct Entry {
+        clock::time_point window_start;
+        unsigned count{};
+    };
+
+    void evict_expired(clock::time_point now) {
+        for (auto it = entries_.begin(); it != entries_.end();) {
+            if (now - it->second.window_start >= window_) it = entries_.erase(it);
+            else ++it;
+        }
+    }
+
+    std::mutex mutex_;
+    std::map<std::string, Entry> entries_;
+    unsigned limit_;
+    std::size_t max_keys_;
+    std::chrono::seconds window_;
+};
+
 // Counts failures per key inside a fixed window. Unlike a per-request limiter it
 // is charged only for failed attempts, so a legitimate user is not penalised for
 // signing in repeatedly, while guessing against one account is capped regardless
