@@ -77,7 +77,7 @@ rideforge_validate_migration_database_url() {
     echo "DATABASE_URL_TEMPLATE and MIGRATION_DATABASE_URL must use the same Session-pooler host and port." >&2
     return 1
   fi
-  rideforge_require_sslmode "$url"
+  rideforge_require_sslmode "$url" || return 1
 }
 
 rideforge_build_runtime_database_url() {
@@ -128,7 +128,7 @@ rideforge_build_runtime_database_url() {
       return 1
       ;;
   esac
-  rideforge_require_sslmode "$template"
+  rideforge_require_sslmode "$template" || return 1
 
   password_body=${password%%=*}
   password_padding=${password#"$password_body"}
