@@ -81,6 +81,9 @@ if rideforge_build_runtime_database_url >/dev/null 2>&1; then
   exit 1
 fi
 
+DATABASE_URL_TEMPLATE='postgresql://rideforge_app.projectref:__RIDEFORGE_PASSWORD__@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
+RIDEFORGE_APP_PASSWORD='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+
 MIGRATION_DATABASE_URL='postgresql://postgres.projectref:owner-password@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
 rideforge_validate_migration_database_url
 
@@ -90,6 +93,19 @@ rideforge_validate_migration_database_url
 MIGRATION_DATABASE_URL='postgresql://rideforge_app.projectref:owner-password@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
 if rideforge_validate_migration_database_url >/dev/null 2>&1; then
   echo "Expected a runtime-role URI to be rejected as the migration owner." >&2
+  exit 1
+fi
+
+
+MIGRATION_DATABASE_URL='postgresql://postgres.otherproject:owner-password@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
+if rideforge_validate_migration_database_url >/dev/null 2>&1; then
+  echo "Expected a migration owner for a different project to fail." >&2
+  exit 1
+fi
+
+MIGRATION_DATABASE_URL='postgresql://postgres.projectref:owner-password@aws-2-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
+if rideforge_validate_migration_database_url >/dev/null 2>&1; then
+  echo "Expected runtime and owner pooler hosts to match exactly." >&2
   exit 1
 fi
 
