@@ -24,7 +24,7 @@ import uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rf_testkit import (  # noqa: E402
     Runner, book, check, create_account, create_driver, forge_token, go_online,
-    new_quote, psql, request, unique,
+    new_quote, psql, request, unique, wait_for,
 )
 
 ACTIVE = "('assigned','driver_arriving','in_progress')"
