@@ -23,6 +23,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 ## Implemented controls
 
 - Passenger registration does not accept a role field; newly registered accounts are passengers.
+- `GET /api/v1/me` and `PATCH /api/v1/me` derive the target account only from a verified bearer-token subject; the client cannot supply another account ID or change email, role, phone verification, or account status. Profile updates accept only a bounded display name and use parameterized SQL.
 - Passwords are stored as PBKDF2-HMAC-SHA-256 hashes with random salts and 600,000 iterations. Verification accepts only the exact four-field format, strictly parses bounded iteration counts, and uses constant-time digest comparison.
 - Access tokens are HMAC-SHA-256 signed and require the expected algorithm, issuer, audience, non-empty subject, supported role, issued-at and expiry claims. Verification enforces a maximum 15-minute lifetime with 60-second future clock skew and canonical unpadded base64url segments.
 - Passenger ride reads are scoped to the authenticated passenger; driver actions are scoped to the assigned driver; admin routes check the admin role.
