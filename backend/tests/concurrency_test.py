@@ -225,7 +225,8 @@ def test_expired_driver_offer_cannot_be_accepted():
     # checks that an expired offer itself is never accepted.
     psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
          "current_longitude=NULL,last_location_at=NULL WHERE account_id='%s'" % driver_id)
-    psql("UPDATE ride_offers SET expires_at=now()-interval '1 second' "
+    psql("UPDATE ride_offers SET offered_at=now()-interval '2 minutes',"
+         "expires_at=now()-interval '1 minute' "
          "WHERE ride_id='%s' AND driver_id='%s' AND status='offered'" % (ride_id, driver_id))
 
     response = request("POST", "/api/v1/driver/rides/%s/accept" % ride_id, token=token)
