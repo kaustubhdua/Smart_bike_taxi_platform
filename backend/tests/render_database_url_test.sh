@@ -90,6 +90,15 @@ rideforge_validate_migration_database_url
 MIGRATION_DATABASE_URL='postgres://postgres.projectref:owner-password@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=verify-full'
 rideforge_validate_migration_database_url
 
+MIGRATION_DATABASE_URL='postgresql://postgres.projectref:owner%26password@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
+rideforge_validate_migration_database_url
+
+MIGRATION_DATABASE_URL='postgresql://postgres.projectref:owner&password@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
+if rideforge_validate_migration_database_url >/dev/null 2>&1; then
+  echo "Expected unescaped owner-password URI characters to be rejected." >&2
+  exit 1
+fi
+
 MIGRATION_DATABASE_URL='postgresql://rideforge_app.projectref:owner-password@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
 if rideforge_validate_migration_database_url >/dev/null 2>&1; then
   echo "Expected a runtime-role URI to be rejected as the migration owner." >&2
