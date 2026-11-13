@@ -36,7 +36,6 @@ The March 2026 government-hosted draft proposed a distinction between passenger 
 
 The guidelines and the UP 2026 rules/legal analysis identify vehicle and safety controls that may include:
 
-- Passenger motorcycles must be transport motorcycles; transport/non-transport motorcycles may be used for hyperlocal delivery only under the applicable conditions.
 - Valid transport registration, any required contract-carriage permit, fitness certificate, third-party insurance with passenger cover, PUC, paid motor-vehicle taxes and cleared challans.
 - Functional AIS-140-compliant vehicle location tracking and panic button connected to the aggregator control room and State Integrated Command and Control Centre; in-app trip tracking and route-deviation escalation also apply.
 - Fire extinguisher, first-aid kit and functional speed governor as required for the vehicle category.
