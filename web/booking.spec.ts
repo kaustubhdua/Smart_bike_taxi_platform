@@ -712,6 +712,7 @@ test("root demo completes a passenger-to-driver-to-admin simulation", async ({ p
   await page.goto("/");
   await expect(page.getByText("SIMULATION ONLY")).toBeVisible();
   await expect(page.getByText(/no real rides or payments/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open API-backed passenger app" })).toHaveAttribute("href", "/live");
 
   await page.getByRole("button", { name: "Create demo booking" }).click();
   await expect(page.getByRole("status")).toContainText("Demo booking created");
