@@ -9,7 +9,7 @@ This guide describes a free-tier evaluation deployment. It is not a production S
 - The Blueprint sets both services to `main`, keeps the existing free plans, and deploys only after GitHub checks pass. It intentionally adopts only `rideforge-api-final` and `rideforge-web`; it does not create a Render database or delete historical duplicate API services.
 - Before applying a Blueprint sync, inspect the Render plan and confirm it adopts exactly those two existing services, creates no new paid resources, and keeps the existing Supabase database.
 - The API container supervises the C++ HTTP API, durable dispatch worker and outbox worker. If any child exits, the supervisor terminates siblings and exits nonzero so Render restarts the service. This combined process layout is only a demo compromise; Render recommends separate services, and its free web service sleeps after 15 minutes without inbound traffic.
-- The entrypoint runs the versioned database migration runner before starting the workers/API. It requires a password-free runtime URL template, one protected migration-owner connection, and Render-generated role/JWT secrets.
+- Normal entrypoint startup does not run migrations and does not require a database-owner connection. CI validates migration scripts against a clean ephemeral PostgreSQL database; this does not apply production schema changes. Apply production migrations through a separately approved operator procedure. The entrypoint retains an opt-in maintenance mode (`RIDEFORGE_RUN_STARTUP_MIGRATIONS=true`) that requires a protected `MIGRATION_DATABASE_URL`; leave it disabled for ordinary service startup.
 
 ## Blueprint and existing services
 
