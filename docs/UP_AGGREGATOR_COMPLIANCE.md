@@ -137,3 +137,27 @@ The browser should call RideForge's API rather than public Nominatim/OSRM direct
 The rules also provide for a minimum fine of ₹25,000 and up to ₹1,00,000 for operating without a valid licence, suspension for up to three months, and in specified circumstances monetary penalties from ₹1,00,000 to ₹1,00,00,000, cancellation and security-deposit forfeiture. This makes an unlicensed production pilot a material business-continuity risk.
 
 **Decision:** keep RideForge labelled as a demonstration/portfolio product. Do not enable real paid trips, onboard real drivers or collect real passenger location data until every applicable gate has written evidence and an accountable owner.
+
+## 9. Source hierarchy and current portal cross-check — 13 November 2026
+
+A source-quality distinction is important for this research:
+
+- The Uttar Pradesh government-hosted PDF dated 13 March 2026 is explicitly a **draft notification inviting objections and suggestions**. It is useful for tracing the proposal, but it must not be cited as the final operative rule text. In particular, do not rely on draft clauses or draft EV percentages as the final law without checking the final Gazette.
+- The final-rule date and operative framework are corroborated by the 2 October 2026 Argus Partners legal analysis, which identifies the Uttar Pradesh Motor Vehicle (Thirty-third Amendment) (Aggregator and Delivery Services Provider) Rules, 2026 as notified on 22 May 2026, and by the live Government of Uttar Pradesh MVADSP portal and its current applicant affidavit.
+- The live portal currently advertises an eligibility check of operating **more than 25 vehicles through a digital platform**, an online licensing workflow, a five-year licence and VAHAN/SARATHI integration. Treat the portal's eligibility screen as an administrative application gate, not as a statutory exemption for platforms with 25 or fewer vehicles. Obtain written STA confirmation if the proposed fleet is below that threshold or the portal's interpretation conflicts with the final Gazette.
+- The portal currently displays public aggregate figures (licensed aggregators, onboarded vehicles and fleet electrification). These are portal-reported figures, not an independent audit and not evidence that RideForge is eligible or licensed.
+- The official portal affidavit expressly commits applicants to compliance with the UP 2026 rules, the DPDP Act, Consumer Protection Act and IT Act. This reinforces that a demo's technical controls cannot substitute for applicant eligibility, licence, documented operating processes or regulator approval.
+
+**Noida-specific scope:** Noida and Greater Noida fall within the NCR context. The applicable UP aggregator rules and current CAQM directions must be checked together for the exact vehicle class and date of onboarding. The CAQM's December 2025 press release describes a proposed transitional treatment for BS-VI petrol two-wheelers in existing fleets through 31 December 2026; the release itself is not a substitute for the operative amendment text or a written determination for a new RideForge fleet. Do not infer that a newly formed operator can onboard a BS-VI petrol bike in Noida from the existing-fleet transition.
+
+**Cross-border scope:** The Haryana Transport Department's official website lists an Aggregator Policy notification dated 21 May 2026. If RideForge later expands from Noida into Haryana (including Gurugram/Faridabad), perform a separate Haryana rule-by-rule review; UP licensing or UP vehicle approvals do not authorize Haryana operations. The product's current Noida configuration does not itself establish Haryana market entry.
+
+Sources:
+- [UP Government-hosted 13 March 2026 draft notification (draft only)](https://upidadv.up.gov.in/upload/PublicationRequest/183241/SachivalyaLKO130326Notification639090236220551079.pdf)
+- [Government of Uttar Pradesh — UP MV Aggregator and Delivery Service Provider Scheme portal](https://www.upmyfleet.com/)
+- [Government of Uttar Pradesh — applicant compliance affidavit](https://upmyfleet.com/storage/affidavit/Affidavit.pdf)
+- [Argus Partners — final-rule analysis, 2 October 2026](https://www.argus-p.com/updates/updates/overview-of-the-uttar-pradesh-motor-vehicle-thirty-third-amendment-aggregator-and-delivery-services-provider-rules-2026/)
+- [Haryana Transport Department — official notices, including Aggregator Policy dated 21 May 2026](https://www.haryanatransport.gov.in/en/whats-news)
+- [CAQM — 22 December 2025 press release on Direction 94 amendment deliberations](https://caqm.nic.in/WriteReadData/LINKS/CAQM%20PR%2023b05acfe5-5b91-477b-937b-dee37eb33da1.pdf)
+
+This section is a research cross-check, not a legal opinion. The final Gazette text, later amendments, portal instructions and written STA/CAQM interpretations prevail over this summary.
