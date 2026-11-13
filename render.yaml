@@ -1,0 +1,62 @@
+# Render Blueprint for the existing RideForge free-tier evaluation services.
+# This adopts rideforge-api-final and rideforge-web; it does not provision a database.
+# The PostgreSQL database remains the existing Supabase project.
+previews:
+  generation: off
+
+services:
+  - type: web
+    name: rideforge-api-final
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/v1/ready
+    maxShutdownDelaySeconds: 60
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: MIGRATION_DATABASE_URL
+        sync: false
+      - key: RIDEFORGE_APP_PASSWORD
+        sync: false
+      - key: RIDEFORGE_JWT_SECRET
+        generateValue: true
+      - key: RIDEFORGE_BIND_ADDRESS
+        value: 0.0.0.0
+      - key: RIDEFORGE_USER_AGENT
+        value: "RideForge/1.0 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)"
+      - key: RIDEFORGE_ALLOWED_ORIGINS
+        value: https://rideforge-web.onrender.com
+      - key: RIDEFORGE_PUBLIC_ORIGIN
+        value: https://rideforge-web.onrender.com
+      - key: RIDEFORGE_GEOCODING_URL
+        value: https://nominatim.openstreetmap.org/search
+      - key: RIDEFORGE_ROUTING_URL
+        value: https://router.project-osrm.org/route/v1/driving
+      - key: RIDEFORGE_DISPATCH_RADIUS_KM
+        value: "20"
+      - key: RIDEFORGE_DISPATCH_MAX_ATTEMPTS
+        value: "5"
+
+  - type: web
+    name: rideforge-web
+    runtime: static
+    branch: main
+    buildCommand: cd web && npm ci && npm run build
+    staticPublishPath: ./web/dist
+    autoDeployTrigger: checksPass
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://rideforge-api-final.onrender.com
+      - key: VITE_GEOCODING_BASE_URL
+        value: https://nominatim.openstreetmap.org/search
+      - key: VITE_ROUTING_BASE_URL
+        value: https://router.project-osrm.org/route/v1/driving
