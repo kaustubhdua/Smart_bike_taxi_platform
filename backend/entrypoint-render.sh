@@ -17,7 +17,9 @@ export DATABASE_URL="$migration_database_url"
 export RIDEFORGE_MIGRATIONS_DIR=/opt/rideforge/migrations
 /usr/local/bin/rideforge_migrate
 export DATABASE_URL="$runtime_database_url"
-unset MIGRATION_DATABASE_URL
+# The password is already embedded in DATABASE_URL; do not leak the standalone
+# credential into the API/worker process environments.
+unset MIGRATION_DATABASE_URL RIDEFORGE_APP_PASSWORD RIDEFORGE_RUNTIME_ROLE_PASSWORD
 
 pids=()
 shutdown() {
