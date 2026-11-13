@@ -331,11 +331,12 @@ async function handle(req: Request): Promise<Response> {
       const email = clean(body.email, 254).toLowerCase(), password = typeof body.password === "string" ? body.password : "";
       const displayName = clean(body.displayName, 120), vehicleRegistration = clean(body.vehicleRegistration, 32).toUpperCase();
       if (!email.includes("@") || password.length < 12 || !displayName || vehicleRegistration.length < 3) return fail("Valid driver details and a password of at least 12 characters are required.", 422, origin);
-      const { data: created, error: createError } = await db.auth.admin.createUser({ email, password, email_confirm: false, user_metadata: { display_name: displayName } });
+      const { data: created, error: createError } = await db.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: displayName } });
       if (createError || !created.user) return fail("Could not provision driver account.", 409, origin);
       const { error: roleError } = await db.from("accounts").update({ role: "driver" }).eq("id", created.user.id);
       const { error: profileError } = await db.from("driver_profiles").insert({ account_id: created.user.id, vehicle_registration: vehicleRegistration, is_approved: false });
       if (roleError || profileError) {
+        await db.from("accounts").delete().eq("id", created.user.id);
         await db.auth.admin.deleteUser(created.user.id);
         return fail("Could not create driver profile; account creation was rolled back.", 409, origin);
       }
