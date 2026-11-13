@@ -90,5 +90,11 @@ jobs:
           psql -v ON_ERROR_STOP=1 -tAc "SELECT rolcanlogin AND rolbypassrls AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND rolpassword IS NOT NULL AND has_database_privilege('rideforge_app', current_database(), 'CONNECT') FROM pg_roles WHERE rolname = 'rideforge_app'" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT has_table_privilege('rideforge_app','public.accounts','SELECT,INSERT,UPDATE,DELETE') AND NOT has_table_privilege('rideforge_app','public.accounts','TRUNCATE')" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname IN ('admin_audit_events_actor_id_idx','booking_idempotency_ride_id_idx','driver_profiles_approved_by_idx','ride_event_outbox_ride_id_idx','ride_events_actor_id_idx','support_reports_resolved_by_idx','support_reports_ride_id_idx')" | grep -Fx '7'
+      - name: Verify runtime role password authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime_url="postgresql://rideforge_app:${RIDEFORGE_APP_PASSWORD}@127.0.0.1:5432/rideforge_test"
+          psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT current_user, has_table_privilege(current_user,'public.accounts','SELECT,INSERT,UPDATE,DELETE') AND NOT has_table_privilege(current_user,'public.accounts','TRUNCATE')" | grep -F 'rideforge_app|t'
       - name: Verify backup and restore into a fresh database
         run: sh backend/tests/backup_restore_smoke.sh
