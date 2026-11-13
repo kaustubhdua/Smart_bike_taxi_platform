@@ -34,6 +34,8 @@ ROLES = ("passenger", "driver", "admin")
 # {ride} and {driver} are replaced with real identifiers. Bodies are well formed so
 # a 403 can only come from the role check, never from body validation.
 ENDPOINTS = [
+    ("GET", "/api/v1/me", set(ROLES), None),
+    ("PATCH", "/api/v1/me", set(ROLES), {"displayName": "Updated Profile"}),
     ("GET", "/api/v1/rides", {"passenger"}, None),
     ("POST", "/api/v1/rides", {"passenger"}, {"quoteId": ZERO_UUID}),
     ("POST", "/api/v1/rides/{ride}/cancel", {"passenger"}, None),
@@ -156,6 +158,41 @@ def test_token_for_unknown_or_malformed_subject_is_rejected():
     for sub in (ZERO_UUID, "not-a-uuid", "1; DROP TABLE accounts", "' OR '1'='1", ""):
         status = request("GET", "/api/v1/rides", token=forge_token(sub, "passenger")).status
         check(status == 401, "subject %r returned %s, want 401" % (sub, status))
+
+
+# ---------------------------------------------------------------- self-service profile
+
+def test_profile_read_and_update_are_scoped_to_authenticated_subject():
+    accounts = fixtures()
+    for who in ("passenger", "passenger_b", "driver", "driver_b", "admin"):
+        auth = token(accounts, who)
+        initial = request("GET", "/api/v1/me", token=auth)
+        check(initial.status == 200, "%s could not read own profile: %s" % (who, initial.status))
+        check(initial.json["id"] == accounts[who], "%s received another account's profile" % who)
+        check(initial.json["role"] == role_of(who), "%s profile has the wrong role" % who)
+        check(initial.json["email"].endswith("@example.test"), "%s profile omitted its email" % who)
+
+        display_name = "Updated " + who
+        updated = request("PATCH", "/api/v1/me", token=auth, body={"displayName": display_name})
+        check(updated.status == 200, "%s could not update own display name: %s %s"
+              % (who, updated.status, updated.text))
+        check(updated.json["id"] == accounts[who] and updated.json["displayName"] == display_name,
+              "%s update returned another profile or stale name" % who)
+        check(psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts[who]) == display_name,
+              "%s display name was not persisted" % who)
+
+    passenger_name = psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts["passenger"])
+    other_name = psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts["passenger_b"])
+    check(passenger_name == "Updated passenger" and other_name == "Updated passenger_b",
+          "updating one profile changed another account")
+
+    before = psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts["passenger"])
+    for body in ({"displayName": ""}, {"displayName": "x" * 121},
+                 {"displayName": "Valid Name", "phone": "+911234567890"}):
+        rejected = request("PATCH", "/api/v1/me", token=token(accounts, "passenger"), body=body)
+        check(rejected.status == 422, "invalid profile body %s returned %s" % (body, rejected.status))
+    check(psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts["passenger"]) == before,
+          "invalid profile update changed persisted data")
 
 
 # ---------------------------------------------------------------- role matrix
