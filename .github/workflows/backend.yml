@@ -113,7 +113,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          runtime_url="postgresql://rideforge_app:${RIDEFORGE_APP_PASSWORD}@127.0.0.1:5432/rideforge_test"
+          encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["RIDEFORGE_APP_PASSWORD"], safe=""))')"
+          runtime_url="postgresql://rideforge_app:${encoded_password}@127.0.0.1:5432/rideforge_test"
           psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT NOT rolsuper AND rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole AND has_database_privilege(current_user,current_database(),'CONNECT') FROM pg_roles WHERE rolname=current_user" | grep -Fx t
           echo "DATABASE_URL=$runtime_url" >> "$GITHUB_ENV"
       - name: Seed deterministic quote fixtures
@@ -125,12 +126,12 @@ jobs:
           python3 backend/tests/mock_routing_provider.py > /tmp/rideforge-provider.log 2>&1 &
           provider_pid=$!
           for attempt in $(seq 1 10); do
-            if curl --silent --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null; then
+            if curl --silent --fail --get --data-urlencode 'q=Readiness, Noida, Uttar Pradesh, India' 'http://127.0.0.1:8090/search' >/dev/null; then
               break
             fi
             sleep 1
           done
-          curl --silent --show-error --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null
+          curl --silent --show-error --fail --get --data-urlencode 'q=Readiness, Noida, Uttar Pradesh, India' 'http://127.0.0.1:8090/search' >/dev/null
           ./build-backend/rideforge_api > /tmp/rideforge-api.log 2>&1 &
           api_pid=$!
           worker_pid=""
