@@ -4,6 +4,7 @@
 #include <libpq-fe.h>
 #include <nlohmann/json.hpp>
 #include "security.hpp"
+#include "fare.hpp"
 #include "provider_response.hpp"
 #include "provider_guard.hpp"
 #include "request_guard.hpp"
@@ -2236,20 +2237,21 @@ void handle_request(tcp::socket socket) {
                 const auto routed = route(pickup, destination);
                 const int distance_m = routed.meters;
                 const int duration_seconds = routed.seconds;
-                // Demo tariff: ₹20 base + ₹11/km, rounded up to the next paise.
-                const long long fare = 2000LL +
-                    (static_cast<long long>(distance_m) * 1100LL + 999LL) / 1000LL;
-                if (fare > std::numeric_limits<int>::max()) {
-                    throw std::invalid_argument("Route is too long for a supported quote");
-                }
+                // Keep tariff arithmetic in one tested integer-paise implementation.
+                const auto fare = rideforge_fare::calculate_demo_fare(distance_m);
                 Database database(env_or("DATABASE_URL", ""));
                 const auto saved = json::parse(database.save_quote(
-                    pickup, destination, distance_m, duration_seconds, static_cast<int>(fare)));
+                    pickup, destination, distance_m, duration_seconds, fare.total_fare_paise));
                 result = response(http::status::ok, {
                     {"quoteId", saved.at("quoteId")},
                     {"distanceKm", std::round((distance_m / 1000.0) * 100.0) / 100.0},
                     {"durationMinutes", std::max(1, static_cast<int>(std::ceil(duration_seconds / 60.0)))},
-                    {"farePaise", fare},
+                    {"farePaise", fare.total_fare_paise},
+                    {"fareBreakdown", {
+                        {"baseFarePaise", fare.base_fare_paise},
+                        {"distanceFarePaise", fare.distance_fare_paise},
+                        {"pricingModel", "demo_base_plus_distance"}
+                    }},
                     {"currency", "INR"},
                     {"expiresAt", saved.at("expiresAt")},
                     {"geometry", routed.geometry}
