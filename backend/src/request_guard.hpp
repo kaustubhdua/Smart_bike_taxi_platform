@@ -201,7 +201,13 @@ public:
 
     explicit RateLimiter(unsigned limit, std::size_t max_keys = 10000,
                          std::chrono::seconds window = std::chrono::minutes(1))
-        : limit_(limit), max_keys_(max_keys), window_(window) {}
+        : limit_(limit), max_keys_(max_keys), window_(window) {
+        if (limit_ == 0) throw std::invalid_argument("rate limiter limit must be positive");
+        if (max_keys_ == 0) throw std::invalid_argument("rate limiter key capacity must be positive");
+        if (window_ <= std::chrono::seconds::zero()) {
+            throw std::invalid_argument("rate limiter window must be positive");
+        }
+    }
 
     bool allow(const std::string& key, clock::time_point now = clock::now()) {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -215,7 +221,8 @@ public:
             if (entries_.size() >= max_keys_) return false;
             found = entries_.emplace(key, Entry{now, 0}).first;
         }
-        if (++found->second.count > limit_) return false;
+        if (found->second.count >= limit_) return false;
+        ++found->second.count;
         return true;
     }
 
