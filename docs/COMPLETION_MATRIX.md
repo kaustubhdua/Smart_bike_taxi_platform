@@ -36,7 +36,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 | 4 | Remove duplicate implementations and configuration paths | PARTIAL | Engineering | Active Vite entrypoint identified; complete duplicate/dead-code sweep remains |
 | 5 | Identify TODOs, mocks, hard-coded responses and nonfunctional screens | PARTIAL | Engineering | Initial UI/code review found planned safety/DSA actions and provider-dependent placeholders; full sweep remains |
 | 6 | Separate demo and live modes | IMPLEMENTED | Engineering | PR #65: browser-only localStorage simulation at `/`, API-backed experience at `/live`; exact-head Playwright pass pending |
-| 7 | Requirements-to-code-to-test matrix | IMPLEMENTED | Engineering | This matrix maps tasks to evidence; expand each row to exact route/test/commit when implementation is accepted |
+| 7 | Requirements-to-code-to-test matrix | PARTIAL | Engineering | This first-pass matrix maps tasks to evidence/acceptance; add exact route, test name, tested SHA and evidence URL for each implemented row |
 | 8 | Define operating geography, boundaries, hours and vehicle categories | PARTIAL | Engineering / User | Noida context exists; strict polygon geofence, operating hours and vehicle categories are not configured |
 | 9 | Define measurable acceptance criteria | PARTIAL | Engineering | CI and API acceptance tests exist; missing provider/legal/manual-device criteria remain |
 | 10 | Completion dashboard with owner, blocker, evidence and status | IMPLEMENTED | Engineering | This file is the current register; update after every accepted PR and exact-head test |
