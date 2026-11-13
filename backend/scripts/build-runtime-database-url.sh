@@ -29,9 +29,22 @@ rideforge_build_runtime_database_url() {
   esac
   userinfo=${authority%%@*}
   case "$userinfo" in
-    *:__RIDEFORGE_PASSWORD__) ;;
+    rideforge_app.*:__RIDEFORGE_PASSWORD__) ;;
     *)
-      echo "DATABASE_URL_TEMPLATE placeholder must occupy the URI password component." >&2
+      echo "DATABASE_URL_TEMPLATE must use the rideforge_app.<PROJECT_REF> pooler username and put the placeholder in its password component." >&2
+      return 1
+      ;;
+  esac
+  # Render's outbound network is IPv4-only and Supabase direct DB endpoints
+  # are IPv6-only on the free tier. Require the shared Session pooler rather
+  # than letting a direct/transaction-pooler URI fail only at runtime.
+  local hostport
+  hostport=${authority#*@}
+  hostport=${hostport%%/*}
+  case "$hostport" in
+    aws-*.pooler.supabase.com:5432) ;;
+    *)
+      echo "DATABASE_URL_TEMPLATE must use the Supabase shared Session pooler host on port 5432." >&2
       return 1
       ;;
   esac
