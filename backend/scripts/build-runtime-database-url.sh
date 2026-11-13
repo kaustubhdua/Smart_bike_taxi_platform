@@ -4,10 +4,11 @@
 rideforge_build_runtime_database_url() {
   local template="${DATABASE_URL_TEMPLATE:?DATABASE_URL_TEMPLATE is required}"
   local password="${RIDEFORGE_APP_PASSWORD:?RIDEFORGE_APP_PASSWORD is required}"
-  local authority userinfo password_body password_padding encoded
+  local scheme authority userinfo password_body password_padding encoded
 
   case "$template" in
-    postgresql://*__RIDEFORGE_PASSWORD__*) ;;
+    postgresql://*__RIDEFORGE_PASSWORD__*) scheme="postgresql://" ;;
+    postgres://*__RIDEFORGE_PASSWORD__*) scheme="postgres://" ;;
     *)
       echo "DATABASE_URL_TEMPLATE must be a PostgreSQL URI containing __RIDEFORGE_PASSWORD__." >&2
       return 1
@@ -19,7 +20,7 @@ rideforge_build_runtime_database_url() {
       return 1
       ;;
   esac
-  authority=${template#postgresql://}
+  authority=${template#"$scheme"}
   case "$authority" in
     *@*) ;;
     *)
