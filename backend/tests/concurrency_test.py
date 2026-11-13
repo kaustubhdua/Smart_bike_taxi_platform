@@ -253,8 +253,9 @@ def test_accept_racing_offer_expiry_never_leaves_a_partial_assignment():
         ride_id = plant_ride_with_offer(passenger_id, driver_id)
 
         def expire_offer():
-            # The expiry worker and API acceptance serialize on the ride row.
-            # Whichever wins must commit a complete, internally consistent state.
+            # The expiry worker locks and commits the offer row separately; API
+            # acceptance holds the ride row and then updates that offer. Whichever
+            # wins must commit a complete, internally consistent state.
             return psql(
                 "BEGIN; "
                 "SELECT id FROM ride_offers WHERE ride_id='%s' AND driver_id='%s' "
