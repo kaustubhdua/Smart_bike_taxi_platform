@@ -718,10 +718,10 @@ test("root demo completes a passenger-to-driver-to-admin simulation", async ({ p
 
   await page.getByRole("button", { name: "Driver workspace" }).click();
   await page.getByRole("button", { name: "Accept request" }).click();
-  await expect(page.getByText(/Driver assigned/)).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Demo ride updated: Driver assigned");
   await page.getByRole("button", { name: "Start ride" }).click();
   await page.getByRole("button", { name: "Complete ride" }).click();
-  await expect(page.getByText(/Completed/)).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Demo ride updated: Completed");
 
   await page.getByRole("button", { name: "Admin workspace" }).click();
   await expect(page.getByText("Total demo rides")).toBeVisible();
