@@ -658,40 +658,27 @@ status="$(curl --silent --show-error --output "$tmp_dir/fourth-booking.json" --w
 test "$status" = "201"
 fourth_ride_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/fourth-booking.json")"
 
-# Both requests need live durable offers before testing the assignment race.
-# Booking creation and dispatch are asynchronous; accepting before offer creation
-# correctly returns 409 and would not exercise the concurrent-assignment guard.
+# One driver can hold only one active offer at a time. Accept the first ride,
+# then inject a stale second offer to prove the API still refuses a busy driver.
 offers_ready=0
 for attempt in $(seq 1 40); do
   third_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$third_ride_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
-  fourth_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$fourth_ride_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
-  if test "$third_offered" = "1" && test "$fourth_offered" = "1"; then
-    offers_ready=1
-    break
-  fi
+  if test "$third_offered" = "1"; then offers_ready=1; break; fi
   sleep 0.25
 done
 test "$offers_ready" = "1"
-
-curl --silent --show-error --output "$tmp_dir/concurrent-a.json" --write-out '%{http_code}' \
+status="$(curl --silent --show-error --output "$tmp_dir/first-accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
-  "$base_url/api/v1/driver/rides/$third_ride_id/accept" > "$tmp_dir/concurrent-a.status" &
-pid_a=$!
-curl --silent --show-error --output "$tmp_dir/concurrent-b.json" --write-out '%{http_code}' \
+  "$base_url/api/v1/driver/rides/$third_ride_id/accept")"
+test "$status" = "200"
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO ride_offers (ride_id,driver_id) VALUES ('$fourth_ride_id','$driver_id')" >/dev/null
+status="$(curl --silent --show-error --output "$tmp_dir/busy-driver-accept.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" --request POST \
-  "$base_url/api/v1/driver/rides/$fourth_ride_id/accept" > "$tmp_dir/concurrent-b.status" &
-pid_b=$!
-wait "$pid_a"
-wait "$pid_b"
-status_a="$(cat "$tmp_dir/concurrent-a.status")"
-status_b="$(cat "$tmp_dir/concurrent-b.status")"
-if ! { test "$status_a" = "200" && test "$status_b" = "409"; } &&
-   ! { test "$status_a" = "409" && test "$status_b" = "200"; }; then
-  echo "Expected exactly one concurrent driver acceptance to win, got $status_a and $status_b"
-  exit 1
-fi
-
-# Release both requests and repeat the same-driver race four more times with fresh quotes.
+  "$base_url/api/v1/driver/rides/$fourth_ride_id/accept")"
+test "$status" = "409"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM rides WHERE id='$third_ride_id' AND status='assigned' AND driver_id='$driver_id'")" = "1"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM rides WHERE id='$fourth_ride_id' AND status IN ('requested','matching') AND driver_id IS NULL")" = "1"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM rides WHERE driver_id='$driver_id' AND status IN ('assigned','driver_arriving','in_progress')")" = "1"
 for ride_to_cancel in "$third_ride_id" "$fourth_ride_id"; do
   status="$(curl --silent --show-error --output "$tmp_dir/race-cleanup.json" --write-out '%{http_code}' \
     --header "Authorization: Bearer $token" --request POST \
@@ -699,13 +686,15 @@ for ride_to_cancel in "$third_ride_id" "$fourth_ride_id"; do
   test "$status" = "200"
 done
 
+# Repeat the busy-driver guard with fresh quote pairs to cover retries and
+# ensure the driver is released cleanly after cancellation.
 for round in $(seq 1 4); do
   quote_index_a=$((4 + round * 2))
   quote_index_b=$((quote_index_a + 1))
   quote_a="$(printf '40000000-0000-4000-8000-%012d' "$quote_index_a")"
   quote_b="$(printf '40000000-0000-4000-8000-%012d' "$quote_index_b")"
-  key_a="smoke-race-$round-a-0001"
-  key_b="smoke-race-$round-b-0001"
+  key_a="smoke-busy-$round-a-0001"
+  key_b="smoke-busy-$round-b-0001"
 
   status="$(curl --silent --show-error --output "$tmp_dir/race-a-booking.json" --write-out '%{http_code}' \
     --header 'Content-Type: application/json' --header "Authorization: Bearer $token" \
@@ -719,37 +708,23 @@ for round in $(seq 1 4); do
   test "$status" = "201"
   race_b_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["rideId"])' < "$tmp_dir/race-b-booking.json")"
 
-  # Wait until dispatch has persisted both offers; the race must test competing
-  # assignments, not the valid 409 response for a ride with no current offer.
   offers_ready=0
   for attempt in $(seq 1 40); do
     race_a_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$race_a_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
-    race_b_offered="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_offers WHERE ride_id='$race_b_id' AND driver_id='$driver_id' AND status='offered' AND expires_at>now()")"
-    if test "$race_a_offered" = "1" && test "$race_b_offered" = "1"; then
-      offers_ready=1
-      break
-    fi
+    if test "$race_a_offered" = "1"; then offers_ready=1; break; fi
     sleep 0.25
   done
   test "$offers_ready" = "1"
-
-  curl --silent --show-error --output "$tmp_dir/race-a.json" --write-out '%{http_code}' \
+  status="$(curl --silent --show-error --output "$tmp_dir/race-a-accept.json" --write-out '%{http_code}' \
     --header "Authorization: Bearer $driver_token" --request POST \
-    "$base_url/api/v1/driver/rides/$race_a_id/accept" > "$tmp_dir/race-a.status" &
-  pid_a=$!
-  curl --silent --show-error --output "$tmp_dir/race-b.json" --write-out '%{http_code}' \
+    "$base_url/api/v1/driver/rides/$race_a_id/accept")"
+  test "$status" = "200"
+  psql -v ON_ERROR_STOP=1 -c "INSERT INTO ride_offers (ride_id,driver_id) VALUES ('$race_b_id','$driver_id')" >/dev/null
+  status="$(curl --silent --show-error --output "$tmp_dir/race-b-accept.json" --write-out '%{http_code}' \
     --header "Authorization: Bearer $driver_token" --request POST \
-    "$base_url/api/v1/driver/rides/$race_b_id/accept" > "$tmp_dir/race-b.status" &
-  pid_b=$!
-  wait "$pid_a"
-  wait "$pid_b"
-  status_a="$(cat "$tmp_dir/race-a.status")"
-  status_b="$(cat "$tmp_dir/race-b.status")"
-  if ! { test "$status_a" = "200" && test "$status_b" = "409"; } &&
-     ! { test "$status_a" = "409" && test "$status_b" = "200"; }; then
-    echo "Race round $round expected exactly one winner, got $status_a and $status_b"
-    exit 1
-  fi
+    "$base_url/api/v1/driver/rides/$race_b_id/accept")"
+  test "$status" = "409"
+  test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM rides WHERE driver_id='$driver_id' AND status IN ('assigned','driver_arriving','in_progress')")" = "1"
   for ride_to_cancel in "$race_a_id" "$race_b_id"; do
     status="$(curl --silent --show-error --output "$tmp_dir/race-cleanup.json" --write-out '%{http_code}' \
       --header "Authorization: Bearer $token" --request POST \
@@ -821,4 +796,4 @@ test "$published_events" -gt 0
 dead_lettered_events="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_event_outbox WHERE dead_lettered_at IS NOT NULL")"
 test "$dead_lettered_events" = "0"
 
-echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, concurrent assignment races, offline location clearing, bounded no-driver exhaustion, and outbox publication"
+echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, one-active-offer-per-driver enforcement, busy-driver assignment rejection, offline location clearing, bounded no-driver exhaustion, and outbox publication"

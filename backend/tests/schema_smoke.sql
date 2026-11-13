@@ -17,6 +17,9 @@ BEGIN
   IF to_regclass('public.ride_offers') IS NULL THEN
     RAISE EXCEPTION 'ride_offers table was not created by migrations';
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='011_one_active_offer_per_driver') THEN
+    RAISE EXCEPTION 'one-active-offer-per-driver migration ledger entry is missing';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='010_runtime_role_database_access') THEN
     RAISE EXCEPTION 'runtime database role access migration ledger entry is missing';
   END IF;
@@ -36,6 +39,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public'
       AND indexname='ride_offers_one_active_per_ride') THEN
     RAISE EXCEPTION 'single-active-offer-per-ride concurrency index is missing';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public'
+      AND indexname='ride_offers_one_active_per_driver') THEN
+    RAISE EXCEPTION 'single-active-offer-per-driver concurrency index is missing';
   END IF;
 END $$;
 
@@ -106,6 +113,14 @@ BEGIN
       AND driver_id='20000000-0000-4000-8000-000000000001') <> 2 THEN
     RAISE EXCEPTION 'Superseded offer history should permit a new attempt';
   END IF;
+  BEGIN
+    INSERT INTO ride_offers (ride_id,driver_id)
+    VALUES ('30000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001');
+    RAISE EXCEPTION 'Expected a driver to have at most one active offer across all rides';
+  EXCEPTION
+    WHEN unique_violation THEN
+      RAISE NOTICE 'PASS: a driver cannot receive two active offers';
+  END;
 END $$;
 
 -- Ride state events and durable notification-outbox rows must be atomic.

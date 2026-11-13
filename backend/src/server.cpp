@@ -359,14 +359,15 @@ public:
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='007_lock_down_public_data_api'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='008_index_foreign_key_access_paths'),"
             "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='009_create_private_backend_role'),"
-            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='010_runtime_role_database_access')");
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='010_runtime_role_database_access'),"
+            "EXISTS (SELECT 1 FROM public.schema_migrations WHERE version='011_one_active_offer_per_driver')");
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK ||
-            PQntuples(result) != 1 || PQnfields(result) != 17) {
+            PQntuples(result) != 1 || PQnfields(result) != 18) {
             if (result != nullptr) PQclear(result);
             return false;
         }
         bool ready = true;
-        for (int column = 0; column < 17; ++column) {
+        for (int column = 0; column < 18; ++column) {
             ready = ready && std::string(PQgetvalue(result, 0, column)) == "t";
         }
         PQclear(result);

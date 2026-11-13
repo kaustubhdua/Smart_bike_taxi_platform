@@ -160,6 +160,7 @@ jobs:
           # They run after the smoke test on purpose: it assumes an empty database, while
           # these suites create their own accounts and tolerate leftover rows.
           export RIDEFORGE_API_BIN="$PWD/build-backend/rideforge_api"
+          export RIDEFORGE_DISPATCH_BIN="$PWD/build-backend/rideforge_dispatch_worker"
           export RIDEFORGE_TEST_BASE_URL=http://127.0.0.1:8080
           for suite in authz_matrix concurrency outbox_events abuse_controls; do
             echo "::group::${suite}"

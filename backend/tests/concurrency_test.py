@@ -24,7 +24,7 @@ import uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rf_testkit import (  # noqa: E402
     Runner, book, check, create_account, create_driver, forge_token, go_online,
-    new_quote, psql, request, unique,
+    new_quote, psql, request, unique, wait_for,
 )
 
 ACTIVE = "('assigned','driver_arriving','in_progress')"
@@ -92,6 +92,27 @@ INSERT INTO ride_offers (ride_id, driver_id) SELECT id, '{driver}' FROM r
     check(proc.returncode == 0, "could not plant a ride: " + proc.stderr)
     return ride_id
 
+
+
+
+def plant_ride_without_offer(passenger_id):
+    """Create a matching ride with its initial event but no driver offer."""
+    ride_id = str(uuid.uuid4())
+    sql = """
+WITH r AS (
+  INSERT INTO rides (id, passenger_id, status, pickup_label, pickup_latitude, pickup_longitude,
+                     destination_label, destination_latitude, destination_longitude,
+                     route_distance_m, quoted_fare_paise, idempotency_key)
+  VALUES ('{ride}', '{passenger}', 'matching', 'Parallel pickup', 28.53, 77.35,
+          'Parallel destination', 28.54, 77.36, 2500, 4750, '{key}')
+  RETURNING id)
+INSERT INTO ride_events (ride_id, previous_status, new_status, details)
+SELECT id, NULL, 'matching', '{{"source":"parallel_dispatch_test"}}'::jsonb FROM r
+""".format(ride=ride_id, passenger=passenger_id, key=unique("parallel-dispatch"))
+    proc = subprocess.run(["psql", "-v", "ON_ERROR_STOP=1", "-tAq", "-c", sql],
+                          capture_output=True, text=True)
+    check(proc.returncode == 0, "could not plant a matching ride: " + proc.stderr)
+    return ride_id
 
 def plant_assigned_ride(passenger_id, driver_id):
     ride_id = plant_ride_with_offer(passenger_id, driver_id)
@@ -176,18 +197,41 @@ def test_only_the_offered_driver_wins_when_another_driver_races_them():
 
 
 def test_a_driver_cannot_be_assigned_two_rides_at_once():
-    passenger_id, _ = passenger()
+    passenger_id, passenger_token = passenger()
     for _ in range(ROUNDS):
         driver_id, token = online_driver()
         first = plant_ride_with_offer(passenger_id, driver_id)
-        second = plant_ride_with_offer(passenger_id, driver_id)
-        responses = race([accept(first, token), accept(second, token)])
-        no_server_errors(responses)
-        check(sorted(r.status for r in responses).count(200) == 1,
-              "both rides were accepted: %s" % [r.status for r in responses])
+        response = request("POST", "/api/v1/driver/rides/%s/accept" % first, token=token)
+        check(response.status == 200, "first ride could not be accepted: %s" % response.status)
+        check(ride_state(first) == ("assigned", driver_id), "first ride was not assigned")
+
+        # Once the driver is busy, a second live offer should never be produced
+        # by dispatch. Plant one deliberately to exercise the API's final
+        # busy-driver guard even if a stale/duplicate offer exists.
+        psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+             "current_longitude=NULL,last_location_at=NULL WHERE account_id <> '%s'" % driver_id)
+        second = plant_ride_without_offer(passenger_id)
+        psql("INSERT INTO ride_offers (ride_id,driver_id) VALUES ('%s','%s')" % (second, driver_id))
+        response = request("POST", "/api/v1/driver/rides/%s/accept" % second, token=token)
+        check(response.status == 409,
+              "busy driver accepted a second ride: %s %s" % (response.status, response.text))
+        check(ride_state(first) == ("assigned", driver_id), "first assignment changed")
+        check(ride_state(second) == ("matching", ""), "second ride was assigned: %s" % (ride_state(second),))
         check(active_rides_of(driver_id) == 1, "driver holds %d active rides" % active_rides_of(driver_id))
+        check(psql("SELECT status FROM ride_offers WHERE ride_id='%s' AND driver_id='%s'"
+                   % (second, driver_id)) == "offered",
+              "rejected busy-driver acceptance mutated the offer")
+        check(psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s' AND status='accepted'"
+                   % second) == "0", "busy driver offer was accepted")
+        assert_ride_consistent(first)
+        assert_ride_consistent(second)
+
         for ride_id in (first, second):
+            cancelled = request("POST", "/api/v1/rides/%s/cancel" % ride_id, token=passenger_token)
+            check(cancelled.status == 200, "cleanup cancellation failed: %s" % cancelled.status)
             assert_ride_consistent(ride_id)
+        psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+             "current_longitude=NULL,last_location_at=NULL WHERE account_id='%s'" % driver_id)
 
 
 def test_accept_racing_cancel_never_leaves_a_half_state():
@@ -347,6 +391,59 @@ def test_expired_offer_is_redispatched_to_next_eligible_driver():
          "current_longitude=NULL,last_location_at=NULL WHERE account_id='%s'" % next_driver)
 
 
+
+
+
+def test_parallel_dispatch_workers_never_offer_one_driver_twice():
+    # Run two real worker processes against the same PostgreSQL database. The
+    # unique partial index is the final guard; worker-side filtering lets the
+    # remaining rides progress to other free drivers after an offer is created.
+    worker_bin = os.environ.get("RIDEFORGE_DISPATCH_BIN", "")
+    check(worker_bin and os.path.isfile(worker_bin),
+          "RIDEFORGE_DISPATCH_BIN must point to the built dispatch worker")
+    psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+         "current_longitude=NULL,last_location_at=NULL")
+    passenger_id, _ = passenger()
+    drivers = [online_driver()[0] for _ in range(4)]
+    rides = [plant_ride_without_offer(passenger_id) for _ in range(12)]
+
+    env = os.environ.copy()
+    env["RIDEFORGE_DISPATCH_POLL_MS"] = "100"
+    second_worker = subprocess.Popen([worker_bin], env=env,
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    driver_filter = ",".join("'%s'" % driver_id for driver_id in drivers)
+    try:
+        def all_drivers_have_one_offer():
+            if second_worker.poll() is not None:
+                return False
+            return int(psql("SELECT count(*) FROM ride_offers WHERE status='offered' "
+                            "AND driver_id IN (%s)" % driver_filter)) >= len(drivers)
+
+        wait_for(all_drivers_have_one_offer, timeout=30,
+                 message="both dispatch workers to offer one ride to each free driver")
+        active = psql("SELECT count(*) FROM ride_offers WHERE status='offered' "
+                      "AND driver_id IN (%s)" % driver_filter)
+        distinct = psql("SELECT count(DISTINCT driver_id) FROM ride_offers "
+                        "WHERE status='offered' AND driver_id IN (%s)" % driver_filter)
+        duplicates = psql("SELECT count(*) FROM (SELECT driver_id FROM ride_offers "
+                          "WHERE status='offered' AND driver_id IN (%s) "
+                          "GROUP BY driver_id HAVING count(*)>1) busy" % driver_filter)
+        check(active == str(len(drivers)) and distinct == str(len(drivers)) and duplicates == "0",
+              "parallel workers created duplicate active driver offers: active=%s distinct=%s duplicates=%s"
+              % (active, distinct, duplicates))
+        for ride_id in rides:
+            assert_ride_consistent(ride_id)
+    finally:
+        second_worker.terminate()
+        try:
+            second_worker.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            second_worker.kill()
+            second_worker.wait(timeout=5)
+        psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+             "current_longitude=NULL,last_location_at=NULL WHERE account_id IN (%s)" % driver_filter)
+
+
 # ---------------------------------------------------------------- state changes
 
 def test_concurrent_status_updates_apply_exactly_once():
@@ -457,8 +554,35 @@ def test_an_expired_quote_cannot_be_booked():
           "an expired quote left a ride behind")
 
 
+def reset_dispatch_fixtures():
+    """Keep the live dispatch worker from carrying offers between tests."""
+    psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+         "current_longitude=NULL,last_location_at=NULL")
+    pending = psql(
+        "SELECT id::text || '|' || passenger_id::text FROM rides "
+        "WHERE status IN ('requested','matching') ORDER BY created_at"
+    )
+    for row in pending.splitlines():
+        ride_id, passenger_id = row.split("|", 1)
+        response = request(
+            "POST", "/api/v1/rides/%s/cancel" % ride_id,
+            token=forge_token(passenger_id, "passenger"))
+        check(response.status in (200, 409),
+              "could not isolate pending ride %s before concurrency test: %s %s"
+              % (ride_id, response.status, response.text))
+
+
+def isolated(test):
+    def run():
+        reset_dispatch_fixtures()
+        test()
+    run.__name__ = test.__name__
+    return run
+
+
 def main():
     tests = [value for name, value in sorted(globals().items()) if name.startswith("test_")]
+    tests = [isolated(test) for test in tests]
     runner = Runner("concurrency")
     code = runner.run(tests)
     if code == 0:
