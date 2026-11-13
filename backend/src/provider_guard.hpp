@@ -27,21 +27,21 @@ public:
     TtlCache(std::size_t max_entries, std::chrono::milliseconds ttl)
         : max_entries_(max_entries), ttl_(ttl) {}
 
-    std::optional<Value> get(std::string_view key) {
+    std::optional<Value> get(std::string_view key, Clock::time_point now = Clock::now()) {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto it = entries_.find(std::string(key));
         if (it == entries_.end()) return std::nullopt;
-        if (it->second.expires_at <= Clock::now()) {
+        if (it->second.expires_at <= now) {
             entries_.erase(it);
             return std::nullopt;
         }
         return it->second.value;
     }
 
-    void put(std::string key, Value value) {
+    void put(std::string key, Value value, Clock::time_point now = Clock::now()) {
         if (max_entries_ == 0 || ttl_.count() <= 0) return;
         std::lock_guard<std::mutex> lock(mutex_);
-        const auto expires_at = Clock::now() + ttl_;
+        const auto expires_at = now + ttl_;
         if (entries_.find(key) == entries_.end() && entries_.size() >= max_entries_) {
             auto oldest = entries_.begin();
             for (auto it = entries_.begin(); it != entries_.end(); ++it) {
