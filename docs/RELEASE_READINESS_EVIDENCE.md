@@ -306,3 +306,19 @@ No schema change, service creation, paid resource or Render environment-variable
 - Render workspace `kaustubh dua`: the existing API `rideforge-api-final` remains on `main`, free plan, and unhealthy. Its latest build from `0f69d9f` succeeded but runtime startup failed because the old mainline entrypoint requires `DATABASE_URL` and the protected value is not configured. The static `rideforge-web` service remains the existing live free static site.
 - Render Blueprint remains paused with `autoSync=false`. A fresh plan against current mainline proposes only one change to the existing static site's publish path (`web/dist` → `./web/dist`); it creates no resource and changes no service plan. The plan was not approved/applied. It does not yet include PR #59's generated runtime secret/template because that branch has not merged.
 - The remaining manual values are still the exact Supabase shared Session-pooler hostname from Connect and the owner database password. Supabase's current documentation confirms shared Session mode is the IPv4-compatible option for persistent services and uses port 5432; transaction mode on 6543 is for transient workloads. The project metadata does not reveal the assigned pooler hostname.
+
+## Live Supabase privilege and integrity verification — 14 November 2026
+
+Read-only SQL recheck of project `ghcufcegfvvjhsnqnrzr` confirms:
+
+- The application-owned `public.schema_migrations` ledger contains the 15 ordered application migrations (001–015). The separate Supabase platform migration history has additional timestamped/manual execution records; it is not the backend migration runner's application ledger.
+- All 12 public application tables are owned by `postgres` and have RLS enabled. `anon`, `authenticated`, `service_role`, `rideforge_app` and `rideforge_backup` have no CREATE privilege on `public`.
+- `anon` and `authenticated` have no application-table SELECT grants. The application backend role has the intended table DML on mutable tables, no DELETE/TRUNCATE, no UPDATE on append-only event/audit tables, and SELECT-only access to `schema_migrations`.
+- All five application sequences preserve runtime USAGE/SELECT but do not grant UPDATE to `rideforge_app`.
+- The backup role is `NOLOGIN`, `BYPASSRLS`, non-superuser, has a NULL password verifier, and has SELECT-only access to all 12 current public tables plus USAGE/SELECT (not UPDATE) on the five sequences. It is not enabled for the scheduled workflow.
+- The sole current public application function is `enqueue_ride_event_notification()`, SECURITY DEFINER, owned by `postgres`, with fixed `search_path=pg_catalog, public`; it is not executable by PUBLIC, anon, authenticated, service_role or `rideforge_app`.
+- No unvalidated public constraints or foreign-key orphan rows were found. This is a structural check only: all 12 application tables currently contain zero rows, so it is not evidence of workload or data-scale behavior.
+- The Supabase health advisor returned no findings. Security advisor notices remain the 12 expected informational RLS-enabled/no-policy notices for server-only tables; performance advisor reports 21 unused indexes on the empty database. Do not remove those indexes without representative workload evidence.
+- Direct `pg_authid` inspection confirms `rideforge_app` currently has no password verifier. Render startup still fails before migration-owner validation because the configured `DATABASE_URL_TEMPLATE` lacks the required `__RIDEFORGE_PASSWORD__` placeholder. No runtime connection has been demonstrated.
+
+This evidence does not replace a successful exact-head CI run, an authenticated application login, an encrypted backup export, an isolated restore drill, or two-device end-to-end acceptance.
