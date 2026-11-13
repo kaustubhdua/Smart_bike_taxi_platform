@@ -114,6 +114,32 @@ mv "$temporary" "$backup"
 
 For the production overlay, use the same command with the additional flags: docker compose -f compose.yaml -f compose.production.yaml. Keep backup files encrypted at rest, outside the repository and outside the production host where possible.
 
+### Supabase Free manual logical backup (operator-run)
+
+The connected production project is on the Free plan, so this is a manual operator task until a protected schedule and off-site destination are configured. Use the exact **Session pooler** connection string from Supabase Connect (port 5432), with the restricted `rideforge_app` login and a credential that has been verified. Do not use transaction pooling for `pg_dump`. Keep the URL and encryption passphrase in a private shell/session; never commit them or paste them into chat.
+
+```sh
+set -eu
+umask 077
+: "${RIDEFORGE_BACKUP_DATABASE_URL:?Set the verified Session-pooler URL in your private shell}"
+: "${RIDEFORGE_BACKUP_PASSPHRASE:?Set a strong backup encryption passphrase}"
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+temporary="/tmp/rideforge-${timestamp}.dump"
+encrypted="./secure-backups/rideforge-${timestamp}.dump.gpg"
+mkdir -p ./secure-backups
+pg_dump --schema=public --format=custom --no-owner --no-acl \
+  --file="$temporary" "$RIDEFORGE_BACKUP_DATABASE_URL"
+gpg --batch --yes --symmetric --cipher-algo AES256 \
+  --pinentry-mode loopback --passphrase "$RIDEFORGE_BACKUP_PASSPHRASE" \
+  --output "$encrypted" "$temporary"
+gpg --batch --yes --decrypt --passphrase "$RIDEFORGE_BACKUP_PASSPHRASE" \
+  --output "${temporary}.verify" "$encrypted"
+pg_restore --list "${temporary}.verify" >/dev/null
+rm -f "$temporary" "${temporary}.verify"
+```
+
+This backs up the RideForge `public` schema and its data; it does not back up Supabase Storage objects. Restore only into a disposable PostgreSQL 17 database first, verify migration versions and representative row counts, and retain the encrypted artifact off-site with a documented retention period. The command above verifies archive readability, not a completed restore drill. No production backup job or restore has been run yet.
+
 ### Restore rehearsal
 
 Restore only into a dedicated empty database. A Compose-based drill can create a temporary target and restore the dump into it:
