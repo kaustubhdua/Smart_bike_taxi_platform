@@ -227,7 +227,7 @@ BEGIN
       cos(radians(r.pickup_latitude))*cos(radians(dp.current_latitude))*
       power(sin(radians(dp.current_longitude-r.pickup_longitude)/2),2)
     )), dp.account_id
-  FOR UPDATE OF dp SKIP LOCKED LIMIT 1;
+  LIMIT 1 FOR UPDATE OF dp SKIP LOCKED;
 
   IF NOT FOUND THEN
     UPDATE public.rides SET status='matching',updated_at=now() WHERE id=r.id AND status='requested';
