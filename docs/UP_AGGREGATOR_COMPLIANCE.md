@@ -18,6 +18,8 @@ A legal analysis of the final 2026 rules reports, among other requirements:
 - Existing operators were required to obtain a licence within 90 days of notification; that transition window has elapsed by this research date (13 November 2026). New aggregators must obtain the required licence before starting operations. The Government portal is live and lists the licensing workflow; confirm any current enforcement/regularization position directly with the State Transport Authority.
 - The rules require a full-time Grievance Redressal Officer-cum-Compliance Officer, a two-way driver/passenger rating mechanism, fare-share disclosures, driver non-exclusivity, and a written commencement notice at least 72 hours before service begins.
 
+The live UP portal's public workflow currently presents an eligibility check of operating more than 25 vehicles through a digital platform. The final-rule analysis and portal form should be reconciled with the applicant's intended fleet and business model; do not assume this portal-screen criterion is a statutory exemption for smaller operators or that a small pilot is outside the rules without written STA advice.
+
 **Release gate:** obtain written confirmation of the exact applicant eligibility, licence class, licence and security-deposit amounts, Noida/NCR vehicle-category restrictions, and any current portal process from the State Transport Authority. Do not infer permission from the central guidelines alone.
 
 Sources:
