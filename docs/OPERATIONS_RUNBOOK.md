@@ -148,3 +148,10 @@ Passengers and drivers can submit a report through `POST /api/v1/support/reports
 ## Self-hosted HTTPS deployment template
 
 A production-oriented Compose overlay and Caddy TLS configuration are provided in docs/production-deployment.md. Caddy serves separate passenger and driver hostnames to the same frontend image; the frontend renders the driver-only workspace when the hostname begins with `driver.`. Both hosts proxy same-origin `/api/` traffic (including SSE) to the same API and PostgreSQL data. Set `RIDEFORGE_DOMAIN`, `RIDEFORGE_DRIVER_DOMAIN`, and `RIDEFORGE_ALLOWED_ORIGINS` to the real values before deployment. Keep the allowlist exact—never use `*`. PostgreSQL remains private and only Caddy exposes public HTTP/HTTPS. This is a template, not proof of a live deployment, and it does not make public Nominatim/OSRM suitable for commercial use.
+
+## Hardening settings and tests
+
+- `RIDEFORGE_TRUSTED_PROXIES`: set to your reverse proxy's IP/CIDR list when running behind one; otherwise per-IP rate limits key on the proxy's address. Invalid values stop the API at startup (exit code 2).
+- `RIDEFORGE_GEOCODING_MIN_INTERVAL_MS`: app-wide spacing for geocoding calls; defaults to 1000 ms for public Nominatim. Excess callers wait up to 3 s, then receive 503 instead of queueing without bound.
+- Provider outages trip a circuit breaker (5 consecutive failures, 15 s open); watch the `provider_call_rejected` log events.
+- Test suites and how to run them are described in `docs/HARDENING_AND_TESTING.md`. The HTTP smoke test must run first against a fresh database.

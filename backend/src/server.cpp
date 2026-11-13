@@ -5,6 +5,8 @@
 #include <nlohmann/json.hpp>
 #include "security.hpp"
 #include "provider_response.hpp"
+#include "provider_guard.hpp"
+#include "request_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -46,6 +48,11 @@ struct Account {
     bool active{};
 };
 
+struct AccountState {
+    std::string role;
+    bool active{};
+};
+
 struct Location {
     std::string label;
     double latitude{};
@@ -81,9 +88,42 @@ int dispatch_radius_meters() {
     return static_cast<int>(kilometers * 1000UL);
 }
 
-HttpResult get_json(const std::string& url) {
+// One guard per upstream so a failing geocoder cannot block routing (and vice versa).
+rideforge_provider::ProviderGuard geocoding_guard;
+rideforge_provider::ProviderGuard routing_guard;
+
+void log_provider_event(const char* event, const char* reason) {
+    std::cerr << json{{"event", event}, {"reason", reason}}.dump() << '\n';
+}
+
+HttpResult get_json(const std::string& url, rideforge_provider::ProviderGuard& guard) {
+    using rideforge_provider::ProviderDegraded;
+    // Fail fast while the provider is known to be unhealthy instead of holding a
+    // worker thread for the whole timeout on every request.
+    if (!guard.breaker.allow()) {
+        log_provider_event("provider_call_rejected", "circuit_open");
+        throw ProviderDegraded("Routing provider temporarily unavailable");
+    }
+    auto permit = guard.limiter.try_acquire();
+    if (!permit) {
+        guard.breaker.cancel_probe();
+        log_provider_event("provider_call_rejected", "saturated");
+        throw ProviderDegraded("Routing provider is busy");
+    }
+    // Keep the whole application inside the provider's request-rate policy. Wait for a
+    // slot when it is close, shed the call when the queue is already too long.
+    const auto pacing_wait = guard.pacing.reserve();
+    if (!pacing_wait) {
+        guard.breaker.cancel_probe();
+        log_provider_event("provider_call_rejected", "paced");
+        throw ProviderDegraded("Routing provider is busy");
+    }
+    if (pacing_wait->count() > 0) std::this_thread::sleep_for(*pacing_wait);
     CURL* curl = curl_easy_init();
-    if (curl == nullptr) throw std::runtime_error("HTTP client unavailable");
+    if (curl == nullptr) {
+        guard.breaker.cancel_probe();
+        throw std::runtime_error("HTTP client unavailable");
+    }
     std::string body;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, rideforge_http::append_bounded_response);
@@ -96,10 +136,27 @@ HttpResult get_json(const std::string& url) {
     const CURLcode result = curl_easy_perform(curl);
     long status = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    char* content_type_raw = nullptr;
+    curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &content_type_raw);
+    const std::string content_type = content_type_raw != nullptr ? content_type_raw : "";
     curl_easy_cleanup(curl);
-    if (result != CURLE_OK || status < 200 || status >= 300) {
+
+    if (rideforge_provider::counts_as_provider_failure(result == CURLE_OK, status)) {
+        guard.breaker.record_failure();
         throw std::runtime_error("Routing provider unavailable");
     }
+    if (status < 200 || status >= 300) {
+        // Our own request was rejected; the provider itself is reachable and healthy.
+        guard.breaker.record_success();
+        throw std::runtime_error("Routing provider rejected the request");
+    }
+    // A 200 that is not JSON (captive portal, upstream error page) is a provider
+    // fault, not data to parse.
+    if (!rideforge_provider::is_json_content_type(content_type)) {
+        guard.breaker.record_failure();
+        throw std::runtime_error("Routing provider returned a non-JSON response");
+    }
+    guard.breaker.record_success();
     return {status, std::move(body)};
 }
 
@@ -120,20 +177,31 @@ std::string url_encode(const std::string& value) {
 Location geocode(const std::string& label) {
     const auto response = get_json(
         env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search") +
-        "?format=jsonv2&limit=1&q=" + url_encode(label));
+        "?format=jsonv2&limit=1&q=" + url_encode(label), geocoding_guard);
     const auto parsed = json::parse(response.body);
     if (!parsed.is_array() || parsed.empty() || !parsed.at(0).is_object()) {
         throw std::invalid_argument("Location could not be found");
     }
     const auto& item = parsed.at(0);
-    const double latitude = std::stod(item.at("lat").get<std::string>());
-    const double longitude = std::stod(item.at("lon").get<std::string>());
+    // std::stod throws std::invalid_argument("stod") on junk, which the quote handler
+    // would echo to the client as a 422 body. Report a stable message instead.
+    double latitude = 0;
+    double longitude = 0;
+    try {
+        latitude = std::stod(item.at("lat").get<std::string>());
+        longitude = std::stod(item.at("lon").get<std::string>());
+    } catch (const std::exception&) {
+        throw std::invalid_argument("Location provider returned invalid coordinates");
+    }
     if (!std::isfinite(latitude) || !std::isfinite(longitude) ||
         latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
         throw std::invalid_argument("Location provider returned invalid coordinates");
     }
-    std::string display = item.value("display_name", label);
-    if (display.size() > 240) display.resize(240);
+    // The label is untrusted provider text that is stored and later shown to drivers:
+    // strip control characters and cut on a UTF-8 boundary so the insert cannot fail.
+    std::string display = rideforge_provider::sanitize_label(
+        item.value("display_name", label), 240);
+    if (display.empty()) display = rideforge_provider::sanitize_label(label, 240);
     return {std::move(display), latitude, longitude};
 }
 
@@ -143,7 +211,7 @@ std::pair<int, int> route(const Location& pickup, const Location& destination) {
         std::to_string(pickup.longitude) + "," + std::to_string(pickup.latitude) + ";" +
         std::to_string(destination.longitude) + "," + std::to_string(destination.latitude) +
         "?overview=false&alternatives=false&steps=false";
-    const auto response = get_json(url);
+    const auto response = get_json(url, routing_guard);
     const auto parsed = json::parse(response.body);
     if (!parsed.is_object() || parsed.value("code", std::string()) != "Ok" ||
         !parsed.contains("routes") || !parsed["routes"].is_array() ||
@@ -153,12 +221,13 @@ std::pair<int, int> route(const Location& pickup, const Location& destination) {
     const auto& result = parsed["routes"][0];
     const double meters = result.at("distance").get<double>();
     const double seconds = result.at("duration").get<double>();
-    if (!std::isfinite(meters) || !std::isfinite(seconds) || meters <= 0 || seconds <= 0 ||
-        meters > static_cast<double>(std::numeric_limits<int>::max()) ||
-        seconds > static_cast<double>(std::numeric_limits<int>::max())) {
+    // Bounded well below INT_MAX: a route past the cap is a provider error or a wrong
+    // geocode, and must not turn into an absurd persisted fare.
+    const auto metrics = rideforge_provider::validate_route_metrics(meters, seconds);
+    if (!metrics) {
         throw std::invalid_argument("Routing provider returned invalid route metrics");
     }
-    return {static_cast<int>(std::ceil(meters)), static_cast<int>(std::ceil(seconds))};
+    return {metrics->meters, metrics->seconds};
 }
 
 class DatabasePool {
@@ -342,6 +411,27 @@ public:
                         PQgetvalue(result, 0, 2), std::string(PQgetvalue(result, 0, 3)) == "t"};
         PQclear(result);
         return account;
+    }
+
+    // Current role and activation state for an account id taken from a verified
+    // token. A signed token proves who we issued it to, not that the account is
+    // still allowed to act or still holds the same role.
+    std::optional<AccountState> account_state(const std::string& id) {
+        const char* params[] = {id.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "SELECT role::text,is_active FROM accounts WHERE id=$1::uuid",
+            1, nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not query account state");
+        }
+        if (PQntuples(result) == 0) {
+            PQclear(result);
+            return std::nullopt;
+        }
+        AccountState state{PQgetvalue(result, 0, 0), std::string(PQgetvalue(result, 0, 1)) == "t"};
+        PQclear(result);
+        return state;
     }
 
     std::string create_driver(const std::string& email, const std::string& name,
@@ -734,6 +824,18 @@ public:
                 throw std::runtime_error("Could not cancel ride");
             }
             PQclear(updated);
+            // Close any live offer in the same transaction, under the ride's row lock, so a
+            // cancelled ride never keeps an "offered" row that later counts as expired.
+            const char* offer_params[] = {ride_id.c_str()};
+            PGresult* superseded = PQexecParams(connection_,
+                "UPDATE ride_offers SET status='superseded',responded_at=now() "
+                "WHERE ride_id=$1::uuid AND status='offered'",
+                1, nullptr, offer_params, nullptr, nullptr, 0);
+            if (superseded == nullptr || PQresultStatus(superseded) != PGRES_COMMAND_OK) {
+                if (superseded != nullptr) PQclear(superseded);
+                throw std::runtime_error("Could not close offers for cancelled ride");
+            }
+            PQclear(superseded);
             const char* event_params[] = {ride_id.c_str(), passenger_id.c_str(), previous.c_str()};
             PGresult* event = PQexecParams(connection_,
                 "INSERT INTO ride_events (ride_id,actor_id,previous_status,new_status,details) "
@@ -1330,6 +1432,24 @@ private:
 
 RateLimiter quote_limiter{30};
 RateLimiter auth_limiter{10};
+// Per-account sign-in throttle. The per-address limiter above does nothing against a
+// distributed guess at one account, so failures are also counted per normalised
+// email: 8 failures in 5 minutes blocks further attempts for the rest of the window.
+// The cost is that someone who knows a victim's email can lock them out for up to
+// five minutes; that is the usual trade-off and is bounded by the fixed window.
+rideforge_guard::FailureThrottle login_failures{8, std::chrono::seconds(300)};
+// Peers whose X-Forwarded-For header may be believed (RIDEFORGE_TRUSTED_PROXIES).
+// Empty by default, so the header is ignored unless an operator opts in.
+rideforge_guard::TrustedProxies trusted_proxies;
+
+// Verified against when the email is unknown or the account is inactive, so the
+// response time does not reveal whether an account exists.
+const std::string& dummy_password_hash() {
+    static const std::string hash =
+        rideforge_security::password_hash("rideforge-timing-equalisation-password");
+    return hash;
+}
+
 std::atomic<unsigned> active_sessions{0};
 std::atomic<bool> shutdown_requested{false};
 static_assert(std::atomic<bool>::is_always_lock_free,
@@ -1391,10 +1511,18 @@ http::response<http::string_body> response(http::status status, const json& body
     return result;
 }
 
-std::string client_ip(const tcp::socket& socket) {
+// Key for per-address rate limits. Behind the nginx/Caddy edge the TCP peer is the
+// proxy itself, so keying on it would put every user in one shared bucket; the real
+// client comes from X-Forwarded-For, but only when the peer is a configured trusted
+// proxy (otherwise the header is attacker-controlled). IPv6 clients are collapsed to
+// their /64 because one subscriber controls the whole prefix.
+std::string client_ip(const tcp::socket& socket, const http::request<http::string_body>& request) {
     boost::system::error_code ec;
-    const auto address = socket.remote_endpoint(ec).address();
-    return ec ? "unknown" : address.to_string();
+    const auto peer = socket.remote_endpoint(ec).address();
+    if (ec) return "unknown";
+    const auto forwarded = request["X-Forwarded-For"];
+    return rideforge_guard::limiter_key(rideforge_guard::resolve_client_ip(
+        peer.to_string(), std::string_view(forwarded.data(), forwarded.size()), trusted_proxies));
 }
 
 void trim_in_place(std::string& value) {
@@ -1406,6 +1534,10 @@ void trim_in_place(std::string& value) {
     const auto last = value.find_last_not_of(" ");
     value = value.substr(first, last - first + 1);
 }
+
+std::optional<rideforge_security::Claims> bearer_claims(
+    const http::request<http::string_body>& request);
+bool looks_like_uuid(const std::string& value);
 
 http::response<http::string_body> handle_auth(
     const http::request<http::string_body>& request, const std::string& path, const std::string& ip) {
@@ -1449,11 +1581,19 @@ http::response<http::string_body> handle_auth(
                 {"account", {{"id", id}, {"email", email}, {"displayName", name}, {"role", "passenger"}}}
             }, request);
         }
+        if (login_failures.blocked(email)) {
+            return response(http::status::too_many_requests, {{"error", "rate_limited"}}, request);
+        }
         const auto account = database.find_account(email);
-        if (!account || !account->active ||
-            !rideforge_security::verify_password(password, account->password_hash)) {
+        // Always run one password verification, against a dummy hash when there is no
+        // such account, so unknown and known emails take the same time.
+        const bool password_ok = rideforge_security::verify_password(
+            password, account ? account->password_hash : dummy_password_hash());
+        if (!account || !account->active || !password_ok) {
+            login_failures.record_failure(email);
             return response(http::status::unauthorized, {{"error", "invalid_credentials"}}, request);
         }
+        login_failures.reset(email);
         const std::string token = rideforge_security::sign_access_token(
             account->id, account->role, env_or("RIDEFORGE_JWT_SECRET", ""));
         return response(http::status::ok, {
@@ -1482,13 +1622,13 @@ http::response<http::string_body> handle_booking(
         if (authorization.rfind("Bearer ", 0) != 0) {
             return response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
         }
-        rideforge_security::Claims claims;
-        try {
-            claims = rideforge_security::verify_access_token(
-                authorization.substr(7), env_or("RIDEFORGE_JWT_SECRET", ""));
-        } catch (const std::exception&) {
+        // bearer_claims verifies the signature and then confirms the account is still
+        // active and still holds the role the token claims.
+        const auto verified = bearer_claims(request);
+        if (!verified) {
             return response(http::status::unauthorized, {{"error", "invalid_access_token"}}, request);
         }
+        const rideforge_security::Claims claims = *verified;
         if (claims.role != "passenger") {
             return response(http::status::forbidden, {{"error", "passenger_role_required"}}, request);
         }
@@ -1502,6 +1642,9 @@ http::response<http::string_body> handle_booking(
             throw std::invalid_argument("quoteId is required");
         }
         const std::string quote_id = body["quoteId"].get<std::string>();
+        // Reject a non-UUID here: it would otherwise reach a `$1::uuid` cast, PostgreSQL
+        // would raise, and a plain client mistake would be reported as a 503 outage.
+        if (!looks_like_uuid(quote_id)) throw std::invalid_argument("quoteId must be a UUID");
         Database database(env_or("DATABASE_URL", ""));
         const json ride = database.create_ride(claims.subject, key, quote_id);
         const auto status = ride.value("replayed", false) ? http::status::ok : http::status::created;
@@ -1519,17 +1662,113 @@ http::response<http::string_body> handle_booking(
     }
 }
 
+bool looks_like_uuid(const std::string& value) {
+    if (value.size() != 36) return false;
+    for (std::size_t i = 0; i < value.size(); ++i) {
+        const char ch = value[i];
+        if (i == 8 || i == 13 || i == 18 || i == 23) {
+            if (ch != '-') return false;
+        } else if (!std::isxdigit(static_cast<unsigned char>(ch))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// True when the path addresses a ride or driver by an ID segment that is not a UUID:
+//   /api/v1/rides/{id}[/cancel|/events]
+//   /api/v1/driver/rides/{id}/{accept|decline|status}   ("history" is a literal route)
+//   /api/v1/admin/drivers/{id}[/...]
+// Query strings are ignored. Paths with no ID segment are left to normal routing.
+bool has_malformed_object_id(const std::string& target) {
+    const std::string path = target.substr(0, target.find('?'));
+    std::vector<std::string> segments;
+    std::size_t start = 0;
+    while (start <= path.size()) {
+        const auto slash = path.find('/', start);
+        segments.push_back(path.substr(start, slash == std::string::npos ? std::string::npos : slash - start));
+        if (slash == std::string::npos) break;
+        start = slash + 1;
+    }
+    // segments[0] is the empty text before the leading slash.
+    auto malformed = [&](std::size_t index) {
+        return segments.size() > index && !segments[index].empty() && !looks_like_uuid(segments[index]);
+    };
+    if (segments.size() > 3 && segments[1] == "api" && segments[2] == "v1") {
+        if (segments[3] == "rides") return malformed(4);
+        if (segments[3] == "driver" && segments.size() > 4 && segments[4] == "rides" &&
+            segments.size() > 5 && segments[5] != "history") return malformed(5);
+        if (segments[3] == "admin" && segments.size() > 4 && segments[4] == "drivers") return malformed(5);
+    }
+    return false;
+}
+
+// Short-lived cache of each account's current role and activation state.
+//
+// Access tokens are stateless and last 15 minutes, so on their own a deactivated
+// account, or one whose role changed, would keep working until the token expired.
+// Checking the database on every request would add a query to every call, so the
+// answer is cached for a few seconds: deactivation takes effect within kTtl on every
+// API process (each keeps its own cache), at the cost of one query per account per
+// kTtl. A database failure fails closed, because an unverifiable account must not be
+// treated as active.
+class AccountStateCache {
+public:
+    using clock = std::chrono::steady_clock;
+    static constexpr std::chrono::seconds kTtl{5};
+    static constexpr std::size_t kMaxEntries = 10000;
+
+    std::optional<AccountState> lookup(const std::string& id) {
+        if (!looks_like_uuid(id)) return std::nullopt;
+        const auto now = clock::now();
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            const auto found = entries_.find(id);
+            if (found != entries_.end() && now - found->second.fetched < kTtl) {
+                return found->second.state;
+            }
+        }
+        std::optional<AccountState> state;
+        try {
+            Database database(env_or("DATABASE_URL", ""));
+            state = database.account_state(id);
+        } catch (const std::exception&) {
+            std::cerr << json{{"event", "account_state_unavailable"}}.dump() << '\n';
+            return std::nullopt;
+        }
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (entries_.size() >= kMaxEntries) entries_.clear();
+        entries_[id] = Entry{state, now};
+        return state;
+    }
+
+private:
+    struct Entry {
+        std::optional<AccountState> state;
+        clock::time_point fetched;
+    };
+    std::mutex mutex_;
+    std::map<std::string, Entry> entries_;
+};
+
+AccountStateCache account_state_cache;
+
 std::optional<rideforge_security::Claims> bearer_claims(
     const http::request<http::string_body>& request) {
     const auto header = request[http::field::authorization];
     const std::string authorization(header.data(), header.size());
     if (authorization.rfind("Bearer ", 0) != 0) return std::nullopt;
+    rideforge_security::Claims claims;
     try {
-        return rideforge_security::verify_access_token(
+        claims = rideforge_security::verify_access_token(
             authorization.substr(7), env_or("RIDEFORGE_JWT_SECRET", ""));
     } catch (...) {
         return std::nullopt;
     }
+    // The signature proves we issued this token, not that the account may still act.
+    const auto state = account_state_cache.lookup(claims.subject);
+    if (!state || !state->active || state->role != claims.role) return std::nullopt;
+    return claims;
 }
 
 #include "driver_routes.inc"
@@ -1665,29 +1904,40 @@ bool stream_ride_events(beast::tcp_stream& stream,
         return send_chunk(frame);
     };
 
-    // Replay in bounded pages after LISTEN is active, avoiding a lost-event race
-    // without silently skipping events when a client reconnects after a long outage.
-    bool replay_complete = false;
-    while (!replay_complete && !ec) {
-        const std::string after = std::to_string(last_event_id);
-        const char* values[] = {ride_id.c_str(), after.c_str()};
-        PGresult* replay = PQexecParams(connection,
-            "SELECT id::text,new_status::text,created_at::text FROM ride_events "
-            "WHERE ride_id=$1::uuid AND id>$2::bigint ORDER BY id LIMIT 100",
-            2, nullptr, values, nullptr, nullptr, 0);
-        if (replay == nullptr || PQresultStatus(replay) != PGRES_TUPLES_OK) {
-            if (replay != nullptr) PQclear(replay);
-            asio::write(stream, http::make_chunk_last(), ec);
-            PQfinish(connection);
-            return true;
+    // Sends every persisted event after last_event_id, in id order and in bounded pages.
+    // ride_events is the source of truth: a ride's state changes lock its row, so ids for
+    // one ride commit in order and "id > cursor" can never skip an event. Returns false
+    // when the query or the client connection failed and the stream should be closed.
+    auto replay_persisted_events = [&]() {
+        bool complete = false;
+        while (!complete && !ec) {
+            const std::string after = std::to_string(last_event_id);
+            const char* values[] = {ride_id.c_str(), after.c_str()};
+            PGresult* replay = PQexecParams(connection,
+                "SELECT id::text,new_status::text,created_at::text FROM ride_events "
+                "WHERE ride_id=$1::uuid AND id>$2::bigint ORDER BY id LIMIT 100",
+                2, nullptr, values, nullptr, nullptr, 0);
+            if (replay == nullptr || PQresultStatus(replay) != PGRES_TUPLES_OK) {
+                if (replay != nullptr) PQclear(replay);
+                return false;
+            }
+            const int rows = PQntuples(replay);
+            for (int i = 0; i < rows && !ec; ++i) {
+                const auto id = static_cast<std::uint64_t>(std::stoull(PQgetvalue(replay, i, 0)));
+                if (!emit_event(id, PQgetvalue(replay, i, 1), PQgetvalue(replay, i, 2))) break;
+            }
+            PQclear(replay);
+            complete = rows < 100;
         }
-        const int rows = PQntuples(replay);
-        for (int i = 0; i < rows && !ec; ++i) {
-            const auto id = static_cast<std::uint64_t>(std::stoull(PQgetvalue(replay, i, 0)));
-            if (!emit_event(id, PQgetvalue(replay, i, 1), PQgetvalue(replay, i, 2))) break;
-        }
-        PQclear(replay);
-        replay_complete = rows < 100;
+        return !ec;
+    };
+
+    // Replay after LISTEN is active, avoiding a lost-event race without silently
+    // skipping events when a client reconnects after a long outage.
+    if (!replay_persisted_events() && !ec) {
+        asio::write(stream, http::make_chunk_last(), ec);
+        PQfinish(connection);
+        return true;
     }
 
     const auto started = std::chrono::steady_clock::now();
@@ -1698,24 +1948,19 @@ bool stream_ride_events(beast::tcp_stream& stream,
         if (ready > 0 && (descriptor.revents & POLLIN) != 0) {
             if (PQconsumeInput(connection) == 0) break;
             PGnotify* notification = nullptr;
-            bool stream_writable = true;
+            bool ride_changed = false;
             while ((notification = PQnotifies(connection)) != nullptr) {
+                // A notification only says "something changed for this ride". Its event
+                // id is not trusted for ordering: notifications can arrive late, twice
+                // or out of order (retry back-off, several outbox workers), and acting on
+                // them directly would drop the older event. Re-read instead.
                 try {
                     const auto payload = json::parse(notification->extra);
-                    if (payload.value("rideId", std::string()) == ride_id &&
-                        payload.contains("eventId") && payload["eventId"].is_number()) {
-                        const auto event_id = payload["eventId"].get<std::uint64_t>();
-                        if (event_id > last_event_id) {
-                            const std::string frame = "id: " + std::to_string(event_id) +
-                                "\nevent: ride-status\ndata: " + payload.dump() + "\n\n";
-                            last_event_id = event_id;
-                            if (!send_chunk(frame)) stream_writable = false;
-                        }
-                    }
+                    if (payload.value("rideId", std::string()) == ride_id) ride_changed = true;
                 } catch (...) { /* Ignore malformed notification payloads. */ }
                 PQfreemem(notification);
-                if (!stream_writable) break;
             }
+            if (ride_changed && !replay_persisted_events()) break;
         }
         const auto now = std::chrono::steady_clock::now();
         if (!ec && now - heartbeat >= std::chrono::seconds(10)) {
@@ -1765,12 +2010,18 @@ void handle_request(tcp::socket socket) {
     request.set("X-Request-ID", request_id);
 
     const std::string path(request.target().data(), request.target().size());
-    if (stream_ride_events(stream, request, path)) return;
+    // A malformed object ID is a client error. Without this, the ID reaches a
+    // `$1::uuid` cast, PostgreSQL raises, and the caller sees 503 "unavailable" -
+    // which tells clients to retry and pollutes server-error alerting.
+    const bool malformed_id = has_malformed_object_id(path);
+    if (!malformed_id && stream_ride_events(stream, request, path)) return;
 
     http::response<http::string_body> result;
-    if (request.method() == http::verb::post &&
+    if (malformed_id) {
+        result = response(http::status::not_found, {{"error", "not_found"}}, request);
+    } else if (request.method() == http::verb::post &&
         (path == "/api/v1/auth/register" || path == "/api/v1/auth/login")) {
-        result = handle_auth(request, path, client_ip(stream.socket()));
+        result = handle_auth(request, path, client_ip(stream.socket(), request));
     } else if (request.method() == http::verb::options) {
         // A 204 response must not run prepare_payload() with a string body: some
         // Beast versions reject payload metadata for no-content status responses.
@@ -1835,7 +2086,7 @@ void handle_request(tcp::socket socket) {
     } else if (request.method() == http::verb::post && path == "/api/v1/rides") {
         result = handle_booking(request);
     } else if (request.method() == http::verb::post && path == "/api/v1/routes/quote") {
-        if (!quote_limiter.allow(client_ip(stream.socket()))) {
+        if (!quote_limiter.allow(client_ip(stream.socket(), request))) {
             result = response(http::status::too_many_requests, {{"error", "rate_limited"}}, request);
         } else if (request.body().size() > 16384) {
             result = response(http::status::payload_too_large, {{"error", "request_too_large"}}, request);
@@ -2228,6 +2479,28 @@ int main() {
         std::cerr << "{\"event\":\"invalid_dispatch_radius_configuration\"}\n";
         return 2;
     }
+    try {
+        trusted_proxies = rideforge_guard::TrustedProxies::parse(env_or("RIDEFORGE_TRUSTED_PROXIES", ""));
+    } catch (const std::exception&) {
+        // Fail closed: a typo must not silently trust nobody (every user then shares
+        // the proxy's rate-limit bucket) or the wrong peers (spoofable client address).
+        std::cerr << "{\"event\":\"invalid_trusted_proxies_configuration\"}\n";
+        return 2;
+    }
+    try {
+        // Nominatim's policy is one request per second for the whole application, so the
+        // public host is paced by default. A different provider can opt in or out here.
+        geocoding_guard.pacing.configure(
+            rideforge_provider::parse_pacing_interval(
+                env_or("RIDEFORGE_GEOCODING_MIN_INTERVAL_MS", ""),
+                rideforge_provider::default_pacing_for(
+                    env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search"))),
+            std::chrono::milliseconds(3000));
+    } catch (const std::exception&) {
+        std::cerr << "{\"event\":\"invalid_provider_pacing_configuration\"}\n";
+        return 2;
+    }
+    (void)dummy_password_hash();
     curl_global_init(CURL_GLOBAL_DEFAULT);
     std::signal(SIGINT, request_shutdown);
     std::signal(SIGTERM, request_shutdown);
