@@ -4,7 +4,7 @@ This guide describes a free-tier evaluation deployment. It is not a production S
 
 ## Services
 
-- Static site: build from `web/` with `npm ci && npm run build`, publish `web/dist`.
+- Static site: build from `web/` with `npm ci && npm run build`, publish `web/dist`. The passenger portal is `/`, the driver portal is `/driver` (or a `driver.` hostname), and the protected admin portal is `/admin`; all three can share one static-site origin.
 - API web service: Docker runtime, build context the repository root (`.`), Dockerfile `backend/Dockerfile`, startup command `/usr/local/bin/rideforge_render_entrypoint`.
 - The API container supervises the C++ HTTP API, durable dispatch worker and outbox worker. If any child exits, the supervisor terminates siblings and exits nonzero so Render restarts the service. This combined process layout is only a demo compromise; Render recommends separate services, and its free web service sleeps after 15 minutes without inbound traffic.
 - The entrypoint runs the versioned database migration runner before starting the workers/API. It requires two separate connection strings.
