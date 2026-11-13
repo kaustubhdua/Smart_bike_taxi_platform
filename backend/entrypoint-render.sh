@@ -10,16 +10,23 @@ set -Eeuo pipefail
 export RIDEFORGE_APP_PASSWORD="${RIDEFORGE_RUNTIME_ROLE_PASSWORD:?RIDEFORGE_RUNTIME_ROLE_PASSWORD is required}"
 source /usr/local/bin/rideforge_build_runtime_database_url
 rideforge_build_runtime_database_url
-migration_database_url="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL (migration owner) is required}"
-rideforge_validate_migration_database_url
 runtime_database_url="$DATABASE_URL"
 
-export DATABASE_URL="$migration_database_url"
-export RIDEFORGE_MIGRATIONS_DIR=/opt/rideforge/migrations
-/usr/local/bin/rideforge_migrate
-export DATABASE_URL="$runtime_database_url"
-# The password is already embedded in DATABASE_URL; do not leak the standalone
-# credential into the API/worker process environments.
+# Production schema changes are applied and verified by the dedicated GitHub
+# migration workflow. The Render runtime must not require the database-owner
+# credential merely to boot. Keep an explicit opt-in path for controlled
+# maintenance deployments that intentionally run migrations at startup.
+if [[ "${RIDEFORGE_RUN_STARTUP_MIGRATIONS:-false}" == "true" ]]; then
+  migration_database_url="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required when startup migrations are enabled}"
+  rideforge_validate_migration_database_url
+  export DATABASE_URL="$migration_database_url"
+  export RIDEFORGE_MIGRATIONS_DIR=/opt/rideforge/migrations
+  /usr/local/bin/rideforge_migrate
+  export DATABASE_URL="$runtime_database_url"
+fi
+
+# The password is already embedded in DATABASE_URL; do not leak standalone
+# credentials into the API/worker process environments.
 unset MIGRATION_DATABASE_URL RIDEFORGE_APP_PASSWORD RIDEFORGE_RUNTIME_ROLE_PASSWORD
 
 pids=()
