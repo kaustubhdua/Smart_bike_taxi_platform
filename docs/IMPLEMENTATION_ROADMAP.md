@@ -50,7 +50,7 @@ Acceptance: every required current-head check is green; migrations 001–005 app
 - [x] Make account deactivation/revocation take effect promptly (per-request active/role check, ≤5 s cache, fails closed); the short-lived token model is documented in `docs/HARDENING_AND_TESTING.md`.
 - [ ] Add distributed rate limits before horizontally scaling. (Per-process limits, trusted-proxy client-IP resolution, IPv6 /64 keys and a per-account login throttle are in place and tested; they are not shared across replicas.)
 - [ ] Review malformed JSON, oversized headers/bodies, route path parsing, SQLSTATE mapping, and safe error/log behavior. (Malformed IDs, oversized bodies and 4xx-not-5xx are now tested; a full SQLSTATE-mapping review is still open.)
-- [ ] Add least-privilege runtime database roles; [x] dependency audit, CodeQL and CRITICAL/HIGH container image scans pass on the recorded SHA.
+- [x] Separate migration-owner credentials from the non-superuser `rideforge_app` runtime role; CI verifies role attributes, password login, grants and API/worker connectivity. [ ] Verify the deployed role and restrict database network access.
 
 Acceptance: adversarial integration tests pass and no client can read or mutate another account's ride.
 
