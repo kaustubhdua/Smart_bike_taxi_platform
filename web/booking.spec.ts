@@ -598,7 +598,7 @@ test("does not geocode while typing; calculates a route only after an explicit q
     }) });
   });
   await blockMapTiles(page);
-  await page.goto("/live");
+
   const pickup = page.getByRole("combobox", { name: "Pickup point" });
   const destination = page.getByRole("combobox", { name: "Drop-off point" });
   await pickup.fill("Sector 62");
@@ -658,7 +658,7 @@ test("route calculations are not triggered by typing", async ({ page }) => {
     await route.abort();
   });
   await blockMapTiles(page);
-  await page.goto("/live");
+
   await page.getByRole("combobox", { name: "Pickup point" }).fill("Sector 62");
   await page.getByRole("combobox", { name: "Drop-off point" }).fill("Sector 18 Market");
   await page.waitForTimeout(1500);
