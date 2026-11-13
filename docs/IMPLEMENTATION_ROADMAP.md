@@ -44,7 +44,7 @@ Acceptance: every required current-head check is green; migrations 001–009 app
 ## Phase 1 — transactional API and security
 
 - [x] Expand cross-account and cross-role authorization tests for every protected endpoint (`backend/tests/authz_matrix_test.py`; a guard fails CI if a protected OpenAPI operation is missing from the matrix).
-- [x] Test same-key booking retries, payload conflicts, expired/consumed quotes, expired driver-offer acceptance, cancellation races and concurrent driver acceptance (`backend/tests/concurrency_test.py`, real PostgreSQL).
+- [x] Test same-key booking retries, payload conflicts, expired/consumed quotes, expired driver-offer acceptance, accept-vs-expiry race and durable expired-offer redispatch, cancellation races and concurrent driver acceptance (`backend/tests/concurrency_test.py`, real PostgreSQL).
 - [x] Verify event rows and outbox rows commit/rollback together (`backend/tests/outbox_events_test.py`).
 - [x] Implement a bounded per-process PostgreSQL connection pool (12 connections, 2-second acquisition timeout, rollback/session reset before reuse). [ ] Verify pool behavior under concurrent load and budget aggregate connections before horizontal scaling; a per-process pool is not shared across replicas.
 - [x] Make account deactivation/revocation take effect promptly (per-request active/role check, ≤5 s cache, fails closed); the short-lived token model is documented in `docs/HARDENING_AND_TESTING.md`.

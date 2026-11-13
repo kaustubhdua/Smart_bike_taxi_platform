@@ -8,7 +8,7 @@ This change adds adversarial tests against a real PostgreSQL + API stack, fixes 
 | --- | --- | --- |
 | `provider_guard_test.cpp`, `request_guard_test.cpp` (ctest) | unit | Circuit breaker, concurrency limiter, pacing gate, route/label validation, trusted-proxy parsing, IPv6 /64 keys, login throttle |
 | `authz_matrix_test.py` | 20 | Forged/tampered/expired tokens, role matrix over every protected endpoint, cross-account access, revocation, malformed IDs, 4xx-not-5xx; fails if a protected OpenAPI operation is not covered |
-| `concurrency_test.py` | 11 | Double accept, accept vs cancel, one driver/two rides, concurrent status/cancel, expired-offer acceptance, idempotency-key race, quote reuse, expired quote |
+| `concurrency_test.py` | 13 | Double accept, accept vs cancel, one driver/two rides, concurrent status/cancel, expired-offer acceptance, accept-vs-expiry race, expired-offer redispatch, idempotency-key race, quote reuse, expired quote |
 | `outbox_events_test.py` | 13 | Event/outbox atomicity and rollback, lease recovery, backoff, dead letters, SSE replay order, `Last-Event-ID`, late older events, no duplicates |
 | `abuse_controls_test.py` | 19 | Trusted proxies, IPv6 limits, account lockout, timing equality, breaker, concurrency bound, content-type, oversized bodies, label sanitising, Nominatim pacing, startup validation |
 

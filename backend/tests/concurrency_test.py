@@ -241,6 +241,112 @@ def test_expired_driver_offer_cannot_be_accepted():
     assert_ride_consistent(ride_id)
 
 
+def test_accept_racing_offer_expiry_never_leaves_a_partial_assignment():
+    # Keep this race isolated: the dispatch worker must not immediately offer
+    # the same ride to an unrelated driver after the first offer expires.
+    psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+         "current_longitude=NULL,last_location_at=NULL")
+    passenger_id, _ = passenger()
+    outcomes = set()
+    for _ in range(ROUNDS):
+        driver_id, token = online_driver()
+        ride_id = plant_ride_with_offer(passenger_id, driver_id)
+
+        def expire_offer():
+            # The expiry worker locks and commits the offer row separately; API
+            # acceptance holds the ride row and then updates that offer. Whichever
+            # wins must commit a complete, internally consistent state.
+            return psql(
+                "BEGIN; "
+                "SELECT id FROM ride_offers WHERE ride_id='%s' AND driver_id='%s' "
+                "AND status='offered' FOR UPDATE; "
+                "SELECT pg_sleep(0.05); "
+                "UPDATE ride_offers SET status='expired',"
+                "offered_at=now()-interval '2 minutes',"
+                "expires_at=now()-interval '1 minute',responded_at=now() "
+                "WHERE ride_id='%s' AND driver_id='%s' AND status='offered'; "
+                "COMMIT;"
+                % (ride_id, driver_id, ride_id, driver_id)
+            )
+
+        response, _ = race([accept(ride_id, token), expire_offer])
+        check(response.status in (200, 404, 409),
+              "accept-vs-expiry returned unexpected status %s: %s"
+              % (response.status, response.text))
+        status, assigned_driver = ride_state(ride_id)
+        offer_status = psql("SELECT status FROM ride_offers "
+                            "WHERE ride_id='%s' AND driver_id='%s'" % (ride_id, driver_id))
+
+        if status == "assigned":
+            check(response.status == 200, "ride assigned although accept did not succeed")
+            check(assigned_driver == driver_id, "wrong driver won accept-vs-expiry")
+            check(offer_status == "accepted", "assigned ride has offer state %s" % offer_status)
+            outcomes.add("assigned")
+        else:
+            check(status == "matching" and assigned_driver == "",
+                  "expiry race left unexpected ride state %s/%s" % (status, assigned_driver))
+            check(offer_status == "expired", "unassigned ride has offer state %s" % offer_status)
+            outcomes.add("expired")
+
+        check(psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s' AND status='offered'"
+                   % ride_id) == "0", "accept-vs-expiry left a live offer behind")
+        check(event_statuses(ride_id).count("matching>assigned") ==
+              (1 if status == "assigned" else 0),
+              "assignment event does not match the winning transaction")
+        assert_ride_consistent(ride_id)
+        psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+             "current_longitude=NULL,last_location_at=NULL WHERE account_id='%s'" % driver_id)
+
+    print("      accept-vs-expiry outcomes seen: %s" % sorted(outcomes))
+
+
+def test_expired_offer_is_redispatched_to_next_eligible_driver():
+    psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+         "current_longitude=NULL,last_location_at=NULL")
+    passenger_id, _ = passenger()
+    expired_driver, _ = online_driver()
+    next_driver, next_token = online_driver()
+    ride_id = plant_ride_with_offer(passenger_id, expired_driver)
+
+    # Leave only the next driver eligible. The worker must consume the expired
+    # durable offer and create a new offer instead of losing the matching ride.
+    psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+         "current_longitude=NULL,last_location_at=NULL WHERE account_id='%s'" % expired_driver)
+    psql("UPDATE ride_offers SET offered_at=now()-interval '2 minutes',"
+         "expires_at=now()-interval '1 minute' "
+         "WHERE ride_id='%s' AND driver_id='%s' AND status='offered'"
+         % (ride_id, expired_driver))
+
+    deadline = time.monotonic() + 30
+    next_offer_count = "0"
+    expired_status = "offered"
+    while time.monotonic() < deadline:
+        expired_status = psql("SELECT status FROM ride_offers WHERE ride_id='%s' "
+                              "AND driver_id='%s'" % (ride_id, expired_driver))
+        next_offer_count = psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s' "
+                                "AND driver_id='%s' AND status='offered' AND expires_at>now()"
+                                % (ride_id, next_driver))
+        if expired_status == "expired" and next_offer_count == "1":
+            break
+        time.sleep(0.25)
+
+    check(expired_status == "expired", "dispatch worker did not expire the stale offer")
+    check(next_offer_count == "1", "dispatch worker did not redispatch to the next eligible driver")
+    check(psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s'" % ride_id) == "2",
+          "redispatch did not preserve exactly two offer attempts")
+
+    response = request("POST", "/api/v1/driver/rides/%s/accept" % ride_id, token=next_token)
+    check(response.status == 200,
+          "redispatched offer could not be accepted: %s %s" % (response.status, response.text))
+    check(ride_state(ride_id) == ("assigned", next_driver),
+          "redispatched ride was not assigned to the next driver")
+    check(psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s' AND status='accepted'"
+               % ride_id) == "1", "redispatch did not produce exactly one accepted offer")
+    assert_ride_consistent(ride_id)
+    psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+         "current_longitude=NULL,last_location_at=NULL WHERE account_id='%s'" % next_driver)
+
+
 # ---------------------------------------------------------------- state changes
 
 def test_concurrent_status_updates_apply_exactly_once():
