@@ -323,10 +323,9 @@ Supabase's current documentation says Free projects do not receive automatic dai
 
 ### Current code-review queue
 
-- PR #72: documentation refresh; merge only after exact-head checks pass and the deployment consequence is approved.
-- PR #73: rate-limiter positive configuration validation and saturating counters; exact-head CI has been observed queued, not passed.
-- PR #74: integer-paise demo fare breakdown and UI validation; exact-head CI has been observed queued, not passed.
-- PR #76: migrations 014–015, 22-column readiness, restore-role re-provisioning and encrypted backup automation; exact-head CI has not yet passed. PR #75 is superseded.
-- Main SHA `5d802f212ba11a2980c066e7734595bd8b4e2ba8` is the current assessed base. No fresh full-suite pass is established for it.
+- PR #72–74 are merged into `main`.
+- PR #75 is closed as superseded by PR #76.
+- PR #76: migrations 014–015, 22-column readiness, restore-role re-provisioning and encrypted backup automation; exact-head CI is queued, not passed.
+- Main SHA `5d802f212ba11a2980c066e7734595bd8b4e2ba8` is the current assessed base. No post-merge full-suite pass is established for it.
 
 **Release conclusion:** RideForge remains a full-stack academic/evaluation MVP, not a commercially authorised taxi service. A real staging journey, live API readiness, exact-head CI, backup/restore proof, driver/vehicle verification, emergency/support operations and written transport/privacy/legal approval remain separate gates.

@@ -1,7 +1,7 @@
 # RideForge 100-point completion matrix
 
 **Snapshot:** 2026-11-14  
-**Repository main SHA assessed:** `e07cff31886e5bf32eaa4b052480221e55c6e44a`  
+**Repository main SHA assessed:** `5d802f212ba11a2980c066e7734595bd8b4e2ba8`  
 **Target:** L4 operationally ready software, with L5 commercial authorization separate.
 
 This is an evidence register, not a feature-count scoreboard. A task is **VERIFIED** only when its stated acceptance evidence exists. **IMPLEMENTED** means code/documentation exists but exact-head tests or real-environment proof are still outstanding. A queued workflow is not a pass. A blocked external dependency is not silently marked complete.
