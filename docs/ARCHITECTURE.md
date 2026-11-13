@@ -98,7 +98,7 @@ Both `public.schema_migrations` and Supabase's migration ledger record versions 
 
 ## 8. Deployment decision for the next phase
 
-The user has explicitly deferred creating/configuring Vercel until repository engineering is complete. No Vercel resources have been created.
+The user has explicitly deferred creating/configuring Vercel until repository engineering is complete. No Vercel project or deployment was created through this execution.
 
 Vercel can host the static React/Vite frontend. It is not a direct runtime for the existing persistent C++ API, dispatch worker and PostgreSQL LISTEN/NOTIFY outbox worker. If Vercel is selected for the frontend, a persistent compute host is still needed for those backend processes. Alternatively, the backend can be deliberately rewritten into serverless/queue-driven components, but that is a separate architecture migration requiring new concurrency, recovery and integration tests.
 
