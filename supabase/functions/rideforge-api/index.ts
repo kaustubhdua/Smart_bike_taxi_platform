@@ -7,7 +7,7 @@ const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: fa
 const authClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const cors = {
-  "Access-Control-Allow-Origin": Deno.env.get("RIDEFORGE_ALLOWED_ORIGIN") ?? "*",
+  "Access-Control-Allow-Origin": Deno.env.get("RIDEFORGE_ALLOWED_ORIGIN") ?? "http://localhost:5173",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, idempotency-key, last-event-id",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, OPTIONS",
   "Cache-Control": "no-store",
