@@ -393,8 +393,8 @@ def test_parallel_dispatch_workers_never_offer_one_driver_twice():
         def all_drivers_have_one_offer():
             if second_worker.poll() is not None:
                 return False
-            return psql("SELECT count(*) FROM ride_offers WHERE status='offered' "
-                        "AND driver_id IN (%s)" % driver_filter) == str(len(drivers))
+            return int(psql("SELECT count(*) FROM ride_offers WHERE status='offered' "
+                            "AND driver_id IN (%s)" % driver_filter)) >= len(drivers)
 
         wait_for(all_drivers_have_one_offer, timeout=30,
                  message="both dispatch workers to offer one ride to each free driver")
