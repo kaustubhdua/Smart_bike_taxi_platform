@@ -39,4 +39,7 @@ done
 # The normal migration runner skips already-recorded schema versions and,
 # when provided, validates/applies the runtime password without logging it.
 RIDEFORGE_MIGRATIONS_DIR="$migrations_dir" sh "$script_dir/migrate-if-needed.sh"
+if [ -z "${RIDEFORGE_APP_PASSWORD:-}" ]; then
+  echo "WARNING: RIDEFORGE_APP_PASSWORD was not supplied; verify/configure the runtime role credential before starting the API." >&2
+fi
 echo "Restore completed and database roles re-provisioned: $input"
