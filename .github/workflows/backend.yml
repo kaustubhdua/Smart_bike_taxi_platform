@@ -129,7 +129,7 @@ jobs:
             fi
             sleep 1
           done
-          curl --silent --show-error --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null
+          curl --silent --show-error --fail --get --data-urlencode 'q=Readiness, Noida, Uttar Pradesh, India' 'http://127.0.0.1:8090/search' >/dev/null
           ./build-backend/rideforge_api > /tmp/rideforge-api.log 2>&1 &
           api_pid=$!
           worker_pid=""
