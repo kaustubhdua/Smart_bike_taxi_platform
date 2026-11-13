@@ -46,6 +46,27 @@ test("calculates road route and shows a fare only after a valid server quote", a
   await expect(page.locator(".inline-notice")).toContainText("This checks the quote only");
 });
 
+test("rejects a server quote whose fare breakdown does not add up", async ({ page }) => {
+  await blockMapTiles(page);
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
+      distanceKm: 5.2,
+      durationMinutes: 14,
+      farePaise: 4750,
+      fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2749, pricingModel: "demo_base_plus_distance" },
+      currency: "INR",
+      expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
+    }) });
+  });
+  await page.goto("/live");
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.locator(".inline-notice")).toContainText(/invalid quote or route/i);
+  await expect(page.locator(".fare-amount")).toContainText("—");
+  await expect(page.locator(".fare-breakdown")).toHaveCount(0);
+});
+
 test("registers a passenger, creates a persisted ride request, and cancels it", async ({ page }) => {
   await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
