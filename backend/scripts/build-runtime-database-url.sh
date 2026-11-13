@@ -14,6 +14,8 @@ rideforge_require_sslmode() {
 rideforge_validate_migration_database_url() {
   local url="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required}"
   local scheme authority userinfo hostport owner_password
+  local runtime_scheme runtime_authority runtime_userinfo runtime_hostport
+  local runtime_project_ref owner_project_ref
 
   case "$url" in
     postgresql://*) scheme="postgresql://" ;;
@@ -53,6 +55,28 @@ rideforge_validate_migration_database_url() {
       return 1
       ;;
   esac
+
+  case "${DATABASE_URL_TEMPLATE:?DATABASE_URL_TEMPLATE is required}" in
+    postgresql://*) runtime_scheme="postgresql://" ;;
+    postgres://*) runtime_scheme="postgres://" ;;
+    *) echo "DATABASE_URL_TEMPLATE must be a PostgreSQL URI." >&2; return 1 ;;
+  esac
+  runtime_authority=${DATABASE_URL_TEMPLATE#"$runtime_scheme"}
+  runtime_userinfo=${runtime_authority%%@*}
+  runtime_hostport=${runtime_authority#*@}
+  runtime_hostport=${runtime_hostport%%/*}
+  runtime_project_ref=${runtime_userinfo#rideforge_app.}
+  runtime_project_ref=${runtime_project_ref%%:*}
+  owner_project_ref=${userinfo#postgres.}
+  owner_project_ref=${owner_project_ref%%:*}
+  if [ -z "$runtime_project_ref" ] || [ "$runtime_project_ref" != "$owner_project_ref" ]; then
+    echo "DATABASE_URL_TEMPLATE and MIGRATION_DATABASE_URL must target the same Supabase project." >&2
+    return 1
+  fi
+  if [ "$runtime_hostport" != "$hostport" ]; then
+    echo "DATABASE_URL_TEMPLATE and MIGRATION_DATABASE_URL must use the same Session-pooler host and port." >&2
+    return 1
+  fi
   rideforge_require_sslmode "$url"
 }
 
