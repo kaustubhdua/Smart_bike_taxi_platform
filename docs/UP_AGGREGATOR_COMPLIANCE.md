@@ -163,3 +163,26 @@ Sources:
 - [CAQM — 22 December 2025 press release on Direction 94 amendment deliberations](https://caqm.nic.in/WriteReadData/LINKS/CAQM%20PR%2023b05acfe5-5b91-477b-937b-dee37eb33da1.pdf)
 
 This section is a research cross-check, not a legal opinion. The final Gazette text, later amendments, portal instructions and written STA/CAQM interpretations prevail over this summary.
+
+## 10. DPDP Act and Rules — phased commencement as at 13 November 2026
+
+Do not describe the Digital Personal Data Protection Act, 2023 or the DPDP Rules, 2025 as either wholly in force or wholly dormant.
+
+The official commencement notification G.S.R. 843(E), dated 13 November 2025, phases the Act:
+- Provisions listed in paragraph (a) commenced on publication (13 November 2025).
+- Section 6(9) and section 27(1)(d) commence one year after publication — **13 November 2026**.
+- The main data-fiduciary obligations listed in paragraph (c), including sections 3–5, section 6(1)–(8) and (10), sections 7–17, section 27 other than clause (d), sections 28–34, 36, 37 and section 44(2), commence eighteen months after publication — **13 May 2027**.
+
+The official DPDP Rules notification G.S.R. 846(E), dated 13 November 2025, similarly phases the Rules:
+- Rules 1, 2 and 17–21 commenced on publication.
+- Rule 4 commences one year after publication — **13 November 2026**.
+- Rules 3, 5–16, 22 and 23 commence eighteen months after publication — **13 May 2027**.
+
+For RideForge, this is a forward compliance deadline, not permission to collect unnecessary data until 2027. Before any pilot, implement privacy-by-design: standalone purpose-specific notices; data minimisation; separate consent for optional location use; location processing only while needed for a requested trip; access controls; retention and deletion schedules; user-rights request handling; processor/vendor contracts; breach detection and response; and documented evidence. The actual obligations in force on the proposed launch date must be rechecked against the latest Gazette notifications and corrigenda.
+
+Sources:
+- [MeitY — official commencement notification G.S.R. 843(E), 13 November 2025](https://www.meity.gov.in/static/uploads/2025/11/c56ceae6c383460ca69577428d36828b.pdf)
+- [MeitY — official DPDP Rules notification G.S.R. 846(E), 13 November 2025](https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf)
+- [MeitY — DPDP Rules 2025 and enforcement timeline index](https://www.meity.gov.in/documents/act-and-policies/digital-personal-data-protection-rules-2025-gDOxUjMtQWa)
+
+This timeline is a summary of the commencement notifications, not legal advice. Check the Gazette and all subsequent corrigenda on the actual date of launch.
