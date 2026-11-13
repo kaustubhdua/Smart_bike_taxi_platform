@@ -215,6 +215,32 @@ def test_accept_racing_cancel_never_leaves_a_half_state():
     print("      accept-vs-cancel outcomes seen: %s" % sorted(outcomes))
 
 
+def test_expired_driver_offer_cannot_be_accepted():
+    passenger_id, _ = passenger()
+    driver_id, token = online_driver()
+    ride_id = plant_ride_with_offer(passenger_id, driver_id)
+
+    # Remove the driver from eligibility before expiring the offer so the live
+    # dispatch worker cannot immediately create a replacement while this test
+    # checks that an expired offer itself is never accepted.
+    psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+         "current_longitude=NULL,last_location_at=NULL WHERE account_id='%s'" % driver_id)
+    psql("UPDATE ride_offers SET offered_at=now()-interval '2 minutes',"
+         "expires_at=now()-interval '1 minute' "
+         "WHERE ride_id='%s' AND driver_id='%s' AND status='offered'" % (ride_id, driver_id))
+
+    response = request("POST", "/api/v1/driver/rides/%s/accept" % ride_id, token=token)
+    check(response.status in (404, 409),
+          "an expired offer was accepted or returned an unexpected status: %s %s"
+          % (response.status, response.text))
+    check(ride_state(ride_id) == ("matching", ""),
+          "an expired offer changed ride assignment: %s" % (ride_state(ride_id),))
+    check(psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s' "
+               "AND status='accepted'" % ride_id) == "0",
+          "an expired offer was persisted as accepted")
+    assert_ride_consistent(ride_id)
+
+
 # ---------------------------------------------------------------- state changes
 
 def test_concurrent_status_updates_apply_exactly_once():
