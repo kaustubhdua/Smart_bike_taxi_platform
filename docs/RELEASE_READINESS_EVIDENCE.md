@@ -2,10 +2,30 @@
 
 **Assessment date:** 2026-11-13  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Current main SHA at assessment:** `4d4ff78d7ed12ce7b4432bd4fbce07678bc82603`  
+**Main SHA at assessment:** `2c6ba631815b13feb6d3064de47765967e8db0ec`  
 **Release decision:** **Not ready for public/commercial rides.** The repository has a substantially hardened full-stack MVP, but no verified public staging deployment, real two-device journey, production operational service, driver/vehicle compliance process, or transport-authority/legal approval.
 
 This report distinguishes repository implementation and automated CI from evidence that requires real infrastructure. A green build, local Compose stack, mock-provider browser test, or demo receipt is not proof of a commercially operating taxi service.
+
+## Latest merged upgrades — PR #53 and PR #54
+
+Both release-hardening upgrades are merged into `main`:
+
+| Change | Merge SHA | Exact candidate evidence | Result |
+|---|---|---|---|
+| One active dispatch offer per driver (PR #53) | `05581bb1bdcbf68d9675a647db1b334f337dbe3b` | [Full release readiness, run 43433243879](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43433243879), candidate `9216cd69f34c8c7bdddf7df8d86b7cf3a261ee9f` | 13/13 jobs passed. Migration 011 adds a unique partial index; worker selection excludes drivers with another active offer; a two-worker PostgreSQL test verifies the invariant. |
+| Driver offer visibility and portal routing (PR #54) | `2c6ba631815b13feb6d3064de47765967e8db0ec` | [Full release readiness, run 43432850270](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43432850270), candidate `e2300ca274efe342de78cb7924d10595059d8c64` | 13/13 jobs passed. Driver queue polls every five seconds while online; `/driver` and `/admin` entry points are tested; 37 Playwright browser tests passed. |
+
+The latest main-branch full release-readiness run for assessment SHA `2c6ba631815b13feb6d3064de47765967e8db0ec` is [run 43434905271](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43434905271). It was still running at the time this evidence snapshot was written; do not treat PR candidate checks as a substitute for this exact-main result.
+
+## Current infrastructure snapshot
+
+- The connected Supabase project is active and records migrations 001–011. All 12 public tables have RLS enabled, browser roles have no table grants, and the `rideforge_app` role has the intended restricted non-superuser posture. Its password is not yet configured.
+- The Render workspace contains the `rideforge-web` static site and several API service entries. The static site is live on the old `deploy/render-api-workers` branch; the API services have failed prior deployments. No running API connected to Supabase or verified full-stack public deployment is established.
+- No Render Postgres instance exists or is required by this configuration; the app uses the existing Supabase PostgreSQL project.
+- Root `render.yaml` now describes adoption of only `rideforge-api-final` and `rideforge-web`, both on `main`, with deploy-after-checks behavior and the SPA rewrite. The Blueprint has not yet been created or synced. Review its adoption plan before approval; it must not create duplicate services or paid resources.
+- Deployment still requires the Supabase Session Pooler runtime and migration-owner connection strings, a generated `RIDEFORGE_APP_PASSWORD`, and entry of those values in Render's protected environment settings. No credentials are committed to the repository.
+
 
 ## Latest verified engineering milestone — PR #44
 
@@ -30,18 +50,18 @@ The PR added:
 |---|---|---|
 | C++ API, DSA, sanitizer checks | PR #44 candidate passed | Confirm exact post-merge main checks |
 | Authorization and abuse controls | Adversarial tests merged | Distributed limits and independent security review |
-| Dispatch | Durable offers, bounded attempts and concurrency tests | Deterministic accept-vs-expiry, cancellation, duplicate-worker and multi-worker stress testing |
+| Dispatch | Durable 45-second offers, expiry/redispatch, one-active-offer-per-driver unique index, two-worker PostgreSQL regression test | Production-scale worker stress, restart/recovery and sustained load metrics |
 | Outbox/SSE | Persisted replay and fault tests merged | Real reconnect/load metrics, alerts and production resynchronization |
 | PostgreSQL | 12-connection per-process pool, migration/recovery tests, Supabase-verified restricted runtime role/grants, and one-active-offer-per-driver database constraint | Runtime password/Render connection, aggregate connection budget, saturation tests and production restore drill |
-| Web | React/TypeScript passenger, driver and admin workspaces; Playwright/axe CI | Manual Android/iOS, keyboard/screen-reader and WCAG 2.2 AA sign-off |
+| Web | Passenger, driver and admin workspaces; `/driver` and `/admin` paths; five-second driver queue polling; 37 Playwright tests passed | Manual Android/iOS, keyboard/screen-reader and WCAG 2.2 AA sign-off; push/SMS notifications remain unimplemented |
 | Routing | Provider guards and deterministic mock tests | Contracted/self-hosted provider, production-wide cache and global rate limits |
-| Deployment | Docker/Compose/Caddy HTTPS templates | Real DNS/TLS, host, durable database, secrets, monitoring and public staging URLs |
+| Deployment | Render Blueprint configuration for existing free-tier services; Supabase schema ready | Blueprint adoption/sync, runtime credentials, healthy API deployment, HTTPS journey, monitoring and restore drill |
 | Operations | Admin approval, support triage and audit events | Real driver/vehicle verification, staffed escalation and incident drills |
 | Commercial | No real payment or transport authorization claimed | Payment/refund ledger, insurance, state-specific legal and privacy approval |
 
 ## External blockers
 
-No connected production host, RideForge public URL, managed production database, production DNS/TLS or real two-device passenger-to-driver acceptance journey has been verified. Do not infer these from deployment templates or CI.
+A Render workspace is connected, but its existing API services are not healthy and the static site is on a stale branch. No verified running API, end-to-end public booking journey, production DNS/custom domain, or real two-device passenger-to-driver acceptance has been established. The Supabase runtime-role password and Render connection settings remain outstanding. Do not infer deployment from a Blueprint file, template, or CI.
 
 The repository also reports `main` as unprotected. The GitHub integration available for this review cannot change repository branch-protection settings; a repository administrator must configure a ruleset requiring pull requests and the relevant release checks, while preventing force pushes and branch deletion.
 
