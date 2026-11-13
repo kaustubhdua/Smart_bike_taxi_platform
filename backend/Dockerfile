@@ -20,7 +20,8 @@ COPY --from=build /build/rideforge_dispatch_worker /usr/local/bin/rideforge_disp
 COPY backend/migrations /opt/rideforge/migrations
 COPY backend/scripts/migrate-if-needed.sh /usr/local/bin/rideforge_migrate
 COPY backend/entrypoint-render.sh /usr/local/bin/rideforge_render_entrypoint
-RUN chmod 0555 /usr/local/bin/rideforge_render_entrypoint /usr/local/bin/rideforge_migrate
+COPY backend/scripts/build-runtime-database-url.sh /usr/local/bin/rideforge_build_runtime_database_url
+RUN chmod 0555 /usr/local/bin/rideforge_render_entrypoint /usr/local/bin/rideforge_migrate /usr/local/bin/rideforge_build_runtime_database_url
 USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/rideforge_render_entrypoint"]

@@ -16,12 +16,14 @@ services:
     healthCheckPath: /api/v1/ready
     autoDeployTrigger: checksPass
     envVars:
-      - key: DATABASE_URL
+      - key: DATABASE_URL_TEMPLATE
         sync: false
       - key: MIGRATION_DATABASE_URL
         sync: false
-      - key: RIDEFORGE_APP_PASSWORD
-        sync: false
+      # Render generates the runtime-role password; the migration entrypoint
+      # applies it to rideforge_app before the API/workers start.
+      - key: RIDEFORGE_RUNTIME_ROLE_PASSWORD
+        generateValue: true
       - key: RIDEFORGE_JWT_SECRET
         generateValue: true
       - key: RIDEFORGE_BIND_ADDRESS
@@ -34,8 +36,12 @@ services:
         value: https://rideforge-web.onrender.com
       - key: RIDEFORGE_GEOCODING_URL
         value: https://nominatim.openstreetmap.org/search
+      - key: RIDEFORGE_GEOCODING_CONTEXT
+        value: "Noida, Uttar Pradesh, India"
       - key: RIDEFORGE_ROUTING_URL
         value: https://router.project-osrm.org/route/v1/driving
+      - key: RIDEFORGE_ROUTING_MIN_INTERVAL_MS
+        value: "1000"
       - key: RIDEFORGE_DISPATCH_RADIUS_KM
         value: "20"
       - key: RIDEFORGE_DISPATCH_MAX_ATTEMPTS
@@ -55,7 +61,3 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         value: https://rideforge-api-final.onrender.com
-      - key: VITE_GEOCODING_BASE_URL
-        value: https://nominatim.openstreetmap.org/search
-      - key: VITE_ROUTING_BASE_URL
-        value: https://router.project-osrm.org/route/v1/driving
