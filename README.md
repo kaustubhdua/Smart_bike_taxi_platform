@@ -2,7 +2,7 @@
 
 # 🏍️ RideForge — Smart Bike Taxi Platform
 
-**A C++17-powered bike-taxi platform with a real API, PostgreSQL bookings, and driver/admin workspaces.**
+**A C++17 DSA simulator with a Supabase-backed bike-taxi web platform, transactional bookings, and driver/admin workspaces.**
 
 Shortest-path routing · Durable 45-second driver offers · Automatic expiry/redispatch · Transactional bookings
 
@@ -29,7 +29,7 @@ The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the source-of-truth architecture, [`docs/COMPLETION_MATRIX.md`](docs/COMPLETION_MATRIX.md) for the 100-point evidence register, and [`docs/DEEP_IMPROVEMENT_RESEARCH.md`](docs/DEEP_IMPROVEMENT_RESEARCH.md) for the research-backed priority order, security/reliability recommendations, acceptance criteria, and release gates. The implementation status below is not a production-readiness claim.
 
-This repository has evolved from its original C++17 academic simulation into **RideForge**, an original bike-taxi portfolio MVP. The C++ API exposes PostgreSQL-backed quotes, passenger authentication and persisted booking, cancellation, passenger/driver history, demo receipts, configurable-radius dispatch eligibility, admin ride search, driver provisioning/approval/suspension, support reports with audited resolution, and operational metrics. The static evaluation frontend is live at [rideforge-web.onrender.com](https://rideforge-web.onrender.com); the API is not yet healthy because its protected Supabase connection settings have not been supplied. RideForge is a portfolio demo, not a live taxi service: no real passenger transport, payments, verified driver/vehicle onboarding or emergency dispatch are offered. Use public landmarks/test locations only; do not submit home addresses or personal data to the public OpenStreetMap demo providers.
+This repository has evolved from its original C++17 academic simulation into **RideForge**, an original bike-taxi portfolio MVP. The web platform is being migrated to a Supabase-native backend: Supabase Auth, PostgreSQL, Edge Functions, transactional RPCs, RLS and Realtime. The static evaluation frontend remains hosted at [rideforge-web.onrender.com](https://rideforge-web.onrender.com). See [the Supabase backend runbook](docs/SUPABASE_BACKEND.md) for the migration architecture, administrator bootstrap and deployment details. The legacy C++ API is retained in the repository during the cutover window; it is no longer the intended application backend. RideForge is a portfolio demo, not a live taxi service: no real passenger transport, payments, verified driver/vehicle onboarding or emergency dispatch are offered. Use public landmarks/test locations only; do not submit home addresses or personal data to the public OpenStreetMap demo providers.
 
 | Area | Current evidence | Status |
 |---|---|---|
