@@ -252,3 +252,66 @@ The most important remaining engineering gates are successful exact-head executi
 ## Routing/geocoding policy correction — 2026-11-13
 
 The passenger browser now requests road routing only when the user explicitly asks for a server fare quote. Editing pickup/drop-off fields does not trigger geocoding. The backend appends the configured Noida service-area context, validates bounded GeoJSON coordinates and returns the route geometry with the quote. This avoids using the public Nominatim service as a client-side autocomplete provider. The API applies shared one-request-per-second pacing to the public Nominatim and OSRM demo hosts, in line with their published policies; this limiter is per process, not distributed across replicas. Successful geocodes are cached in bounded process memory for 10 minutes and road geometries for 2 minutes to reduce repeat upstream traffic. Nominatim also prohibits sending personal or confidential data, so the public demo must use public landmarks/test locations only; production pickup/drop-off addresses require a contracted provider with suitable privacy terms or a self-hosted geocoder. The public Nominatim and OSRM endpoints remain evaluation defaults only; production requires a contracted or self-hosted geocoder/router with capacity, attribution, monitoring and distributed rate limiting. See `docs/UP_AGGREGATOR_COMPLIANCE.md` for the policy and India/UP launch gates. For a self-hosted open-source routing candidate, evaluate [Valhalla](https://github.com/valhalla/valhalla): its MIT-licensed C++ engine supports routes, time/distance matrices, isochrones and map matching. It is not an OSRM drop-in—the provider adapter and request/response mapping must be implemented and tested—and the public Valhalla demo is also fair-use, not production capacity.
+
+
+## Live deployment and standards refresh — 2026-11-14
+
+This section supersedes any earlier statement in this document that no RideForge Render service was found. A later read-only inspection identified the existing Render resources and the current startup failure.
+
+### Verified hosting state
+
+- Existing Render API web service: `rideforge-api-final` (service ID `srv-dbloqnom7kps73br5ojg`), health check `/api/v1/ready`.
+- Existing static site: `https://rideforge-web.onrender.com`.
+- The API's latest inspected container build succeeded, but the process exited during startup with `DATABASE_URL_TEMPLATE is required`. It exits before the migration-owner connection is validated or the API readiness endpoint can succeed.
+- The Blueprint declares `DATABASE_URL_TEMPLATE` and `MIGRATION_DATABASE_URL` as manual protected values. The former is confirmed missing by the startup log; the latter must be verified after the first check passes. Do not infer or publish either secret.
+- Render is configured with `autoDeployTrigger=checksPass`. A merge to `main` after checks pass can initiate a deployment. Do not merge the open code/documentation PRs until exact-head CI passes and the operator confirms that the Render deployment is intended.
+- The connected GitHub branch metadata reports `main` unprotected. The current GitHub integration can inspect this state but cannot configure repository rulesets/branch protection.
+
+**Operator sequence:** set the protected `DATABASE_URL_TEMPLATE` and `MIGRATION_DATABASE_URL` values directly in Render using the exact Supabase Session-pooler host/port from the project's Connect dialog; do not paste credentials into chat or source control. Preserve the required TLS mode, matching project reference and pooler host, runtime username `rideforge_app.PROJECT_REF`, migration owner username `postgres.PROJECT_REF`, and runtime password placeholder described in `docs/render-deployment.md`. Then allow a controlled deployment and verify both `/api/v1/health` and `/api/v1/ready`, the deployed Git SHA, migration ledger, and worker startup logs. A green image build alone is insufficient.
+
+### API security review priorities
+
+Use the OWASP API Security Top 10 (2023) as the route-by-route threat model, not just a generic checklist. The most relevant areas for RideForge are object-level authorization for ride/offer/support IDs, property-level authorization and mass-assignment resistance, resource-consumption controls for login/quote/booking/cancellation/support, sensitive business-flow abuse (repeated booking, dispatch and cancellation), SSRF boundaries around routing/geocoding providers, and third-party response validation. Existing authorization and abuse-control suites provide a foundation; add coverage whenever a new route or field is introduced. Source: https://owasp.org/API-Security/editions/2023/en/0x11-t10/
+
+### Routing and dispatch research
+
+Google Maps Routes API documentation explicitly includes a two-wheeled motorized travel mode, distinct from human-powered bicycle routing. Its Route Matrix can calculate distance and duration for multiple origin/destination combinations (up to 625 non-transit route elements), which is a better architectural fit for comparing eligible nearby drivers than repeatedly routing one candidate at a time. This is a candidate provider capability, not a recommendation to switch without reviewing billing, data-processing terms, geographic coverage, motorcycle routing behavior in Noida, quotas and attribution requirements. A provider adapter should normalize route distance, duration, status, provider attribution and freshness; dispatch should retain a bounded candidate set and fall back safely when a matrix element is unavailable. Sources:
+- https://developers.google.com/maps/documentation/routes
+- https://developers.google.com/maps/documentation/routes/compute_route_matrix
+
+The current OSRM URL in the Render Blueprint uses `/driving`; it is an evaluation default and should not be represented as motorcycle-aware routing. For commercial service, select a contracted or self-hosted routing engine with a documented motorcycle profile and validate representative Noida routes against observed travel times. Never treat a driving route distance as a guaranteed motorcycle ETA.
+
+### Payment integration design gate
+
+No payment provider should be wired into the live service until the business entity, merchant account, settlement model, fees, refund policy and operating jurisdiction are approved. When a provider is selected, implement a durable webhook inbox before any booking/ride state is driven by payment notifications:
+
+1. Verify the provider signature against the exact raw request bytes before parsing or mutating state.
+2. Persist the provider event ID, provider account/environment, payload hash, received time and verification result under a unique constraint.
+3. Acknowledge only after durable receipt; process asynchronously with bounded retries and a dead-letter/reconciliation path.
+4. Treat delivery as at-least-once and potentially out-of-order. Deduplicate provider event IDs and enforce a monotonic, provider-aware payment state machine so an old authorization cannot overwrite a capture or refund.
+5. Keep separate idempotency identities for booking, payment creation/capture, refund and driver payout. Use only the provider's documented endpoint-specific contracts; do not assume one universal idempotency header.
+6. Reconcile provider transactions against the internal ledger and bank/settlement reports. A successful webhook is not itself a settlement proof.
+
+Razorpay's documentation describes duplicate webhook delivery, unique `x-razorpay-event-id` values and out-of-order events; its security guidance requires HMAC validation. Its endpoint-specific payout/refund/transfer idempotency contracts must not be generalized to every payment endpoint. Sources:
+- https://razorpay.com/security/checklist/
+- https://hdfcbank-collectnow-docs.razorpay.com/webhooks/validate-test/
+- https://hdfcbank-collectnow-docs.razorpay.com/webhooks/best-practices/
+
+### India privacy commencement calendar
+
+The DPDP Act and Rules were notified with phased commencement, so compliance must be assessed against the actual processing date rather than a blanket statement that every provision is already in force. The 13 November 2025 Gazette notification schedules specified provisions immediately, section 6(9) and section 27(1)(d) after one year, and sections 3–5, sections 6(1)–(8) and (10), sections 7–17 and other listed provisions after eighteen months. The 14 November 2025 Rules notification similarly phases Rule 4 after one year and Rules 3, 5–16, 22 and 23 after eighteen months. On this research date (14 November 2026), the one-year milestones have arrived; the eighteen-month milestones have not yet arrived. Counsel must check the Gazette text, corrigenda, commencement notices and the actual processing/launch date before deciding which duties apply. Irrespective of phased commencement, RideForge should implement privacy-by-design now: data minimisation, purpose limitation, clear notices, consent/withdrawal flows where applicable, retention/deletion, access controls, incident handling and processor/vendor agreements. Sources:
+- https://www.meity.gov.in/static/uploads/2025/11/c56ceae6c383460ca69577428d36828b.pdf
+- https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf?v=20261027115856
+
+### Backup and restore decision
+
+Supabase's current documentation says Free projects do not receive automatic daily backups; it recommends regular exports with the Supabase CLI `db dump` command and off-site storage. Therefore the existing local/CI backup-restore tests do not satisfy the operational recovery gate. Before real personal data is accepted, schedule encrypted off-site exports, verify integrity and access controls, define retention and deletion, and perform a timed restore to an isolated project. Record recovery point and recovery time actually achieved; do not invent an RPO/RTO. Source: https://supabase.com/docs/guides/platform/backups
+
+### Current code-review queue
+
+- PR #72: documentation refresh; merge only after exact-head checks pass and the deployment consequence is approved.
+- PR #73: rate-limiter positive configuration validation and saturating counters; exact-head CI has been observed queued, not passed.
+- PR #74: integer-paise demo fare breakdown and UI validation; exact-head CI has been observed queued, not passed.
+- Main SHA `e07cff31886e5bf32eaa4b052480221e55c6e44a` is still the assessed base. No fresh full-suite pass is established for it.
+
+**Release conclusion:** RideForge remains a full-stack academic/evaluation MVP, not a commercially authorised taxi service. A real staging journey, live API readiness, exact-head CI, backup/restore proof, driver/vehicle verification, emergency/support operations and written transport/privacy/legal approval remain separate gates.
