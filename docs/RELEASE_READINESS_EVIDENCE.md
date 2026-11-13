@@ -249,7 +249,7 @@ Set these only in the existing Render service's protected Environment page. Neve
 
 No schema change, service creation, paid resource or Render environment-variable update was performed during this inspection.
 
-## Final exact-head and hosting snapshot — 13 November 2026, 15:55 UTC
+## Final exact-head and hosting snapshot — 13 November 2026 (latest tool recheck)
 
 - PR #59 latest reviewed head: `5aef954fec46ecff1b7f66965351b09979662f5b` (25 check runs queued/pending at snapshot). It now accepts both PostgreSQL URI aliases, rejects direct/transaction-pooler endpoints for Render, and requires migration 012 in `/api/v1/ready`.
 - PR #60 latest reviewed head: `ebd2bdf1f90a5057c739a9d28cb45300b16e3129` (25 check runs queued/pending).
