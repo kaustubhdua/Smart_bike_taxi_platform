@@ -251,7 +251,7 @@ No schema change, service creation, paid resource or Render environment-variable
 
 ## Final exact-head and hosting snapshot — 13 November 2026 (latest tool recheck)
 
-- PR #59 latest reviewed head: `5aef954fec46ecff1b7f66965351b09979662f5b` (25 check runs queued/pending at snapshot). It now accepts both PostgreSQL URI aliases, rejects direct/transaction-pooler endpoints for Render, and requires migration 012 in `/api/v1/ready`.
+- PR #59 latest reviewed head: `4beb2cdaa167e77f92c1595169d6b213e2b79d44` (25 check runs queued/pending at snapshot). It now accepts both PostgreSQL URI aliases, rejects direct/transaction-pooler endpoints for Render, and requires migration 012 in `/api/v1/ready`.
 - PR #60 latest reviewed head: `ebd2bdf1f90a5057c739a9d28cb45300b16e3129` (25 check runs queued/pending).
 - PR #62 is the documentation/compliance evidence branch; its own commits are excluded from the code-test gate except for the required repository-wide workflows. It distinguishes the UP March draft from the final May rules analysis, cites the signed CAQM Direction 94 amendment, and records DPDP phased commencement dates.
 - PR #63 latest reviewed head: `91ca5bf1bd8204cb18a9883f18effe228b55a2e3` (24 check runs queued/pending).
