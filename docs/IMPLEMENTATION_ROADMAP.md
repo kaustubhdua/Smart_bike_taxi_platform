@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-10-24. PR #9 has been merged. The latest confirmed aggregate result passed 13/13 jobs on tested head `d0cab5d11bab857190f7232ffecc501ae0d5bca3`; this document does not claim a live deployment or commercial readiness.
+Last reconciled: 2026-11-13. PR #44 has been merged as `d7a90e24977119618f079ae7f8c1623aae97899d` after all 13 jobs passed on exact candidate `b386f4db8da4b5d0817963252d525ac7d0af9610`. Post-merge main workflows are still running; see `docs/RELEASE_READINESS_EVIDENCE.md` for exact-SHA evidence. No live deployment or commercial readiness is claimed.
 
 ## Product goal
 
@@ -37,9 +37,9 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Reconcile the web README with implemented booking/auth/driver workflows and document the per-driver decline contract in OpenAPI.
 - [x] Merge release-hardening PR #9 after all 13 aggregate release-readiness jobs passed on tested head `d0cab5d11bab857190f7232ffecc501ae0d5bca3`.
 - [ ] Re-run the release gate on the exact candidate release SHA after any subsequent code changes; a successful earlier SHA is not evidence for later commits. Durable-offer PR #13 has been opened and its checks are pending.
-- [x] CI applies all versioned migrations, re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; Compose/container validation passes on the recorded SHA.
+- [x] CI applies all versioned migrations (001–009), re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; the PR #44 exact candidate also passed container/Compose validation and vulnerability scanning.
 
-Acceptance: every required current-head check is green; migrations 001–005 apply in order and a second migration run is a no-op.
+Acceptance: every required current-head check is green; migrations 001–009 apply in order and a second migration run is a no-op.
 
 ## Phase 1 — transactional API and security
 
@@ -49,7 +49,7 @@ Acceptance: every required current-head check is green; migrations 001–005 app
 - [x] Implement a bounded per-process PostgreSQL connection pool (12 connections, 2-second acquisition timeout, rollback/session reset before reuse). [ ] Verify pool behavior under concurrent load and budget aggregate connections before horizontal scaling; a per-process pool is not shared across replicas.
 - [x] Make account deactivation/revocation take effect promptly (per-request active/role check, ≤5 s cache, fails closed); the short-lived token model is documented in `docs/HARDENING_AND_TESTING.md`.
 - [ ] Add distributed rate limits before horizontally scaling. (Per-process limits, trusted-proxy client-IP resolution, IPv6 /64 keys and a per-account login throttle are in place and tested; they are not shared across replicas.)
-- [ ] Review malformed JSON, oversized headers/bodies, route path parsing, SQLSTATE mapping, and safe error/log behavior. (Malformed IDs, oversized bodies and 4xx-not-5xx are now tested; a full SQLSTATE-mapping review is still open.)
+- [ ] Complete a full SQLSTATE-to-HTTP mapping review and document retryable versus permanent database errors. (Malformed IDs, oversized bodies, auth header forms, and 4xx-not-5xx behavior are now covered by adversarial tests.)
 - [ ] Add least-privilege runtime database roles; [x] dependency audit, CodeQL and CRITICAL/HIGH container image scans pass on the recorded SHA.
 
 Acceptance: adversarial integration tests pass and no client can read or mutate another account's ride.

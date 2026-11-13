@@ -1,15 +1,57 @@
 # RideForge Release Readiness Evidence
 
-**Assessment date:** 2026-11-05  
+**Assessment date:** 2026-11-13  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Current main SHA:** `e234e434dad8cda26a90cb096722eaa5c1faeab0`  
-**Release decision:** **Not ready for public/commercial rides.** The repository has a substantial full-stack MVP and recent engineering fixes, but no verified public staging deployment, real two-device journey, operational service, driver/vehicle compliance process, or transport-authority/legal approval.
+**Current main SHA at assessment:** `d7a90e24977119618f079ae7f8c1623aae97899d`  
+**Release decision:** **Not ready for public/commercial rides.** The repository has a substantially hardened full-stack MVP, but no verified public staging deployment, real two-device journey, production operational service, driver/vehicle compliance process, or transport-authority/legal approval.
 
 This report distinguishes repository implementation and automated CI from evidence that requires real infrastructure. A green build, local Compose stack, mock-provider browser test, or demo receipt is not proof of a commercially operating taxi service.
 
-The current main branch now includes PR #28 (`test(web): cover debounced location lookups in active suite`) at merge commit `e234e434dad8cda26a90cb096722eaa5c1faeab0`. The merged test exercises the pickup-edit debounce in the active Playwright suite. The connector audit did not return a current-main workflow conclusion for this merge SHA, so this assessment does not claim that current-main CI is green. PR-candidate results and current-main results must remain separate.
+## Latest verified engineering milestone — PR #44
+
+[PR #44](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/44), “Harden auth, provider calls and SSE; add adversarial test suites”, was merged on 2026-11-13 as `d7a90e24977119618f079ae7f8c1623aae97899d`.
+
+Its exact candidate head was `b386f4db8da4b5d0817963252d525ac7d0af9610`. The [Full release readiness workflow, run 43377409848](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43377409848) completed **13/13 jobs successfully**. This included GCC/Clang and ASan/UBSan C++ checks, PostgreSQL migration/recovery, API smoke at 5 km and 20 km, web build/browser checks, Compose/container build, container vulnerability scanning, CodeQL and npm dependency audit.
+
+The PR added:
+- 20 authorization-matrix checks, including token tampering, role checks, cross-account access and account-state changes.
+- 10 PostgreSQL-backed concurrency tests.
+- 13 transactional outbox/SSE tests, including lease expiry recovery and out-of-order replay.
+- 19 abuse-control tests covering proxy-aware IP resolution, IPv6 keys, login throttling, request limits and provider pacing.
+- Provider circuit-breaker, concurrency, content-type, route-metric and untrusted-label guards.
+- Three defect fixes: malformed quote IDs returning 422, SSE replay gaps, and live offers surviving ride cancellation.
+- Docker build-context corrections that address the previously observed missing migration/entrypoint files.
+
+**Important distinction:** the 13/13 result belongs to the exact PR candidate SHA above. The post-merge workflows on main SHA `d7a90e24977119618f079ae7f8c1623aae97899d` were still running at the time of this assessment. Do not call post-merge main CI green until those exact-SHA workflows finish successfully.
+
+## Current release gates
+
+| Area | Evidence/status | Remaining work |
+|---|---|---|
+| C++ API, DSA, sanitizer checks | PR #44 candidate passed | Confirm exact post-merge main checks |
+| Authorization and abuse controls | Adversarial tests merged | Distributed limits and independent security review |
+| Dispatch | Durable offers, bounded attempts and concurrency tests | Deterministic accept-vs-expiry, cancellation, duplicate-worker and multi-worker stress testing |
+| Outbox/SSE | Persisted replay and fault tests merged | Real reconnect/load metrics, alerts and production resynchronization |
+| PostgreSQL | 12-connection per-process pool and migration/recovery tests | Least-privilege roles, aggregate connection budget, saturation tests and production restore drill |
+| Web | React/TypeScript passenger, driver and admin workspaces; Playwright/axe CI | Manual Android/iOS, keyboard/screen-reader and WCAG 2.2 AA sign-off |
+| Routing | Provider guards and deterministic mock tests | Contracted/self-hosted provider, production-wide cache and global rate limits |
+| Deployment | Docker/Compose/Caddy HTTPS templates | Real DNS/TLS, host, durable database, secrets, monitoring and public staging URLs |
+| Operations | Admin approval, support triage and audit events | Real driver/vehicle verification, staffed escalation and incident drills |
+| Commercial | No real payment or transport authorization claimed | Payment/refund ledger, insurance, state-specific legal and privacy approval |
+
+## External blockers
+
+No connected production host, RideForge public URL, managed production database, production DNS/TLS or real two-device passenger-to-driver acceptance journey has been verified. Do not infer these from deployment templates or CI.
+
+The repository also reports `main` as unprotected. The GitHub integration available for this review cannot change repository branch-protection settings; a repository administrator must configure a ruleset requiring pull requests and the relevant release checks, while preventing force pushes and branch deletion.
 
 ## Recent engineering changes and exact-candidate evidence
+
+| Change | Merge SHA | Exact candidate CI evidence | Result |
+|---|---|---|---|
+| Auth/provider/SSE adversarial hardening (PR #44) | `d7a90e24977119618f079ae7f8c1623aae97899d` | [Full release readiness, run 43377409848](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43377409848), candidate `b386f4db8da4b5d0817963252d525ac7d0af9610` | 13/13 jobs passed on exact candidate; post-merge main workflows were pending at assessment time. |
+
+## Previous engineering changes and exact-candidate evidence
 
 | Change | Merge SHA | Exact candidate CI evidence | Result |
 |---|---|---|---|
