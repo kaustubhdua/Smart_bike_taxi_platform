@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-11-13. PR #44, PR #46 and PR #49 are merged. PR #49 adds migration 010 and separates migration-owner credentials from the non-superuser `rideforge_app` runtime role; its exact candidate `b42c590d41b5df38e4682247f2a9b0fbad8d4acf` passed all 13 release-readiness jobs in run `43403681589`. Main now points to `4d4ff78d7ed12ce7b4432bd4fbce07678bc82603`; its post-merge workflows are running. The Supabase schema is restored and reconciled, but Render credentials and a live application connection are still pending. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live deployment or commercial readiness is claimed.
+Last reconciled: 2026-11-13. PR #44, PR #46 and PR #49 are merged. PR #49 adds migration 010 and separates migration-owner credentials from the non-superuser `rideforge_app` runtime role; its exact candidate `b42c590d41b5df38e4682247f2a9b0fbad8d4acf` passed all 13 release-readiness jobs in run `43403681589`. Main now points to `4d4ff78d7ed12ce7b4432bd4fbce07678bc82603`; its post-merge full release-readiness run `43404828111` passed all 13 jobs. The Supabase schema is restored and reconciled, but Render credentials and a live application connection are still pending. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live deployment or commercial readiness is claimed.
 
 ## Product goal
 
