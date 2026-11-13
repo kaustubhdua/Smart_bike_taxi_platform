@@ -93,7 +93,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/quote.json" --write-out 
   "$base_url/api/v1/routes/quote")"
 test "$status" = "200"
 quote_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["quoteId"])' < "$tmp_dir/quote.json")"
-python3 -c 'import json,sys; q=json.load(sys.stdin); assert q["currency"]=="INR" and q["farePaise"]>0 and q["distanceKm"]>0 and q["durationMinutes"]>0 and len(q["geometry"])>=2' < "$tmp_dir/quote.json"
+python3 -c 'import json,sys; q=json.load(sys.stdin); b=q["fareBreakdown"]; assert q["currency"]=="INR" and q["farePaise"]>0 and q["distanceKm"]>0 and q["durationMinutes"]>0 and len(q["geometry"])>=2; assert b["baseFarePaise"]==2000 and b["distanceFarePaise"]>=0 and b["baseFarePaise"]+b["distanceFarePaise"]==q["farePaise"] and b["pricingModel"]=="demo_base_plus_distance"' < "$tmp_dir/quote.json"
 persisted="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM route_quotes WHERE id='$quote_id'")"
 test "$persisted" = "1"
 
