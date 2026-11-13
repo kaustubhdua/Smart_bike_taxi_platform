@@ -755,7 +755,7 @@ test("rejects an oversized routing-provider response before parsing or rendering
 
 test("driver and admin portals have same-origin routes and driver polls offers before expiry", async ({ page }) => {
   await page.context().grantPermissions(["geolocation"]);
-  await page.setGeolocation({ latitude: 28.53, longitude: 77.35 });
+  await page.context().setGeolocation({ latitude: 28.53, longitude: 77.35 });
 
   await page.route("http://api.test/api/v1/auth/login", async route => {
     await route.fulfill({
