@@ -97,7 +97,7 @@ export default function DemoExperience() {
       <section style={{ ...card, marginTop: 18 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><h2 style={{ margin: 0 }}>Demo ride history</h2><button style={{ ...button, background: "#e9edf2", color: "#263449" }} onClick={() => { setRides([]); setMessage("Local demo history cleared."); }}>Clear local demo data</button></div>
         {rides.length === 0 ? <p style={{ color: "#647084" }}>No demo rides yet.</p> : rides.map(ride => <div key={ride.id} style={{ borderTop: "1px solid #e6e8ec", padding: "13px 0" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><strong>{ride.id}</strong><strong>₹{ride.fare.toFixed(2)}</strong></div><div style={{ marginTop: 5 }}>{ride.pickup} → {ride.destination}</div><small style={{ color: "#647084" }}>{ride.status} · {ride.createdAt}</small></div>)}
       </section>
-      <footer style={{ textAlign: "center", color: "#788397", fontSize: 12, marginTop: 24 }}>RideForge academic portfolio demo · Noida · No backend credentials required</footer>
+      <footer style={{ textAlign: "center", color: "#596579", fontSize: 12, marginTop: 24 }}>RideForge academic portfolio demo · Noida · No backend credentials required</footer>
     </div>
   </main>;
 }
