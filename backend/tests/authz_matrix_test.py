@@ -220,8 +220,10 @@ def test_role_denial_does_not_mutate_state():
     accounts = fixtures()
     before = psql("SELECT count(*) FROM accounts")
     audit_before = psql("SELECT count(*) FROM admin_audit_events")
+    create_driver_body = next(body for method, path, _, body in ENDPOINTS
+                              if method == "POST" and path == "/api/v1/admin/drivers")
     for role in ("passenger", "driver"):
-        call("POST", "/api/v1/admin/drivers", ENDPOINTS[10][3], token(accounts, role))
+        call("POST", "/api/v1/admin/drivers", create_driver_body, token(accounts, role))
         call("PUT", "/api/v1/admin/drivers/{driver}/approval", {"approved": False},
              token(accounts, role), driver=accounts["driver"])
     check(psql("SELECT count(*) FROM accounts") == before, "denied admin call created an account")
