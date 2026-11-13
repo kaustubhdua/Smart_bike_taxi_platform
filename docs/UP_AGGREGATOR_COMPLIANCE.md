@@ -97,11 +97,13 @@ Sources:
 
 ## 7. Open-source routing and map infrastructure
 
-- [Valhalla](https://github.com/valhalla/valhalla) is an MIT-licensed open-source routing engine supporting driving, walking, bicycle and multimodal costing, route matrices, isochrones and map matching. It is a credible self-hosted candidate for a future route-provider adapter.
+- [Valhalla](https://github.com/valhalla/valhalla) is an MIT-licensed open-source routing engine supporting driving, walking, bicycle and multimodal costing, route matrices, isochrones and map matching. It is a credible self-hosted candidate for a future route-provider adapter; production would still need a maintained regional OSM extract, compute/memory sizing, tile refreshes, monitoring and operational ownership.
+- The current app uses Leaflet with public OSM raster tiles. This is suitable only for modest interactive evaluation traffic under the OSMF tile policy; it is not a commercial map-tile SLA.
 - [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) limits the public service to at most one request per second for the entire application, requires a meaningful User-Agent/Referer and attribution, and disallows client-side autocomplete and heavy/bulk use.
-- [OSRM demo-server policy](https://github-wiki-see.page/m/Project-OSRM/osrm-backend/wiki/Api-usage-policy) is best-effort and may be withdrawn; it is not a production availability commitment.
+- [OSRM demo-server policy](https://github.com/Project-OSRM/osrm-backend/wiki/Demo-server) limits the demo service to reasonable non-commercial use, at most one request per second, and offers no uptime/latency/data-freshness guarantees; access may be withdrawn.
+- [OpenStreetMap raster tile policy](https://operations.osmfoundation.org/policies/tiles/) requires the exact tile.openstreetmap.org endpoint, visible attribution, valid browser Referer, caching according to HTTP headers (or at least seven days), and prohibits bulk/offline tile prefetching.
 
-The browser should call RideForge's API rather than public Nominatim/OSRM directly. The API's shared provider pacing is suitable for a single-instance evaluation demo; it is not a distributed rate limiter across multiple API replicas. Production must use a contracted provider or self-hosted routing/geocoding capacity with monitored quotas, caching, attribution, and tested failover.
+The browser should call RideForge's API rather than public Nominatim/OSRM directly. The current map uses standard OSM tiles only for the route currently being viewed; it must retain attribution, browser Referer and normal HTTP caching. The API's shared provider pacing is suitable for a single-instance evaluation demo; it is not a distributed rate limiter across multiple API replicas. Production must use a contracted provider or self-hosted routing/geocoding/tile capacity with monitored quotas, caching, attribution, and tested failover.
 
 ## 8. Product status and non-negotiable launch gates
 
