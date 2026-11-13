@@ -57,9 +57,9 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - [ ] Serve the API only over HTTPS behind a correctly configured reverse proxy.
 - [x] Separate migration-owner and runtime database roles; [ ] provision the `rideforge_app` password in Render and verify a real login; [ ] restrict network access to PostgreSQL.
 - [x] Add bounded per-process PostgreSQL connection pooling (10 connections, 2-second acquisition timeout); [ ] add shared/distributed rate limits before horizontal scaling. [x] Request IDs and redacted structured logs are implemented.
-- [ ] Test BOLA/IDOR across passenger, driver and admin identities.
-- [ ] Test stale, revoked, malformed and wrong-role tokens.
-- [ ] Test duplicate/out-of-order requests, cancellation races and competing assignments.
+- [x] Automated `authz_matrix_test.py` covers role authorization and cross-passenger/driver object access; [ ] obtain an independent penetration test before real customer data.
+- [x] CI covers expired, malformed, forged and wrong-role tokens plus account deactivation/role-change invalidation; [ ] a general session-revocation registry is not implemented.
+- [x] CI covers idempotency, competing assignments, accept/cancel/expiry races and duplicate dispatch; [ ] validate the same behavior under deployed multi-device and load conditions.
 - [x] Implement exact CORS allowlisting for passenger and driver hosts; CI tests allowed origins and verifies an untrusted origin is not reflected.
 - [ ] Continue reviewing security headers, body/header limits and provider timeout behavior.
 - [ ] Define data retention/deletion for trip and location data; redact precise coordinates from logs.
