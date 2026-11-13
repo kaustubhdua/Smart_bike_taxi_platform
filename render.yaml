@@ -40,6 +40,8 @@ services:
         value: "Noida, Uttar Pradesh, India"
       - key: RIDEFORGE_ROUTING_URL
         value: https://router.project-osrm.org/route/v1/driving
+      - key: RIDEFORGE_ROUTING_MIN_INTERVAL_MS
+        value: "1000"
       - key: RIDEFORGE_DISPATCH_RADIUS_KM
         value: "20"
       - key: RIDEFORGE_DISPATCH_MAX_ATTEMPTS
