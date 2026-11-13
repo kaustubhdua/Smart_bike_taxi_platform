@@ -40,3 +40,5 @@ jobs:
       - name: Build frontend
         working-directory: web
         run: npm run build
+      - name: Smoke-test live Supabase API readiness
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api/api/v1/ready
