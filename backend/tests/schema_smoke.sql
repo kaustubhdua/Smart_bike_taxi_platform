@@ -23,8 +23,12 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='006_durable_driver_offers') THEN
     RAISE EXCEPTION 'durable driver offer migration ledger entry is missing';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='rideforge_app' AND rolcanlogin AND rolbypassrls AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole) THEN
-    RAISE EXCEPTION 'runtime database role must be a non-superuser BYPASSRLS login without role/database creation privileges';
+  IF NOT EXISTS (SELECT 1 FROM pg_authid WHERE rolname='rideforge_app' AND rolcanlogin AND rolbypassrls AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND rolpassword IS NOT NULL) THEN
+    RAISE EXCEPTION 'runtime database role must be password-enabled, non-superuser BYPASSRLS login without role/database creation privileges';
+  END IF;
+  IF NOT has_table_privilege('rideforge_app','public.accounts','SELECT,INSERT,UPDATE,DELETE')
+     OR has_table_privilege('rideforge_app','public.accounts','TRUNCATE') THEN
+    RAISE EXCEPTION 'runtime database role has missing DML or excessive TRUNCATE privileges';
   END IF;
   IF NOT has_database_privilege('rideforge_app', current_database(), 'CONNECT') THEN
     RAISE EXCEPTION 'runtime database role cannot connect to the current database';
