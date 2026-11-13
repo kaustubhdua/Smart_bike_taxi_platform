@@ -10,6 +10,14 @@ rideforge_build_runtime_database_url
 expected='postgresql://rideforge_app.projectref:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%2B%2F@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
 [ "$DATABASE_URL" = "$expected" ]
 
+# Supabase's current Connect examples may use the equivalent postgres:// alias.
+DATABASE_URL_TEMPLATE='postgres://rideforge_app.projectref:__RIDEFORGE_PASSWORD__@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
+RIDEFORGE_APP_PASSWORD='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+/'
+rideforge_build_runtime_database_url
+expected='postgres://rideforge_app.projectref:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%2B%2F@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
+[ "$DATABASE_URL" = "$expected" ]
+
+DATABASE_URL_TEMPLATE='postgresql://rideforge_app.projectref:__RIDEFORGE_PASSWORD__@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
 RIDEFORGE_APP_PASSWORD='B0jrphAPOY7pg92AN0c9MN4yecczLMdwnx4OkA1KFUk='
 rideforge_build_runtime_database_url
 expected='postgresql://rideforge_app.projectref:B0jrphAPOY7pg92AN0c9MN4yecczLMdwnx4OkA1KFUk%3D@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
