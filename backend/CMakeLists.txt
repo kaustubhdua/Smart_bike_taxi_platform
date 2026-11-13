@@ -33,6 +33,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(rideforge_admin_bootstrap PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+add_executable(rideforge_fare_tests tests/fare_test.cpp)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(rideforge_fare_tests PRIVATE -Wall -Wextra -Wpedantic -Werror -UNDEBUG)
+endif()
+add_test(NAME rideforge_fare_tests COMMAND rideforge_fare_tests)
+
 add_executable(rideforge_security_tests tests/security_test.cpp)
 target_link_libraries(rideforge_security_tests PRIVATE OpenSSL::Crypto nlohmann_json::nlohmann_json)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
