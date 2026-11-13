@@ -16,6 +16,7 @@ Set these as protected Render environment variables; never commit them:
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Private runtime connection using the `rideforge_app` role. This role is non-superuser, has required table DML/sequence rights, and BYPASSRLS because API-level ownership checks are authoritative. |
+| `RIDEFORGE_APP_PASSWORD` | At least 32 random characters; the startup migration runner provisions this password on `rideforge`'s `rideforge_app` role. Use the same password in the runtime `DATABASE_URL`. |
 | `MIGRATION_DATABASE_URL` | Private migration-owner connection. Used only by the startup migration runner. Do not use this for normal API requests. |
 | `RIDEFORGE_JWT_SECRET` | Independent random secret, at least 32 bytes. |
 | `RIDEFORGE_USER_AGENT` | Contact-bearing identifier for the geocoding provider. |
@@ -25,7 +26,7 @@ Set these as protected Render environment variables; never commit them:
 
 For Supabase, open the project's **Connect** dialog and copy the actual **Session pooler** host and port. Do not construct the hostname from the region: Supabase can assign different pooler cluster indexes. Session mode uses port 5432 and supports long-lived connection features such as PostgreSQL LISTEN/NOTIFY; transaction mode (6543) does not. The shared pooler username is `rideforge_app.PROJECT_REF` for the runtime role and `postgres.PROJECT_REF` for the migration owner. Use SSL mode `require` and percent-encode reserved characters in passwords.
 
-Set a password for `rideforge_app` in the Supabase SQL editor using your own generated secret, then store the resulting runtime connection string only in Render's encrypted environment variables. Use the project owner password only in `MIGRATION_DATABASE_URL`. Rotate credentials if they have ever been pasted into chat, source control or logs.
+Set `RIDEFORGE_APP_PASSWORD` to a generated value and use that same value in the runtime `DATABASE_URL`; the startup migration runner provisions the role password through the separate owner connection. Use the project owner password only in `MIGRATION_DATABASE_URL`. Store all connection strings only in Render's encrypted environment variables. Rotate credentials if they have ever been pasted into chat, source control or logs.
 
 ## Frontend build
 

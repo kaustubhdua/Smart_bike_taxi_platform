@@ -9,6 +9,7 @@ set -Eeuo pipefail
 
 runtime_database_url="${DATABASE_URL:?DATABASE_URL (private runtime role) is required}"
 migration_database_url="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL (migration owner) is required}"
+: "${RIDEFORGE_APP_PASSWORD:?RIDEFORGE_APP_PASSWORD is required to provision the runtime role}"
 
 export DATABASE_URL="$migration_database_url"
 export RIDEFORGE_MIGRATIONS_DIR=/opt/rideforge/migrations

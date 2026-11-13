@@ -20,6 +20,7 @@ services:
         condition: service_healthy
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
+      RIDEFORGE_APP_PASSWORD: ${RIDEFORGE_APP_PASSWORD:?Set RIDEFORGE_APP_PASSWORD for the private runtime database role}
       PGCONNECT_TIMEOUT: 5
     volumes:
       - ./backend/migrations:/migrations:ro
