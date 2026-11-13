@@ -50,9 +50,9 @@ async function register(req: Request) {
   const email = input.email.trim().toLowerCase();
   const displayName = input.displayName.trim();
   if (!displayName || displayName.length > 120) return fail(422, "invalid_display_name");
-  const { data, error } = await authClient.auth.signUp({
-    email, password: input.password,
-    options: { data: { display_name: displayName } },
+  const { data, error } = await admin.auth.admin.createUser({
+    email, password: input.password, email_confirm: false,
+    user_metadata: { display_name: displayName },
   });
   if (error || !data.user) return fail(409, "registration_failed");
   const { error: insertError } = await admin.from("accounts").insert({
@@ -63,9 +63,8 @@ async function register(req: Request) {
     await admin.auth.admin.deleteUser(data.user.id);
     return fail(409, "account_creation_failed");
   }
-  // Supabase Auth sends its configured confirmation email; never issue an app
-  // session until the user's email is confirmed and they sign in.
-  return reply({ status: data.session ? "registered" : "confirmation_required", email }, 201);
+  // Email confirmation is required; no bearer session is issued here.
+  return reply({ status: "confirmation_required", email }, 201);
 }
 async function login(req: Request) {
   const input = await body(req);

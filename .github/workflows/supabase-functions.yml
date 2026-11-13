@@ -1,0 +1,30 @@
+name: Supabase Edge Functions
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase-functions.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase-functions.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  edge-function-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Format check
+        run: deno fmt --check supabase/functions/rideforge-api
+      - name: Type check
+        run: deno check supabase/functions/rideforge-api/index.ts
+      - name: Unit tests
+        run: deno test supabase/functions/rideforge-api/index_test.ts
