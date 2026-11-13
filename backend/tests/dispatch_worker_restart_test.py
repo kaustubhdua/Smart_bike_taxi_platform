@@ -5,7 +5,10 @@ The backend workflow stops the original worker, prepares a persisted ride with
 an eligible driver while no dispatcher is running, starts a new worker process,
 and asks this script to verify that the new process creates the durable offer.
 """
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rf_testkit import (
     book, check, create_account, create_driver, forge_token, go_online, psql,
