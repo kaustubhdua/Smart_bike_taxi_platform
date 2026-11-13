@@ -121,7 +121,7 @@ BEGIN
     WHEN unique_violation THEN
       RAISE NOTICE 'PASS: a driver cannot receive two active offers';
   END;
-END $;
+END $$;
 
 -- Ride state events and durable notification-outbox rows must be atomic.
 INSERT INTO ride_events (ride_id, actor_id, previous_status, new_status, details)
