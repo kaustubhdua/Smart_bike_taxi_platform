@@ -48,6 +48,16 @@ test "$status" = "204"
 grep -qi 'Last-Event-ID' "$tmp_dir/sse-preflight-headers.txt"
 grep -qi '^Access-Control-Allow-Origin: http://localhost:5173' "$tmp_dir/sse-preflight-headers.txt"
 
+# Self-service profile edits use PATCH and JSON; the preflight must allow both.
+status="$(curl --silent --show-error --output "$tmp_dir/profile-preflight.txt" --dump-header "$tmp_dir/profile-preflight-headers.txt" --write-out '%{http_code}' \
+  --request OPTIONS --header 'Origin: http://localhost:5173' \
+  --header 'Access-Control-Request-Method: PATCH' \
+  --header 'Access-Control-Request-Headers: authorization,content-type' \
+  "$base_url/api/v1/me")"
+test "$status" = "204"
+grep -qi '^Access-Control-Allow-Origin: http://localhost:5173' "$tmp_dir/profile-preflight-headers.txt"
+grep -qi '^Access-Control-Allow-Methods: .*PATCH' "$tmp_dir/profile-preflight-headers.txt"
+
 # The exact driver origin is also allowed; arbitrary origins are never reflected.
 status="$(curl --silent --show-error --output "$tmp_dir/driver-preflight.txt" --dump-header "$tmp_dir/driver-preflight-headers.txt" --write-out '%{http_code}' \
   --request OPTIONS --header 'Origin: http://driver.localhost:5173' \

@@ -34,6 +34,8 @@ ROLES = ("passenger", "driver", "admin")
 # {ride} and {driver} are replaced with real identifiers. Bodies are well formed so
 # a 403 can only come from the role check, never from body validation.
 ENDPOINTS = [
+    ("GET", "/api/v1/me", set(ROLES), None),
+    ("PATCH", "/api/v1/me", set(ROLES), {"displayName": "Updated Profile"}),
     ("GET", "/api/v1/rides", {"passenger"}, None),
     ("POST", "/api/v1/rides", {"passenger"}, {"quoteId": ZERO_UUID}),
     ("POST", "/api/v1/rides/{ride}/cancel", {"passenger"}, None),
@@ -158,6 +160,41 @@ def test_token_for_unknown_or_malformed_subject_is_rejected():
         check(status == 401, "subject %r returned %s, want 401" % (sub, status))
 
 
+# ---------------------------------------------------------------- self-service profile
+
+def test_profile_read_and_update_are_scoped_to_authenticated_subject():
+    accounts = fixtures()
+    for who in ("passenger", "passenger_b", "driver", "driver_b", "admin"):
+        auth = token(accounts, who)
+        initial = request("GET", "/api/v1/me", token=auth)
+        check(initial.status == 200, "%s could not read own profile: %s" % (who, initial.status))
+        check(initial.json["id"] == accounts[who], "%s received another account's profile" % who)
+        check(initial.json["role"] == role_of(who), "%s profile has the wrong role" % who)
+        check(initial.json["email"].endswith("@example.test"), "%s profile omitted its email" % who)
+
+        display_name = "Updated " + who
+        updated = request("PATCH", "/api/v1/me", token=auth, body={"displayName": display_name})
+        check(updated.status == 200, "%s could not update own display name: %s %s"
+              % (who, updated.status, updated.text))
+        check(updated.json["id"] == accounts[who] and updated.json["displayName"] == display_name,
+              "%s update returned another profile or stale name" % who)
+        check(psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts[who]) == display_name,
+              "%s display name was not persisted" % who)
+
+    passenger_name = psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts["passenger"])
+    other_name = psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts["passenger_b"])
+    check(passenger_name == "Updated passenger" and other_name == "Updated passenger_b",
+          "updating one profile changed another account")
+
+    before = psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts["passenger"])
+    for body in ({"displayName": ""}, {"displayName": "x" * 121},
+                 {"displayName": "Valid Name", "phone": "+911234567890"}):
+        rejected = request("PATCH", "/api/v1/me", token=token(accounts, "passenger"), body=body)
+        check(rejected.status == 422, "invalid profile body %s returned %s" % (body, rejected.status))
+    check(psql("SELECT display_name FROM accounts WHERE id='%s'" % accounts["passenger"]) == before,
+          "invalid profile update changed persisted data")
+
+
 # ---------------------------------------------------------------- role matrix
 
 def test_role_matrix():
@@ -183,8 +220,10 @@ def test_role_denial_does_not_mutate_state():
     accounts = fixtures()
     before = psql("SELECT count(*) FROM accounts")
     audit_before = psql("SELECT count(*) FROM admin_audit_events")
+    create_driver_body = next(body for method, path, _, body in ENDPOINTS
+                              if method == "POST" and path == "/api/v1/admin/drivers")
     for role in ("passenger", "driver"):
-        call("POST", "/api/v1/admin/drivers", ENDPOINTS[10][3], token(accounts, role))
+        call("POST", "/api/v1/admin/drivers", create_driver_body, token(accounts, role))
         call("PUT", "/api/v1/admin/drivers/{driver}/approval", {"approved": False},
              token(accounts, role), driver=accounts["driver"])
     check(psql("SELECT count(*) FROM accounts") == before, "denied admin call created an account")
@@ -192,6 +231,15 @@ def test_role_denial_does_not_mutate_state():
           "denied admin call wrote an audit event")
     check(psql("SELECT is_approved FROM driver_profiles WHERE account_id='%s'"
                % accounts["driver"]) == "t", "denied call changed driver approval")
+
+
+def test_login_returns_stored_display_name():
+    email, account_id, _ = register(name="Login Profile")
+    logged_in = login(email)
+    check(logged_in.status == 200, "login failed after successful registration: %s" % logged_in.status)
+    check(logged_in.json["account"]["id"] == account_id, "login returned the wrong account ID")
+    check(logged_in.json["account"]["displayName"] == "Login Profile",
+          "login response omitted the stored display name")
 
 
 def test_registration_cannot_choose_a_role():
