@@ -73,6 +73,8 @@ Quote requests depend on external geocoding and road-routing services. If the pr
 
 ## Database backup/restore rehearsal (local only)
 
+**Production backup limitation:** the connected Supabase organization is on the Free plan. Automatic daily backups and PITR are not included; Supabase recommends manual exports with the CLI/pg_dump. Free projects can pause after seven days of low activity. The commands below rehearse a local Compose database only. No scheduled encrypted backup of the connected Supabase project or production restore has been verified. Before storing real passenger/driver data, configure a protected backup connection, encrypted off-site retention and a timed restore drill, or obtain explicit approval for a paid backup plan. See [Supabase Free-plan backup guidance](https://supabase.com/kb/faqs/platform/free-plan-backups) and [Database Backups](https://supabase.com/docs/guides/platform/backups).
+
 A local logical backup can be created with:
 
 ```sh
