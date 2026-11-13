@@ -22,3 +22,5 @@ build/
 build-bench/
 build-*/
 *.tsbuildinfo
+__pycache__/
+*.pyc
