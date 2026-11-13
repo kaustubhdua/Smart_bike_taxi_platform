@@ -10,12 +10,64 @@
 #include <cstdint>
 #include <mutex>
 #include <optional>
+#include <unordered_map>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 
 namespace rideforge_provider {
+
+template <typename Value>
+class TtlCache {
+public:
+    using Clock = std::chrono::steady_clock;
+
+    TtlCache(std::size_t max_entries, std::chrono::milliseconds ttl)
+        : max_entries_(max_entries), ttl_(ttl) {}
+
+    std::optional<Value> get(std::string_view key) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto it = entries_.find(std::string(key));
+        if (it == entries_.end()) return std::nullopt;
+        if (it->second.expires_at <= Clock::now()) {
+            entries_.erase(it);
+            return std::nullopt;
+        }
+        return it->second.value;
+    }
+
+    void put(std::string key, Value value) {
+        if (max_entries_ == 0 || ttl_.count() <= 0) return;
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto expires_at = Clock::now() + ttl_;
+        if (entries_.find(key) == entries_.end() && entries_.size() >= max_entries_) {
+            auto oldest = entries_.begin();
+            for (auto it = entries_.begin(); it != entries_.end(); ++it) {
+                if (it->second.expires_at < oldest->second.expires_at) oldest = it;
+            }
+            if (oldest != entries_.end()) entries_.erase(oldest);
+        }
+        entries_.insert_or_assign(std::move(key), Entry{std::move(value), expires_at});
+    }
+
+    std::size_t size() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return entries_.size();
+    }
+
+private:
+    struct Entry {
+        Value value;
+        Clock::time_point expires_at;
+    };
+
+    std::size_t max_entries_;
+    std::chrono::milliseconds ttl_;
+    mutable std::mutex mutex_;
+    std::unordered_map<std::string, Entry> entries_;
+};
 
 // Thrown when a call is refused locally (breaker open or provider saturated)
 // before any request is sent.
