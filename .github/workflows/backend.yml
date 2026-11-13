@@ -54,6 +54,7 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
+      RIDEFORGE_APP_PASSWORD: rideforge_app_test_password_32_characters_minimum
       PGHOST: localhost
       PGPORT: 5432
       PGDATABASE: rideforge_test
@@ -102,6 +103,13 @@ jobs:
         env:
           RIDEFORGE_MIGRATIONS_DIR: backend/migrations
         run: sh backend/scripts/migrate-if-needed.sh
+      - name: Verify and use the private runtime database role
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime_url="postgresql://rideforge_app:${RIDEFORGE_APP_PASSWORD}@127.0.0.1:5432/rideforge_test"
+          psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT NOT rolsuper AND rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole AND has_database_privilege(current_user,current_database(),'CONNECT') FROM pg_roles WHERE rolname=current_user" | grep -Fx t
+          echo "DATABASE_URL=$runtime_url" >> "$GITHUB_ENV"
       - name: Seed deterministic quote fixtures
         run: psql -v ON_ERROR_STOP=1 -f backend/tests/seed_quotes.sql
       - name: Start API and verify HTTP behavior
