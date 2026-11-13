@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-11-13. PR #44, PR #46, PR #49, PR #50 and PR #51 are merged. PR #49 adds migration 010 and separates migration-owner credentials from the non-superuser `rideforge_app` runtime role. PR #51 adds accept-vs-expiry and durable redispatch tests; its exact candidate `5c034885970939d4f2175e4492c2f0db6c3e32b5` passed all 13 release-readiness jobs in run `43406783109`. Main is `e39687deb5e696bccdc2bbf9a31737a2c72fd29a` after PR #51 merge; its post-merge full release-readiness workflows are running. A follow-up multi-worker uniqueness fix is in review on `fix/dispatch-one-offer-per-driver`. The Supabase schema is restored and reconciled, but Render credentials and a live application connection are still pending. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live deployment or commercial readiness is claimed.
+Last reconciled: 2026-11-13. PR #53 (dispatch uniqueness) and PR #54 (driver offer polling and portal routes) are merged. Main assessment SHA: `2c6ba631815b13feb6d3064de47765967e8db0ec`. Their exact PR candidates each passed all 13 release-readiness jobs: PR #53 run `43433243879`; PR #54 run `43432850270`. The exact-main post-merge run `43434905271` passed all 13 release-readiness jobs. Migration 011 is applied to Supabase; its runtime-role password and Render deployment credentials remain pending. Root `render.yaml` now defines adoption of the existing free-tier API and static-site services, but the Blueprint has not yet been synced. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live API deployment or commercial readiness is claimed.
 
 ## Product goal
 
@@ -13,6 +13,8 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - C++17 Boost.Beast API for database liveness (`/api/v1/health`) and schema readiness (`/api/v1/ready`), server-authoritative route quotes, passenger registration/login, persisted idempotent bookings, history/detail, cancellation, driver availability/queue/acceptance/status and protected admin metrics.
 - PostgreSQL migration 001 for accounts, profiles, rides, quotes, ride events and idempotency; migration 002 adds explicit driver approval and a transactional event notification outbox.
 - Driver queue reads are limited to approved profiles online with a location updated in the last five minutes. Availability and acceptance enforce approval.
+- Dispatch uses durable 45-second offers with expiry and sequential redispatch; migration 011 enforces one active offer per driver across concurrent workers. The driver workspace polls its queue every five seconds while online, independently of the 60-second GPS refresh.
+- The passenger portal is `/`, the driver portal is `/driver` (or a `driver.` hostname), and the protected admin portal is `/admin`; the Render static-site rewrite is defined in `render.yaml`.
 - Migration runner applies ordered SQL files and fails closed on an existing unversioned schema.
 - CI covers C++ builds/tests, API HTTP smoke behavior, PostgreSQL migration/invariant checks, frontend typecheck/build/E2E/accessibility checks, and container/Compose validation. Only runs on the exact head SHA count as release evidence.
 
@@ -78,6 +80,8 @@ Acceptance: a newly created driver cannot go online until explicitly approved; s
 - [ ] Rank eligible drivers by configured distance/ETA policy, with a provider adapter and timeout/failure behavior.
 - [x] Test duplicate, delayed and out-of-order event delivery (SSE now replays from `ride_events` on every NOTIFY hint, so a late older event is no longer dropped).
 - [x] Add a durable offer table, expiry worker and bounded automatic redispatch; offers expire after 45 seconds, and acceptance/decline require a live offer. API smoke tests cover persisted accepted/declined offer state. [ ] Add dedicated expiry/redispatch stress tests and load-test multiple worker replicas.
+- [x] Enforce one active `offered` row per driver with migration 011 and a unique partial index; add a PostgreSQL integration test that races two dispatch-worker processes across 12 rides/four drivers.
+- [x] Refresh the online driver's offer queue every five seconds, independently of GPS refresh, so the UI can see 45-second offers before expiry. Playwright verifies the polling cadence.
 
 Acceptance: passenger and driver converge on the same persisted ride state after refresh, disconnect, reconnect and duplicate events.
 
@@ -87,6 +91,7 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
 - [x] Add passenger trip history with final fare/completion timestamps and a printable demo receipt, plus driver trip history and gross completed-fare summary (not a payout ledger).
 - [x] Add passenger/driver support reporting and admin triage UI.
+- [x] Add same-origin `/driver` and `/admin` portal entry points and browser coverage; the Render SPA fallback rewrite is part of the deployment Blueprint.
 - [ ] Finish broader empty/error/offline UX review and manual accessibility sign-off.
 - [ ] Ensure no fabricated success when the API/provider is unavailable.
 - [ ] Complete mobile/browser QA and WCAG 2.2 AA review.
@@ -96,6 +101,7 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 ## Phase 5 — reliability, privacy and deployment
 
 - [x] Add a schema-aware `/api/v1/ready` probe and use it for the Compose API healthcheck.
+- [x] Add `render.yaml` to adopt the existing free-tier `rideforge-api-final` and `rideforge-web` services, deploy from `main` only after checks pass, and rewrite SPA paths to `/index.html`. [ ] Create/review/approve the Render Blueprint sync and enter the Supabase runtime/migration secrets.
 - [x] Add generated request IDs to API/SSE responses and redact raw quote-provider/database exception text.
 - [x] Add backup/restore scripts, a CI recovery smoke test, and schema-readiness failure-path coverage.
 - [x] Add structured redacted request-completion logs, correlation IDs, SIGTERM/SIGINT handling, and bounded graceful draining.
