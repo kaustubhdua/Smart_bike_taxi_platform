@@ -42,7 +42,7 @@ A plain `docker compose down` preserves the named database volume. Do not remove
 
 - Migrations are ordered SQL files named with a stable version prefix.
 - Each migration records its version inside its own transaction.
-- Public-schema function execution is opt-in: browser roles and `service_role` receive no application-function `EXECUTE` rights by default. Grant function execution explicitly only when a reviewed API contract requires it.
+- For functions created by the RideForge migration owner, public-schema `EXECUTE` is revoked from PUBLIC, anon, authenticated and service_role by default; existing RideForge application functions are not directly executable by those roles. Supabase-managed `supabase_admin` default ACLs are left unchanged, so do not create RideForge application functions as that managed role. Supabase `service_role` retains its standard broad table privileges and BYPASSRLS; it is server-only and its key must never be exposed to a browser.
 - Re-running the migration runner skips versions already recorded.
 - If an accounts table exists without schema_migrations, the runner fails closed. Back up the database and deliberately baseline its schema; do not bypass the check casually.
 - Before production schema changes, take a verified backup, test the migration on a copy, and prepare a rollback/recovery plan. Destructive migrations require a separate reviewed plan.
@@ -74,7 +74,7 @@ Quote requests depend on external geocoding and road-routing services. If the pr
 
 ## Database backup/restore rehearsal (local only)
 
-**Production backup limitation:** the connected Supabase organization is on the Free plan. Automatic daily backups and PITR are not included; Supabase recommends manual exports with the CLI/pg_dump. Free projects can pause after seven days of low activity. The commands below rehearse a local Compose database only. No scheduled encrypted backup of the connected Supabase project or production restore has been verified. Before storing real passenger/driver data, configure a protected backup connection, encrypted off-site retention and a timed restore drill, or obtain explicit approval for a paid backup plan. See [Supabase Free-plan backup guidance](https://supabase.com/kb/faqs/platform/free-plan-backups) and [Database Backups](https://supabase.com/docs/guides/platform/backups).
+**Production backup limitation:** the connected Supabase organization is on the Free plan, so automatic daily backups and PITR are not included. PR #76 adds a daily encrypted GitHub Actions export of the RideForge `public` schema, but it is not active until the dedicated backup role and repository secrets are configured. No successful encrypted backup run, independent off-site retention or production restore drill has been verified. Supabase recommends CLI-based exports and off-site storage for full project backups; this workflow deliberately excludes managed Auth/Storage schemas and global roles. Do not accept real passenger/driver data until a successful backup and isolated restore drill are recorded. See [Supabase Free-plan backup guidance](https://supabase.com/kb/faqs/platform/free-plan-backups) and [Database Backups](https://supabase.com/docs/guides/platform/backups).
 
 A local logical backup can be created with:
 
@@ -143,7 +143,7 @@ The `Supabase encrypted backup` workflow runs daily at 02:30 UTC and can also be
 
 ### Supabase Free manual logical backup (operator-run)
 
-The connected production project is on the Free plan, so this is a manual operator task until a protected schedule and off-site destination are configured. Use the exact **Session pooler** connection string from Supabase Connect (port 5432), with the restricted `rideforge_app` login and a credential that has been verified. Do not use transaction pooling for `pg_dump`. Keep the URL and encryption passphrase in a private shell/session; never commit them or paste them into chat.
+The connected production project is on the Free plan. Until the PR #76 workflow is activated, an operator can run a manual export with the dedicated `rideforge_backup` role after deliberately enabling LOGIN and setting its password as described above. Use the exact **Session pooler** connection string from Supabase Connect (port 5432), username `rideforge_backup.<PROJECT_REF>`, TLS required, and the `RIDEFORGE_BACKUP_DATABASE_URL` secret. Do not use transaction pooling for `pg_dump`. Keep the URL and encryption passphrase in a private shell/session; never commit them or paste them into chat.
 
 ```sh
 set -eu
