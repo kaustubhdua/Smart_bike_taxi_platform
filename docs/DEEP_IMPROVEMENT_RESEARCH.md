@@ -39,7 +39,7 @@ Implemented or documented in this branch:
 ## Remaining release gaps — reviewed 2026-11-05
 The following are not claimed as complete merely because the relevant code or workflow exists:
 - Deterministic PostgreSQL race coverage for simultaneous accepts, accept-vs-expiry, cancellation, worker restart/duplicate execution, and cross-account/role authorization.
-- The API now has a bounded process-local PostgreSQL connection pool (12 connections per API process, 2-second acquisition timeout, rollback/session reset before reuse). Remaining work: test saturation under representative concurrency and budget aggregate connections across API replicas plus workers; this is not a shared cross-replica pool.
+- The API now has a bounded process-local PostgreSQL connection pool (10 connections per API process, 2-second acquisition timeout, rollback/session reset before reuse). Remaining work: test saturation under representative concurrency and budget aggregate connections across API replicas plus workers; this is not a shared cross-replica pool.
 - Dispatch matching based on real road ETA and fresh driver locations; current eligibility and sequential offer logic is not a fully optimized commercial matching engine.
 - Production routing/geocoding provider and terms. Public Nominatim/OSRM endpoints are evaluation defaults, not a production SLA.
 - Commercial payment processing, refunds, reconciliation, driver payouts, and real SMS/push delivery are not implemented as verified end-to-end provider flows. Demo receipts are not payment proof.
