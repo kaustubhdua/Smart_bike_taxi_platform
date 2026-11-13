@@ -7,6 +7,7 @@ REVOKE DELETE ON ALL TABLES IN SCHEMA public FROM rideforge_app;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.schema_migrations FROM rideforge_app;
 REVOKE UPDATE, DELETE ON TABLE public.admin_audit_events FROM rideforge_app;
 REVOKE UPDATE, DELETE ON TABLE public.ride_events FROM rideforge_app;
+REVOKE UPDATE, DELETE ON TABLE public.driver_ride_declines FROM rideforge_app;
 
 -- Keep future tables from inheriting the broad DELETE grant introduced by the
 -- original role bootstrap migrations. Explicit per-table grants can be added
