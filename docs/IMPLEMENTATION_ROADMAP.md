@@ -43,13 +43,13 @@ Acceptance: every required current-head check is green; migrations 001–005 app
 
 ## Phase 1 — transactional API and security
 
-- [ ] Expand cross-account and cross-role authorization tests for every protected endpoint.
-- [ ] Test same-key booking retries, payload conflicts, expired/consumed quotes, cancellation races and concurrent driver acceptance.
-- [ ] Verify event rows and outbox rows commit/rollback together.
+- [x] Expand cross-account and cross-role authorization tests for every protected endpoint (`backend/tests/authz_matrix_test.py`; a guard fails CI if a protected OpenAPI operation is missing from the matrix).
+- [x] Test same-key booking retries, payload conflicts, expired/consumed quotes, cancellation races and concurrent driver acceptance (`backend/tests/concurrency_test.py`, real PostgreSQL).
+- [x] Verify event rows and outbox rows commit/rollback together (`backend/tests/outbox_events_test.py`).
 - [x] Implement a bounded per-process PostgreSQL connection pool (12 connections, 2-second acquisition timeout, rollback/session reset before reuse). [ ] Verify pool behavior under concurrent load and budget aggregate connections before horizontal scaling; a per-process pool is not shared across replicas.
-- [ ] Make account deactivation/revocation take effect promptly; document the short-lived token model.
-- [ ] Add distributed rate limits before horizontally scaling.
-- [ ] Review malformed JSON, oversized headers/bodies, route path parsing, SQLSTATE mapping, and safe error/log behavior.
+- [x] Make account deactivation/revocation take effect promptly (per-request active/role check, ≤5 s cache, fails closed); the short-lived token model is documented in `docs/HARDENING_AND_TESTING.md`.
+- [ ] Add distributed rate limits before horizontally scaling. (Per-process limits, trusted-proxy client-IP resolution, IPv6 /64 keys and a per-account login throttle are in place and tested; they are not shared across replicas.)
+- [ ] Review malformed JSON, oversized headers/bodies, route path parsing, SQLSTATE mapping, and safe error/log behavior. (Malformed IDs, oversized bodies and 4xx-not-5xx are now tested; a full SQLSTATE-mapping review is still open.)
 - [ ] Add least-privilege runtime database roles; [x] dependency audit, CodeQL and CRITICAL/HIGH container image scans pass on the recorded SHA.
 
 Acceptance: adversarial integration tests pass and no client can read or mutate another account's ride.
@@ -76,7 +76,7 @@ Acceptance: a newly created driver cannot go online until explicitly approved; s
 - [x] Persist driver-specific decline decisions and test that declining never cancels the passenger's booking.
 - [x] Refresh driver coordinates while online with movement-aware updates and a 30-second freshness heartbeat; clear stored coordinates and timestamp when going offline/logout. [ ] Define and verify a retention/deletion policy for account data.
 - [ ] Rank eligible drivers by configured distance/ETA policy, with a provider adapter and timeout/failure behavior.
-- [ ] Test duplicate, delayed and out-of-order event delivery.
+- [x] Test duplicate, delayed and out-of-order event delivery (SSE now replays from `ride_events` on every NOTIFY hint, so a late older event is no longer dropped).
 - [x] Add a durable offer table, expiry worker and bounded automatic redispatch; offers expire after 45 seconds, and acceptance/decline require a live offer. API smoke tests cover persisted accepted/declined offer state. [ ] Add dedicated expiry/redispatch stress tests and load-test multiple worker replicas.
 
 Acceptance: passenger and driver converge on the same persisted ride state after refresh, disconnect, reconnect and duplicate events.

@@ -37,7 +37,7 @@ jobs:
         dispatch_radius_km: [5, 20]
     name: API smoke (dispatch radius ${{ matrix.dispatch_radius_km }} km)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16
@@ -148,6 +148,22 @@ jobs:
           grep -q '"event":"http_request_completed"' /tmp/rideforge-api.log
           grep -q '"requestId":' /tmp/rideforge-api.log
           grep -q '"durationMs":' /tmp/rideforge-api.log
+          # Integration suites that need the running API, both workers and PostgreSQL.
+          # They run after the smoke test on purpose: it assumes an empty database, while
+          # these suites create their own accounts and tolerate leftover rows.
+          export RIDEFORGE_API_BIN="$PWD/build-backend/rideforge_api"
+          export RIDEFORGE_TEST_BASE_URL=http://127.0.0.1:8080
+          for suite in authz_matrix concurrency outbox_events abuse_controls; do
+            echo "::group::${suite}"
+            if ! python3 -I "backend/tests/${suite}_test.py"; then
+              echo "::endgroup::"
+              echo "::error::${suite} failed. Recent API, outbox and dispatch logs follow."
+              tail -n 200 /tmp/rideforge-api.log
+              tail -n 50 /tmp/rideforge-outbox.log /tmp/rideforge-dispatch.log
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
           kill -TERM "$api_pid"
           if ! wait "$api_pid"; then
             echo "API did not shut down cleanly:"
