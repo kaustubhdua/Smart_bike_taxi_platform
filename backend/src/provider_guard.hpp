@@ -7,12 +7,12 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <mutex>
 #include <optional>
-#include <unordered_map>
-#include <optional>
 #include <stdexcept>
+#include <unordered_map>
 #include <string>
 #include <string_view>
 #include <utility>
