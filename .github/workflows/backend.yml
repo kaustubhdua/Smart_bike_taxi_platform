@@ -124,7 +124,7 @@ jobs:
           python3 backend/tests/mock_routing_provider.py > /tmp/rideforge-provider.log 2>&1 &
           provider_pid=$!
           for attempt in $(seq 1 10); do
-            if curl --silent --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null; then
+            if curl --silent --fail --get --data-urlencode 'q=Readiness, Noida, Uttar Pradesh, India' 'http://127.0.0.1:8090/search' >/dev/null; then
               break
             fi
             sleep 1
