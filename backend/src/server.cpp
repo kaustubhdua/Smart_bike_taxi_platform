@@ -2529,6 +2529,12 @@ int main() {
                 rideforge_provider::default_pacing_for(
                     env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search"))),
             std::chrono::milliseconds(3000));
+        routing_guard.pacing.configure(
+            rideforge_provider::parse_pacing_interval(
+                env_or("RIDEFORGE_ROUTING_MIN_INTERVAL_MS", ""),
+                rideforge_provider::default_pacing_for(
+                    env_or("RIDEFORGE_ROUTING_URL", "https://router.project-osrm.org/route/v1/driving"))),
+            std::chrono::milliseconds(3000));
     } catch (const std::exception&) {
         std::cerr << "{\"event\":\"invalid_provider_pacing_configuration\"}\n";
         return 2;
