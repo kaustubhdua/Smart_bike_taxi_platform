@@ -21,7 +21,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 - Supabase schema, both migration ledgers, RLS state and runtime-role privilege boundaries were verified read-only.
 - Main SHA `e07cff3` is the current repository head. Its push-triggered C++ build, API smoke, PostgreSQL migration/recovery, container, vulnerability, web and full release-readiness runs were observed queued; no fresh successful full-suite result is established for this SHA.
-- PRs #64, #65 and #67–71 are merged. PR #66 is closed without merge and remains deferred. PR #72 refreshes release documentation; PR #73 adds positive configuration validation and saturating counters to the rate limiter. Exact-head checks for PR #73 have not been observed passing.
+- PRs #64, #65 and #67–71 are merged. PR #66 is closed without merge and remains deferred. PR #72 refreshes release documentation; PR #73 adds positive configuration validation and saturating counters to the rate limiter; PR #74 adds transparent integer fare breakdowns and boundary tests. Exact-head checks for PRs #73–74 have not been observed passing.
 - PR #69's migration 013 is in `main`, but production application of migration 013 has not been verified. Do not claim the live Supabase sequence privilege reduction is complete until read-only verification confirms it.
 - GitHub reports `main` unprotected. Issue #17 remains an administrator action; the available integration cannot write branch-protection/ruleset settings.
 - PR #66 remains intentionally deferred. No Render deployment or Vercel deployment is being performed in this phase; merges to `main` may trigger the existing Render auto-deploy.
@@ -33,8 +33,8 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 | Status | Tasks |
 |---|---:|
 | VERIFIED | 5 |
-| IMPLEMENTED | 35 |
-| PARTIAL | 45 |
+| IMPLEMENTED | 36 |
+| PARTIAL | 44 |
 | BLOCKED | 7 |
 | NOT STARTED | 7 |
 | DEFERRED | 1 |
@@ -45,7 +45,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
-| 1 | Audit branches, PRs, issues, commits, packages, directories and configuration | PARTIAL | Engineering | Main tree, current PRs #72–73 and open issues #2, #3, #10 and #17 reviewed; historical inventory recorded 69 branches and four orphan branches. Full commit/package/configuration history and a complete dead-code sweep remain |
+| 1 | Audit branches, PRs, issues, commits, packages, directories and configuration | PARTIAL | Engineering | Main tree, current PRs #72–74 and open issues #2, #3, #10 and #17 reviewed; historical inventory recorded 69 branches and four orphan branches. Full commit/package/configuration history and a complete dead-code sweep remain |
 | 2 | Source-of-truth architecture document | IMPLEMENTED | Engineering | `docs/ARCHITECTURE.md` in PR #67; merge and review against final deployment choice |
 | 3 | Define passenger, driver, admin and support scope | PARTIAL | Engineering | API/UI scope documented; product acceptance and support operating model still need sign-off |
 | 4 | Remove duplicate implementations and configuration paths | PARTIAL | Engineering | Active Vite entrypoint identified; complete duplicate/dead-code sweep remains |
