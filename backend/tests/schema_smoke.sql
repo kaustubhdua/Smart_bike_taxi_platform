@@ -37,7 +37,8 @@ BEGIN
   END IF;
   IF has_function_privilege('anon','public.enqueue_ride_event_notification()','EXECUTE')
      OR has_function_privilege('authenticated','public.enqueue_ride_event_notification()','EXECUTE')
-     OR has_function_privilege('service_role','public.enqueue_ride_event_notification()','EXECUTE') THEN
+     OR (EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role')
+         AND has_function_privilege('service_role','public.enqueue_ride_event_notification()','EXECUTE')) THEN
     RAISE EXCEPTION 'browser and service roles must not execute application trigger functions';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_authid WHERE rolname='rideforge_backup'
