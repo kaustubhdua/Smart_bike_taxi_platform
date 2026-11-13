@@ -9,15 +9,15 @@ This report distinguishes repository implementation and automated CI from eviden
 
 ## Repository refresh — 2026-11-14
 
-The current GitHub `main` branch is `e07cff31886e5bf32eaa4b052480221e55c6e44a`. PRs #64, #65, #67, #68, #69, #70 and #71 are merged. PR #66 remains closed without merge and is deferred. PR #72 is the documentation refresh; PR #73 is the open rate-limiter follow-up.
+The current GitHub `main` branch is `e07cff31886e5bf32eaa4b052480221e55c6e44a`. PRs #64, #65, #67, #68, #69, #70 and #71 are merged. PR #66 remains closed without merge and is deferred. PR #72 is the documentation refresh; PR #73 is the rate-limiter follow-up; PR #74 adds a transparent demo fare breakdown.
 
 PR #69's migration 013 is now present in `main`; the earlier live-database observation was at migration 012. No post-merge evidence proves migration 013 has been applied to Supabase. Treat the live sequence privilege state as unverified until an operator applies the migration through the approved migration process and verifies the result read-only.
 
-The current-main push workflows for SHA `e07cff3` were observed queued, not passed. PR #71 merged the bounded per-IP key table and deterministic concurrent same-key/capacity tests. Follow-up changes in PR #73 add positive configuration validation and saturating counters to prevent unsigned wraparound; its exact-head CI must pass before merge. Do not merge based on queued checks.
+The current-main push workflows for SHA `e07cff3` were observed queued, not passed. PR #71 merged the bounded per-IP key table and deterministic concurrent same-key/capacity tests. Follow-up changes in PR #73 add positive configuration validation and saturating counters to prevent unsigned wraparound. PR #74 extracts the integer demo tariff, exposes base/distance components, validates them in the web client and adds boundary tests. Exact-head CI for PRs #73–74 must pass before merge. Do not merge based on queued checks.
 
 The branch-protection issue #17 remains open: GitHub reports `main` as unprotected, and the available repository integration cannot configure branch protection/rulesets. The administrator must enable PR-only changes, required checks, and force-push/deletion protection.
 
-PR #72 refreshes this evidence and the 100-point matrix. All previously documented external release blockers remain: no verified healthy API deployment, no production runtime-credential authentication proof, no encrypted scheduled off-site backup or production restore drill, no external two-device ride journey, no real payment provider, no driver/vehicle verification process, and no transport-authority/legal approval. Render auto-deploys from `main`; keep merges and deployments separate until the hosting decision and deployment guard are explicitly resolved.
+PR #72 refreshes this evidence and the 100-point matrix; PR #74's fare breakdown is represented in the open implementation PR and is not yet part of `main`. All previously documented external release blockers remain: no verified healthy API deployment, no production runtime-credential authentication proof, no encrypted scheduled off-site backup or production restore drill, no external two-device ride journey, no real payment provider, no driver/vehicle verification process, and no transport-authority/legal approval. Render auto-deploys from `main`; keep merges and deployments separate until the hosting decision and deployment guard are explicitly resolved.
 
 ## Latest merged upgrades — PR #53 and PR #54
 
