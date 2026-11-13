@@ -303,6 +303,14 @@ The DPDP Act and Rules were notified with phased commencement, so compliance mus
 - https://www.meity.gov.in/static/uploads/2025/11/c56ceae6c383460ca69577428d36828b.pdf
 - https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf?v=20261027115856
 
+### Supabase production database verification — 2026-11-14
+
+A read-only check against the existing `rideforge-production` project (ACTIVE_HEALTHY, PostgreSQL 17.11, `ap-south-1`) confirms the live migration ledger contains versions 001–012 only. Migration 013, which is present in repository `main`, is **not applied**. A direct privilege check confirms `rideforge_app` still has UPDATE on all five public sequences: `admin_audit_events_id_seq`, `ride_event_outbox_id_seq`, `ride_events_id_seq`, `ride_offers_id_seq` and `support_reports_id_seq`. The correct check is `has_sequence_privilege(..., 'UPDATE')`; an earlier information-schema query did not report UPDATE and must not be used as evidence that the privilege was revoked. Do not mark this gate complete.
+
+The same read-only check confirms all 12 public application tables have RLS enabled, zero public tables lack RLS, and `anon`/`authenticated` have zero table grants. The 12 Supabase `rls_enabled_no_policy` INFO findings are expected under this deliberate server-only model; do not add permissive policies just to silence them. The organization is on the Free plan. The performance advisor reports 21 unused indexes; with no representative production workload, do not remove them solely on that basis.
+
+Migration 013 is a narrow least-privilege change (revoke UPDATE on existing sequences and revoke it from future default privileges). It should be applied through the approved migration process after a backup/recovery decision and operator authorization, then verified with the Supabase migration ledger and `has_sequence_privilege` checks. No live DDL was executed during this audit.
+
 ### Backup and restore decision
 
 Supabase's current documentation says Free projects do not receive automatic daily backups; it recommends regular exports with the Supabase CLI `db dump` command and off-site storage. Therefore the existing local/CI backup-restore tests do not satisfy the operational recovery gate. Before real personal data is accepted, schedule encrypted off-site exports, verify integrity and access controls, define retention and deletion, and perform a timed restore to an isolated project. Record recovery point and recovery time actually achieved; do not invent an RPO/RTO. Source: https://supabase.com/docs/guides/platform/backups
