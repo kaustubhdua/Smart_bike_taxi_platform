@@ -233,6 +233,15 @@ def test_role_denial_does_not_mutate_state():
                % accounts["driver"]) == "t", "denied call changed driver approval")
 
 
+def test_login_returns_stored_display_name():
+    email, account_id, _ = register(name="Login Profile")
+    logged_in = login(email)
+    check(logged_in.status == 200, "login failed after successful registration: %s" % logged_in.status)
+    check(logged_in.json["account"]["id"] == account_id, "login returned the wrong account ID")
+    check(logged_in.json["account"]["displayName"] == "Login Profile",
+          "login response omitted the stored display name")
+
+
 def test_registration_cannot_choose_a_role():
     email, _, _ = register()
     for extra in ({"role": "admin"}, {"role": "driver"}, {"isActive": False}):
