@@ -57,7 +57,7 @@ The table below is retained for history and is superseded by the current evidenc
 | Authorization and abuse controls | Adversarial tests merged | Distributed limits and independent security review |
 | Dispatch | Durable 45-second offers, expiry/redispatch, one-active-offer-per-driver unique index, two-worker PostgreSQL regression test | Production-scale worker stress, restart/recovery and sustained load metrics |
 | Outbox/SSE | Persisted replay and fault tests merged | Real reconnect/load metrics, alerts and production resynchronization |
-| PostgreSQL | 12-connection per-process pool, migration/recovery tests, Supabase-verified restricted runtime role/grants, and one-active-offer-per-driver database constraint | Runtime password/Render connection, aggregate connection budget, saturation tests and production restore drill |
+| PostgreSQL | 10-connection per-process pool, migration/recovery tests, Supabase-verified restricted runtime role/grants, and one-active-offer-per-driver database constraint | Runtime password/Render connection, aggregate connection budget, saturation tests and production restore drill |
 | Web | Passenger, driver and admin workspaces; `/driver` and `/admin` paths; five-second driver queue polling; 37 Playwright tests passed | Manual Android/iOS, keyboard/screen-reader and WCAG 2.2 AA sign-off; push/SMS notifications remain unimplemented |
 | Routing | Provider guards and deterministic mock tests | Contracted/self-hosted provider, production-wide cache and global rate limits |
 | Deployment | Render Blueprint configuration for existing free-tier services; Supabase schema ready | Blueprint adoption/sync, runtime credentials, healthy API deployment, HTTPS journey, monitoring and restore drill |
