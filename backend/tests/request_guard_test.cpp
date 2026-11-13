@@ -1,10 +1,13 @@
 #include "../src/request_guard.hpp"
 
 #include <cassert>
+#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <thread>
+#include <vector>
 
 using rideforge_guard::FailureThrottle;
 using rideforge_guard::RateLimiter;
@@ -145,6 +148,41 @@ void request_rate_limiter() {
     assert(!limiter.allow("client-a", t0 + std::chrono::seconds(64)));
 }
 
+
+void concurrent_request_rate_limiter() {
+    using clock = RateLimiter::clock;
+    const auto t0 = clock::now();
+
+    // Concurrent requests for one key must never exceed its configured allowance.
+    RateLimiter shared_key(100, 16, std::chrono::seconds(60));
+    std::atomic<unsigned> accepted{0};
+    std::vector<std::thread> workers;
+    for (unsigned worker = 0; worker < 8; ++worker) {
+        workers.emplace_back([&] {
+            for (unsigned request = 0; request < 100; ++request) {
+                if (shared_key.allow("one-client", t0)) ++accepted;
+            }
+        });
+    }
+    for (auto& worker : workers) worker.join();
+    assert(accepted.load() == 100);
+    assert(shared_key.size() == 1);
+
+    // Concurrent unique keys must respect the hard capacity, independent of
+    // thread scheduling. No key expires during this fixed-time test.
+    RateLimiter bounded(10, 8, std::chrono::seconds(60));
+    std::atomic<unsigned> admitted{0};
+    workers.clear();
+    for (unsigned client = 0; client < 32; ++client) {
+        workers.emplace_back([&, client] {
+            if (bounded.allow("client-" + std::to_string(client), t0)) ++admitted;
+        });
+    }
+    for (auto& worker : workers) worker.join();
+    assert(admitted.load() == 8);
+    assert(bounded.size() == 8);
+}
+
 void failure_throttle() {
     using clock = FailureThrottle::clock;
     const auto t0 = clock::now();
@@ -193,6 +231,7 @@ int main() {
     client_resolution();
     limiter_keys();
     request_rate_limiter();
+    concurrent_request_rate_limiter();
     failure_throttle();
     std::cout << "Request guard tests passed\n";
 }
