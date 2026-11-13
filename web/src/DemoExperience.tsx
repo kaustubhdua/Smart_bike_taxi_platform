@@ -12,10 +12,28 @@ type DemoRide = {
 const storageKey = "rideforge-demo-rides-v1";
 const places = ["JIIT Sector 128", "Botanical Garden Metro", "Sector 18 Market", "Noida City Centre", "Sector 62"];
 
+const validStatuses = new Set<DemoRide["status"]>([
+  "Searching", "Driver assigned", "In progress", "Completed", "Cancelled",
+]);
+
+function isDemoRide(value: unknown): value is DemoRide {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const ride = value as Record<string, unknown>;
+  return typeof ride.id === "string" && ride.id.length > 0 && ride.id.length <= 80 &&
+    typeof ride.pickup === "string" && places.includes(ride.pickup) &&
+    typeof ride.destination === "string" && places.includes(ride.destination) &&
+    ride.pickup !== ride.destination &&
+    typeof ride.fare === "number" && Number.isFinite(ride.fare) && ride.fare >= 0 && ride.fare <= 100000 &&
+    typeof ride.status === "string" && validStatuses.has(ride.status as DemoRide["status"]) &&
+    typeof ride.createdAt === "string" && ride.createdAt.length > 0 && ride.createdAt.length <= 100;
+}
+
 function readRides(): DemoRide[] {
   try {
     const value: unknown = JSON.parse(window.localStorage.getItem(storageKey) || "[]");
-    return Array.isArray(value) ? value as DemoRide[] : [];
+    // Browser storage is user-editable and may contain stale or malformed data.
+    // Keep only bounded, schema-valid demo records; never trust a type assertion.
+    return Array.isArray(value) ? value.filter(isDemoRide).slice(0, 100) : [];
   } catch { return []; }
 }
 
@@ -27,7 +45,11 @@ export default function DemoExperience() {
   const [message, setMessage] = useState("This is a self-contained simulation. No account or database is required.");
 
   useEffect(() => {
-    window.localStorage.setItem(storageKey, JSON.stringify(rides));
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(rides.slice(0, 100)));
+    } catch {
+      setMessage("Browser storage is unavailable. Demo history may not persist after this session.");
+    }
   }, [rides]);
 
   const active = rides.filter(r => !["Completed", "Cancelled"].includes(r.status));
