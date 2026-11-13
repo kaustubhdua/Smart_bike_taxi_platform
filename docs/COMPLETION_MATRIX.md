@@ -21,7 +21,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 - Supabase schema, both migration ledgers, RLS state and runtime-role privilege boundaries were verified read-only.
 - Main SHA `b4f91bc` has a failed full release-readiness run: API smoke failed on a non-base64 CI password placeholder and web tests used textbox locators for datalist comboboxes.
-- PR #64 contains CI-only fixes; PR #65 contains demo/live separation and active browser-test fixes; PR #68 contains display-name profile management; PR #67 contains documentation updates. Their current exact-head checks are queued, not passed.
+- PR #64 contains CI-only fixes; PR #65 contains demo/live separation and active browser-test fixes; PR #68 contains display-name profile management; PR #67 contains documentation updates; PR #69 removes unnecessary sequence UPDATE privilege; PR #70 hardens backup/restore URI handling; PR #71 bounds per-IP rate-limiter memory. Their current exact-head checks are queued, not passed.
 - PR #66 is Render-specific and deferred; no Render deployment or Vercel deployment is being performed in this phase.
 - Supabase is on the Free plan: no automatic daily backup/PITR; no production backup/restore drill has been verified.
 - Commercial operations are not authorised.
@@ -95,7 +95,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 | 43 | Strict request validation and size limits | IMPLEMENTED | Engineering | Body limits and route-specific validation exist; fuzz/property tests remain |
 | 44 | Role-based authorization | IMPLEMENTED | Engineering | Passenger/driver/admin checks and authorization matrix tests exist; exact-head execution pending |
 | 45 | Object-level authorization | IMPLEMENTED | Engineering | SQL queries scope by authenticated subject; cross-account tests exist; exact-head execution pending |
-| 46 | Rate limiting | PARTIAL | Engineering | Authentication, quote and support limits are process-local; distributed limits are required before horizontal scaling |
+| 46 | Rate limiting | PARTIAL | Engineering | Authentication, quote and support limits are process-local; PR #71 adds a bounded per-IP key table, but exact-head tests and distributed limits remain |
 | 47 | Idempotency and safe retries | PARTIAL | Engineering | Booking idempotency and durable outbox retry exist; provider/payment retries and all mutation boundaries need review |
 | 48 | External-service timeouts and failure handling | IMPLEMENTED | Engineering | Curl connect/total timeouts, bounded response and provider circuit breaker exist; provider SLA not guaranteed |
 | 49 | API versioning and compatibility | PARTIAL | Engineering | `/api/v1` exists; automated backwards-compatibility contract tests need expansion |
@@ -112,9 +112,9 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 | 55 | Runtime database connection configuration | BLOCKED | User / Engineering | Exact runtime host/credential authentication from an application process is not proven; deployment later |
 | 56 | Synchronize and prove runtime-role credentials | BLOCKED | User / Engineering | Password verifier exists but secret is not retrievable; never paste credentials into chat |
 | 57 | RLS and browser-role exposure | VERIFIED | Engineering | RLS enabled on all 12 tables; zero policies intentionally; anon/authenticated have no table CRUD grants |
-| 58 | Database least privilege | VERIFIED | Engineering | Runtime has no DELETE/TRUNCATE; schema migration ledger is SELECT-only; append-only records are not updateable |
+| 58 | Database least privilege | PARTIAL | Engineering | Runtime has no DELETE/TRUNCATE and append-only records are protected, but it still has unnecessary UPDATE on five sequences; PR #69 removes this and awaits CI/production migration sequencing |
 | 59 | Query/index performance | PARTIAL | Engineering | 21 unused-index notices retained because workload is negligible; EXPLAIN and load evidence remain |
-| 60 | Production backup and restore | BLOCKED | User / Engineering | Supabase Free has no automatic daily backups/PITR; no encrypted scheduled export or production restore drill |
+| 60 | Production backup and restore | BLOCKED | User / Engineering | Supabase Free has no automatic daily backups/PITR; PR #70 hardens local backup/restore URI handling, but no encrypted scheduled export or production restore drill exists |
 
 ## 7. Payments, pricing and financial correctness
 
@@ -165,7 +165,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
-| 91 | Reliable CI pipeline | BLOCKED | GitHub / Engineering | Exact-head workflows are queued; main SHA b4f91bc failed API smoke and web tests; PR #64 fixes are pending |
+| 91 | Reliable CI pipeline | BLOCKED | GitHub / Engineering | Exact-head workflows for PRs #64–71 are queued; main SHA b4f91bc failed API smoke and web tests; CI fixes are pending |
 | 92 | Meaningful required checks | IMPLEMENTED | Engineering | C++, sanitizer, PostgreSQL, API, web, CodeQL, dependency and container scan jobs exist; exact-head pass pending |
 | 93 | Unit/component tests | IMPLEMENTED | Engineering | Fare, provider, security and frontend tests exist; exact-head CI pending |
 | 94 | Integration tests | IMPLEMENTED | Engineering | PostgreSQL, API, outbox and authz integration suites exist; exact-head CI pending |
@@ -173,7 +173,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 | 96 | Concurrency and recovery tests | IMPLEMENTED | Engineering | 14 PostgreSQL concurrency tests plus worker restart test exist; exact-head execution pending |
 | 97 | Deployment verification | DEFERRED | User / Engineering | User will configure Vercel later; C++ API/worker compute host still needs a decision |
 | 98 | Observability and runbooks | PARTIAL | Engineering | Structured logs, request IDs, admin metrics and runbook exist; external monitoring/alerts/on-call not configured |
-| 99 | Load, resilience and recovery exercises | PARTIAL | Engineering | Concurrency tests and local restore smoke exist; representative load, Supabase backup restore and recovery objectives absent |
+| 99 | Load, resilience and recovery exercises | PARTIAL | Engineering | Concurrency tests and local backup/restore smoke (PR #70) exist; representative load, Supabase production backup restore and recovery objectives are absent |
 | 100 | Final release evidence package | PARTIAL | Engineering / User | Architecture, runbook, security/compliance and this matrix exist; exact CI, deployed SHA, live screenshots/video and sign-off remain |
 
 ## Readiness assessment
