@@ -43,6 +43,8 @@ namespace {
 
 struct Account {
     std::string id;
+    std::string email;
+    std::string display_name;
     std::string role;
     std::string password_hash;
     bool active{};
@@ -450,7 +452,7 @@ public:
     std::optional<Account> find_account(const std::string& email) {
         const char* params[] = {email.c_str()};
         PGresult* result = PQexecParams(connection_,
-            "SELECT id::text,role::text,password_hash,is_active FROM accounts WHERE email=$1",
+            "SELECT id::text,email,display_name,role::text,password_hash,is_active FROM accounts WHERE email=$1",
             1, nullptr, params, nullptr, nullptr, 0);
         if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
             if (result != nullptr) PQclear(result);
@@ -461,7 +463,8 @@ public:
             return std::nullopt;
         }
         Account account{PQgetvalue(result, 0, 0), PQgetvalue(result, 0, 1),
-                        PQgetvalue(result, 0, 2), std::string(PQgetvalue(result, 0, 3)) == "t"};
+                        PQgetvalue(result, 0, 2), PQgetvalue(result, 0, 3),
+                        PQgetvalue(result, 0, 4), std::string(PQgetvalue(result, 0, 5)) == "t"};
         PQclear(result);
         return account;
     }
@@ -469,6 +472,55 @@ public:
     // Current role and activation state for an account id taken from a verified
     // token. A signed token proves who we issued it to, not that the account is
     // still allowed to act or still holds the same role.
+    json account_profile(const std::string& id) {
+        const char* params[] = {id.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "SELECT id::text,email,display_name,role::text FROM accounts "
+            "WHERE id=$1::uuid AND is_active=true",
+            1, nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not query account profile");
+        }
+        if (PQntuples(result) == 0) {
+            PQclear(result);
+            throw std::domain_error("account_not_found");
+        }
+        json profile = {
+            {"id", PQgetvalue(result, 0, 0)},
+            {"email", PQgetvalue(result, 0, 1)},
+            {"displayName", PQgetvalue(result, 0, 2)},
+            {"role", PQgetvalue(result, 0, 3)}
+        };
+        PQclear(result);
+        return profile;
+    }
+
+    json update_account_display_name(const std::string& id, const std::string& display_name) {
+        const char* params[] = {id.c_str(), display_name.c_str()};
+        PGresult* result = PQexecParams(connection_,
+            "UPDATE accounts SET display_name=$2,updated_at=now() "
+            "WHERE id=$1::uuid AND is_active=true "
+            "RETURNING id::text,email,display_name,role::text",
+            2, nullptr, params, nullptr, nullptr, 0);
+        if (result == nullptr || PQresultStatus(result) != PGRES_TUPLES_OK) {
+            if (result != nullptr) PQclear(result);
+            throw std::runtime_error("Could not update account profile");
+        }
+        if (PQntuples(result) == 0) {
+            PQclear(result);
+            throw std::domain_error("account_not_found");
+        }
+        json profile = {
+            {"id", PQgetvalue(result, 0, 0)},
+            {"email", PQgetvalue(result, 0, 1)},
+            {"displayName", PQgetvalue(result, 0, 2)},
+            {"role", PQgetvalue(result, 0, 3)}
+        };
+        PQclear(result);
+        return profile;
+    }
+
     std::optional<AccountState> account_state(const std::string& id) {
         const char* params[] = {id.c_str()};
         PGresult* result = PQexecParams(connection_,
@@ -1651,7 +1703,8 @@ http::response<http::string_body> handle_auth(
             account->id, account->role, env_or("RIDEFORGE_JWT_SECRET", ""));
         return response(http::status::ok, {
             {"accessToken", token}, {"tokenType", "Bearer"}, {"expiresIn", 900},
-            {"account", {{"id", account->id}, {"email", email}, {"role", account->role}}}
+            {"account", {{"id", account->id}, {"email", account->email},
+                         {"displayName", account->display_name}, {"role", account->role}}}
         }, request);
     } catch (const std::domain_error&) {
         return response(http::status::conflict, {{"error", "email_already_exists"}}, request);
@@ -1661,6 +1714,46 @@ http::response<http::string_body> handle_auth(
         return response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
     } catch (const std::exception&) {
         return response(http::status::service_unavailable, {{"error", "authentication_unavailable"}}, request);
+    }
+}
+
+http::response<http::string_body> handle_profile(
+    const http::request<http::string_body>& request) {
+    const auto claims = bearer_claims(request);
+    if (!claims) {
+        return response(http::status::unauthorized, {{"error", "authentication_required"}}, request);
+    }
+    if (request.body().size() > 8192) {
+        return response(http::status::payload_too_large, {{"error", "request_too_large"}}, request);
+    }
+    try {
+        Database database(env_or("DATABASE_URL", ""));
+        if (request.method() == http::verb::get) {
+            return response(http::status::ok, database.account_profile(claims->subject), request);
+        }
+        if (request.method() != http::verb::patch) {
+            return response(http::status::method_not_allowed, {{"error", "method_not_allowed"}}, request);
+        }
+        const auto body = json::parse(request.body());
+        if (!body.is_object() || body.size() != 1 ||
+            !body.contains("displayName") || !body["displayName"].is_string()) {
+            throw std::invalid_argument("displayName is the only supported profile field");
+        }
+        std::string display_name = body["displayName"].get<std::string>();
+        trim_in_place(display_name);
+        if (display_name.empty() || display_name.size() > 120) {
+            throw std::invalid_argument("displayName must contain between 1 and 120 characters");
+        }
+        return response(http::status::ok,
+                        database.update_account_display_name(claims->subject, display_name), request);
+    } catch (const std::domain_error&) {
+        return response(http::status::not_found, {{"error", "account_not_found"}}, request);
+    } catch (const std::invalid_argument& error) {
+        return response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
+    } catch (const json::exception&) {
+        return response(http::status::unprocessable_entity, {{"error", "invalid_json"}}, request);
+    } catch (const std::exception&) {
+        return response(http::status::service_unavailable, {{"error", "profile_unavailable"}}, request);
     }
 }
 
@@ -2075,6 +2168,9 @@ void handle_request(tcp::socket socket) {
     } else if (request.method() == http::verb::post &&
         (path == "/api/v1/auth/register" || path == "/api/v1/auth/login")) {
         result = handle_auth(request, path, client_ip(stream.socket(), request));
+    } else if (path == "/api/v1/me" &&
+               (request.method() == http::verb::get || request.method() == http::verb::patch)) {
+        result = handle_profile(request);
     } else if (request.method() == http::verb::options) {
         // A 204 response must not run prepare_payload() with a string body: some
         // Beast versions reject payload metadata for no-content status responses.
@@ -2107,7 +2203,7 @@ void handle_request(tcp::socket socket) {
             result.set(http::field::access_control_allow_origin, origin);
             result.set(http::field::vary, "Origin");
         }
-        result.set(http::field::access_control_allow_methods, "GET, POST, PUT, OPTIONS");
+        result.set(http::field::access_control_allow_methods, "GET, POST, PUT, PATCH, OPTIONS");
         result.set(http::field::access_control_allow_headers, "Content-Type, Authorization, Idempotency-Key, Last-Event-ID");
         result.set(http::field::access_control_max_age, "600");
         result.body().clear();

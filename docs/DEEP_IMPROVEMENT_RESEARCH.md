@@ -38,8 +38,8 @@ Implemented or documented in this branch:
 
 ## Remaining release gaps — reviewed 2026-11-05
 The following are not claimed as complete merely because the relevant code or workflow exists:
-- Deterministic PostgreSQL race coverage for simultaneous accepts, accept-vs-expiry, cancellation, worker restart/duplicate execution, and cross-account/role authorization.
-- The API now has a bounded process-local PostgreSQL connection pool (12 connections per API process, 2-second acquisition timeout, rollback/session reset before reuse). Remaining work: test saturation under representative concurrency and budget aggregate connections across API replicas plus workers; this is not a shared cross-replica pool.
+- Deterministic PostgreSQL test code now covers simultaneous accepts, accept-vs-expiry, cancellation, parallel dispatch-worker execution, worker restart recovery and cross-account/role authorization (`backend/tests/concurrency_test.py`, `dispatch_worker_restart_test.py`, and `authz_matrix_test.py`). The latest main API smoke run failed during runtime-role password validation before these integration suites executed; rerun on the exact candidate SHA before marking this verification gate complete.
+- The API now has a bounded process-local PostgreSQL connection pool (10 connections per API process, 2-second acquisition timeout, rollback/session reset before reuse). Remaining work: test saturation under representative concurrency and budget aggregate connections across API replicas plus workers; this is not a shared cross-replica pool.
 - Dispatch matching based on real road ETA and fresh driver locations; current eligibility and sequential offer logic is not a fully optimized commercial matching engine.
 - Production routing/geocoding provider and terms. Public Nominatim/OSRM endpoints are evaluation defaults, not a production SLA.
 - Commercial payment processing, refunds, reconciliation, driver payouts, and real SMS/push delivery are not implemented as verified end-to-end provider flows. Demo receipts are not payment proof.
@@ -246,7 +246,7 @@ PR #44 was merged as `d7a90e24977119618f079ae7f8c1623aae97899d` after all 13 job
 
 The post-merge main SHA was `d7a90e24977119618f079ae7f8c1623aae97899d`; its exact-SHA workflows were still running at the time of this update. PR-candidate success is not post-merge verification.
 
-The most important remaining engineering gates are deterministic accept-vs-expiry and duplicate-worker tests, dispatch/outbox multi-process load testing, database least-privilege runtime roles, aggregate connection budgeting, distributed rate limits, manual mobile/accessibility acceptance, a real staging deployment with production-grade routing, monitoring and restore rehearsal, and privacy/legal/driver operations approval. No commercial ride authorization or live deployment is claimed.
+The most important remaining engineering gates are successful exact-head execution of the existing deterministic accept-vs-expiry, duplicate-worker, restart and authorization suites; dispatch/outbox multi-process load testing; aggregate connection budgeting; distributed rate limits; manual mobile/accessibility acceptance; a real staging deployment with production-grade routing; monitoring and restore rehearsal; and privacy/legal/driver operations approval. No commercial ride authorization or live deployment is claimed.
 
 
 ## Routing/geocoding policy correction — 2026-11-13
