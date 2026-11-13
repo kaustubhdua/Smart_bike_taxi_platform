@@ -4,7 +4,6 @@
 #include <atomic>
 #include <chrono>
 #include <iostream>
-#include <limits>
 #include <stdexcept>
 #include <string>
 #include <thread>
