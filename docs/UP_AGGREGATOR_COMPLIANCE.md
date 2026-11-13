@@ -14,9 +14,10 @@ A legal analysis of the final 2026 rules reports, among other requirements:
 
 - An eligible applicant is a company, LLP or cooperative society with a registered office in Uttar Pradesh.
 - The applicant must be a company under the Companies Act, an LLP, or a qualifying driver/vehicle-owner cooperative society, and must have an office in Uttar Pradesh. A student-owned demo or sole proprietorship should not assume it qualifies.
+- A licence is valid for five years and is renewable for a further five years. The licensee must commence operations within six months of grant or risk cancellation.
 - The rules prescribe an application fee of ₹25,000, a licence grant/renewal fee of ₹5,00,000 and a bank-guarantee security deposit. The published deposit bands range from ₹10,00,000 for fleets up to 1,000 non-bus vehicles to ₹50,00,000 for fleets above 10,000 non-bus vehicles, with an intermediate ₹25,00,000 band. Confirm the exact band, treatment of mixed vehicle categories and current portal calculation before applying.
 - Existing operators were required to obtain a licence within 90 days of notification; that transition window has elapsed by this research date (13 November 2026). New aggregators must obtain the required licence before starting operations. The Government portal is live and lists the licensing workflow; confirm any current enforcement/regularization position directly with the State Transport Authority.
-- The rules require a full-time Grievance Redressal Officer-cum-Compliance Officer, a two-way driver/passenger rating mechanism, fare-share disclosures, driver non-exclusivity, and a written commencement notice at least 72 hours before service begins.
+- The rules require a full-time Grievance Redressal Officer-cum-Compliance Officer with delegated authority/Power of Attorney, a two-way driver/passenger rating mechanism, fare-share disclosures, driver non-exclusivity, and a written commencement notice at least 72 hours before service begins.
 
 The live UP portal's public workflow currently presents an eligibility check of operating more than 25 vehicles through a digital platform. The final-rule analysis and portal form should be reconciled with the applicant's intended fleet and business model; do not assume this portal-screen criterion is a statutory exemption for smaller operators or that a small pilot is outside the rules without written STA advice.
 
@@ -39,6 +40,7 @@ The guidelines and the UP 2026 rules/legal analysis identify vehicle and safety 
 - Passenger motorcycles must be transport motorcycles; transport/non-transport motorcycles may be used for hyperlocal delivery only under the applicable conditions.
 - Valid transport registration, any required contract-carriage permit, fitness certificate, third-party insurance with passenger cover, PUC, paid motor-vehicle taxes and cleared challans.
 - Functional AIS-140-compliant vehicle location tracking and panic button connected to the aggregator control room and State Integrated Command and Control Centre; in-app trip tracking and route-deviation escalation also apply.
+- Fire extinguisher, first-aid kit and functional speed governor as required for the vehicle category.
 - A maximum vehicle age of 12 years, subject to stricter local fuel/permit conditions.
 - Driver checks: UIDAI-backed Aadhaar verification, correct licence class, at least two years' driving experience, no specified convictions in the prior three years, medical/eyesight fitness, psychological evaluation by a registered psychiatrist, and police antecedent verification at least seven days before onboarding.
 - Minimum 40-hour induction training, including at least six hours of first-responder training, defensive driving, route familiarisation, app use and gender/disability sensitisation; drivers below the fifth-percentile rating threshold must complete quarterly refresher training or cease providing service.
@@ -61,7 +63,7 @@ Before any real onboarding, obtain a counsel/authority-reviewed checklist for:
 - Fare and cancellation policy controls aligned to the notified base fare (including the minimum 3 km base-fare basis), dynamic-pricing bounds of 50%–150%, minimum driver share of 80% for a driver using their own vehicle or 60% for an aggregator-owned vehicle, and cancellation penalties capped at ₹100 under the specified conditions.
 - The state framework requires aggregators to increase electric, alternative-fuel or zero-emission vehicles by 5% annually. Outside the NCR, the legal analysis reports category-specific EV targets ranging from 1%–10% within the first six months to 15%–50% by the end of year five. In NCR districts, CAQM Direction 94 applies; the interaction between the 5% annual requirement and category targets needs authority clarification.
 
-The current code's admin driver approval is an internal workflow only. It is not identity, police, medical, licence, vehicle, insurance or training verification. The support-report screen is not a staffed 24x7 call centre. A map marker is not an AIS-140 tracking/control-room integration.
+The current code's admin driver approval is an internal workflow only. It is not identity, police, medical, licence, vehicle, insurance or training verification. The support-report screen is not a staffed 24x7 call centre. A map marker is not an AIS-140 tracking/control-room integration. The app currently has no real-time government portal/VAHAN/SARATHI integration, no certified safety-device/panic-button telemetry, and no independent driver psych/medical or police-verification provider.
 
 ## 4. Fare and payout model
 
@@ -91,6 +93,7 @@ Minimum engineering controls before real user data:
 - Retention schedules and deletion workflows for accounts, trips, support evidence and location history.
 - Access logging, least privilege, encryption, secrets management and incident response.
 - A process for data-principal requests, grievance handling and legally valid disclosures.
+- A zero-tolerance on-duty alcohol/narcotics policy, with immediate off-boarding pending inquiry when the specified breach is detected.
 - Processor/vendor agreements and a data-flow inventory covering hosting, maps, geocoding, analytics, messaging and payments.
 
 Sources:
@@ -120,5 +123,7 @@ The browser should call RideForge's API rather than public Nominatim/OSRM direct
 | Security certification | Automated CI scans/tests exist | Independent assessment by the required empanelled firm |
 | Transport licensing | No RideForge licence claimed | STA licence and all category-specific approvals |
 | Production hosting | Free-tier evaluation services | Always-on API/workers, durable database, monitoring and restore drills |
+
+The rules also provide for a minimum fine of ₹25,000 and up to ₹1,00,000 for operating without a valid licence, suspension for up to three months, and in specified circumstances monetary penalties from ₹1,00,000 to ₹1,00,00,000, cancellation and security-deposit forfeiture. This makes an unlicensed production pilot a material business-continuity risk.
 
 **Decision:** keep RideForge labelled as a demonstration/portfolio product. Do not enable real paid trips, onboard real drivers or collect real passenger location data until every applicable gate has written evidence and an accountable owner.
