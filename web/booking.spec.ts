@@ -706,3 +706,39 @@ test("driver and admin portals have same-origin routes and driver polls offers b
   await page.goto("/admin");
   await expect(page.getByRole("heading", { name: "Admin sign in" })).toBeVisible();
 });
+
+
+test("root demo completes a passenger-to-driver-to-admin simulation", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("SIMULATION ONLY")).toBeVisible();
+  await expect(page.getByText(/no real rides or payments/i)).toBeVisible();
+
+  await page.getByRole("button", { name: "Create demo booking" }).click();
+  await expect(page.getByRole("status")).toContainText("Demo booking created");
+
+  await page.getByRole("button", { name: "Driver workspace" }).click();
+  await page.getByRole("button", { name: "Accept request" }).click();
+  await expect(page.getByText(/Driver assigned/)).toBeVisible();
+  await page.getByRole("button", { name: "Start ride" }).click();
+  await page.getByRole("button", { name: "Complete ride" }).click();
+  await expect(page.getByText(/Completed/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Admin workspace" }).click();
+  await expect(page.getByText("Total demo rides")).toBeVisible();
+  await expect(page.getByText("Completed", { exact: true })).toBeVisible();
+});
+
+test("root demo safely ignores malformed browser-stored ride records", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.setItem("rideforge-demo-rides-v1", JSON.stringify([
+      null,
+      { id: "bad", pickup: "Private home", destination: "Unknown", fare: "free", status: "Completed" },
+      { id: "bad-status", pickup: "JIIT Sector 128", destination: "Sector 18 Market", fare: 50, status: "Paid" },
+    ]));
+  });
+  await page.reload();
+  await expect(page.getByText("SIMULATION ONLY")).toBeVisible();
+  await expect(page.getByText("No demo rides yet.")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("rideforge-demo-rides-v1"))).toBe("[]");
+});
