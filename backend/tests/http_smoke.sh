@@ -796,4 +796,4 @@ test "$published_events" -gt 0
 dead_lettered_events="$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM ride_event_outbox WHERE dead_lettered_at IS NOT NULL")"
 test "$dead_lettered_events" = "0"
 
-echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, concurrent assignment races, offline location clearing, bounded no-driver exhaustion, and outbox publication"
+echo "PASS: auth, ownership, quote/provider validation, persisted idempotent bookings, history, cancellation, one-active-offer-per-driver enforcement, busy-driver assignment rejection, offline location clearing, bounded no-driver exhaustion, and outbox publication"
