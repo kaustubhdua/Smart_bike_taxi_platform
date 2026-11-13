@@ -20,6 +20,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='011_one_active_offer_per_driver') THEN
     RAISE EXCEPTION 'one-active-offer-per-driver migration ledger entry is missing';
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='012_runtime_role_least_privilege') THEN
+    RAISE EXCEPTION 'runtime-role least-privilege migration ledger entry is missing';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='010_runtime_role_database_access') THEN
     RAISE EXCEPTION 'runtime database role access migration ledger entry is missing';
   END IF;
@@ -29,9 +32,27 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_authid WHERE rolname='rideforge_app' AND rolcanlogin AND rolbypassrls AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND rolpassword IS NOT NULL) THEN
     RAISE EXCEPTION 'runtime database role must be password-enabled, non-superuser BYPASSRLS login without role/database creation privileges';
   END IF;
-  IF NOT has_table_privilege('rideforge_app','public.accounts','SELECT,INSERT,UPDATE,DELETE')
+  IF NOT has_table_privilege('rideforge_app','public.accounts','SELECT')
+     OR NOT has_table_privilege('rideforge_app','public.accounts','INSERT')
+     OR NOT has_table_privilege('rideforge_app','public.accounts','UPDATE')
+     OR has_table_privilege('rideforge_app','public.accounts','DELETE')
      OR has_table_privilege('rideforge_app','public.accounts','TRUNCATE') THEN
-    RAISE EXCEPTION 'runtime database role has missing DML or excessive TRUNCATE privileges';
+    RAISE EXCEPTION 'runtime database role has missing account DML or excessive DELETE/TRUNCATE privileges';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.role_table_grants
+      WHERE table_schema='public' AND grantee='rideforge_app' AND privilege_type='DELETE') THEN
+    RAISE EXCEPTION 'runtime database role must not have DELETE on application tables';
+  END IF;
+  IF has_table_privilege('rideforge_app','public.admin_audit_events','UPDATE')
+     OR has_table_privilege('rideforge_app','public.admin_audit_events','DELETE')
+     OR has_table_privilege('rideforge_app','public.ride_events','UPDATE')
+     OR has_table_privilege('rideforge_app','public.ride_events','DELETE') THEN
+    RAISE EXCEPTION 'audit and ride event history must be append-only for the runtime role';
+  END IF;
+  IF has_table_privilege('rideforge_app','public.schema_migrations','INSERT')
+     OR has_table_privilege('rideforge_app','public.schema_migrations','UPDATE')
+     OR has_table_privilege('rideforge_app','public.schema_migrations','DELETE') THEN
+    RAISE EXCEPTION 'schema_migrations must remain owner-managed and read-only to the runtime role';
   END IF;
   IF NOT has_database_privilege('rideforge_app', current_database(), 'CONNECT') THEN
     RAISE EXCEPTION 'runtime database role cannot connect to the current database';
