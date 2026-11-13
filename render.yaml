@@ -18,10 +18,11 @@ services:
     envVars:
       - key: DATABASE_URL_TEMPLATE
         sync: false
-      - key: MIGRATION_DATABASE_URL
-        sync: false
-      # Render generates the runtime-role password; the migration entrypoint
-      # applies it to rideforge_app before the API/workers start.
+      # Runtime boot uses the already-migrated schema and never needs the
+      # database-owner credential. GitHub Actions owns schema migrations.
+      - key: RIDEFORGE_RUN_STARTUP_MIGRATIONS
+        value: "false"
+      # Render generates a restricted runtime-role password.
       - key: RIDEFORGE_RUNTIME_ROLE_PASSWORD
         generateValue: true
       - key: RIDEFORGE_JWT_SECRET
