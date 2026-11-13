@@ -2,7 +2,7 @@
 
 React + TypeScript + Vite passenger experience with driver and admin operational workspaces. The passenger and driver workspaces use the same API and PostgreSQL-backed ride records; they are not separate booking systems.
 
-The passenger portal is `/`, the driver portal is `/driver` (or a `driver.` hostname), and the protected administrator portal is `/admin`. These path entry points work on a single static-site deployment; backend role checks remain authoritative.
+The passenger portal is `/`, the driver portal is `/driver` (or a `driver.` hostname), and the protected administrator portal is `/admin`. These path entry points can share one static-site deployment when the host rewrites unknown paths to `/index.html`; backend role checks remain authoritative.
 
 ## Run locally
 
