@@ -33,8 +33,8 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 | Status | Tasks |
 |---|---:|
 | VERIFIED | 5 |
-| IMPLEMENTED | 36 |
-| PARTIAL | 44 |
+| IMPLEMENTED | 35 |
+| PARTIAL | 45 |
 | BLOCKED | 7 |
 | NOT STARTED | 7 |
 | DEFERRED | 1 |
@@ -66,7 +66,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 14 | Destination selection and saved destinations | PARTIAL | Engineering | Label selection exists; saved destinations and manual pin placement are absent |
 | 15 | Strict service-area validation | PARTIAL | Engineering | Noida geocoding context exists; context is not a polygonal geofence or service-hours check |
 | 16 | Server-side fare estimation | IMPLEMENTED | Engineering | Server geocodes/routes and computes the demo tariff; exact-head integration pass pending |
-| 17 | Transparent fare breakdown | PARTIAL | Engineering | Demo quote now returns and the web UI validates/displays base and distance components in integer paise; commercial tariff configuration, taxes/fees, surge and regulatory fare review remain out of scope; exact-head CI pending |
+| 17 | Transparent fare breakdown | PARTIAL | Engineering | Main still returns only the total fare. Open PR #74 adds base/distance components and UI display; commercial tariff configuration, taxes/fees, surge and regulatory fare review remain out of scope |
 | 18 | Durable, idempotent booking creation | IMPLEMENTED | Engineering | Transactional booking and idempotency fingerprint tests exist; exact-head CI pending |
 | 19 | Booking lifecycle tracking | IMPLEMENTED | Engineering | Persisted ride events, authenticated SSE replay and REST recovery exist; deployed live journey not verified |
 | 20 | Passenger trip history and receipts | IMPLEMENTED | Engineering | History and printable receipt exist; receipt is explicitly demo-only, not tax invoice/payment proof |
@@ -142,7 +142,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 65 | Payment idempotency | NOT STARTED | Engineering / Provider | Booking idempotency exists; payment-event idempotency does not |
 | 66 | Payment reconciliation | NOT STARTED | Engineering / Provider | No provider transaction reconciliation |
 | 67 | Refund workflows | NOT STARTED | Engineering / Provider | No real payment/refund provider |
-| 68 | Fare calculation boundary tests | IMPLEMENTED | Engineering | Pure C++ tests cover 1m, 999m, 1km, 1.001km, 2.5km, invalid distance and overflow; API smoke verifies fare components sum to total; exact-head CI pending |
+| 68 | Fare calculation boundary tests | PARTIAL | Engineering | Existing fare uses integer paise; open PR #74 adds pure C++ rounding/boundary/overflow tests and API smoke checks for component totals; exact-head CI pending |
 | 69 | Driver settlement accounting | NOT STARTED | Engineering / Finance | No net payout, commission or settlement ledger |
 | 70 | Financial audit reports | NOT STARTED | Engineering / Finance | No real transactions to reconcile; finance reporting is not implemented |
 
