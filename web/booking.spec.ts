@@ -637,11 +637,13 @@ test("production driver and admin entry points open the correct role workspace",
     await route.abort();
   });
   await page.goto("http://driver.localhost:4173");
+  await expect(page.getByText(/DEMO ONLY/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your next ride starts here." })).toBeVisible();
   await expect(page.getByText("Driver sign in")).toBeVisible();
   await expect(page.locator("#booking")).toBeHidden();
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toHaveCount(0);
   await page.goto("http://127.0.0.1:4173/admin");
+  await expect(page.getByText(/DEMO ONLY/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Operations, backed by data." })).toBeVisible();
   await expect(page.getByText("Admin sign in")).toBeVisible();
   await expect(page.locator("#booking")).toBeHidden();
