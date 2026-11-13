@@ -26,6 +26,19 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 - Supabase is on the Free plan: no automatic daily backup/PITR; no production backup/restore drill has been verified.
 - Commercial operations are not authorised.
 
+## Snapshot counts
+
+| Status | Tasks |
+|---|---:|
+| VERIFIED | 5 |
+| IMPLEMENTED | 35 |
+| PARTIAL | 45 |
+| BLOCKED | 7 |
+| NOT STARTED | 7 |
+| DEFERRED | 1 |
+
+These counts are a snapshot of the 100 rows below; they change only when evidence/status changes.
+
 ## 1. Product scope and project definition
 
 | # | Task | Status | Owner | Evidence / acceptance still required |
