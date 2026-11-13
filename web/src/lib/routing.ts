@@ -204,6 +204,94 @@ async function geocode(place: string, signal: AbortSignal): Promise<[number, num
   return [...coordinates] as [number, number];
 }
 
+export type PlaceSuggestion = { label: string; detail: string; coordinates: [number, number] };
+
+// Nominatim's usage policy forbids search-as-you-type against the public service, so
+// by default suggestions are fetched only when the user explicitly submits a search.
+// Pointing VITE_AUTOCOMPLETE_URL at a Photon-compatible endpoint (Apache-2.0, built for
+// typeahead; self-hosted or contracted) enables as-you-type suggestions.
+const autocompleteBase = (import.meta.env.VITE_AUTOCOMPLETE_URL as string | undefined) || "";
+export const suggestionMode: "typeahead" | "submit" = autocompleteBase ? "typeahead" : "submit";
+const MAX_SUGGESTIONS = 6;
+
+function validCoordinates(lon: number, lat: number): boolean {
+  return Number.isFinite(lon) && Number.isFinite(lat) && lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90;
+}
+
+function splitDisplayName(displayName: string): { label: string; detail: string } {
+  const parts = displayName.split(",").map(part => part.trim()).filter(Boolean);
+  const label = (parts.slice(0, 2).join(", ") || displayName).slice(0, 120);
+  const detail = parts.slice(2, 5).join(", ").slice(0, 120);
+  return { label, detail };
+}
+
+function dedupeSuggestions(items: PlaceSuggestion[]): PlaceSuggestion[] {
+  const seen = new Set<string>();
+  const unique: PlaceSuggestion[] = [];
+  for (const item of items) {
+    const key = item.label.toLocaleLowerCase("en-US");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // Remember the exact coordinates the user picked so routing does not geocode the
+    // label a second time (and cannot resolve it to a different place).
+    unique.push(item);
+    if (unique.length >= MAX_SUGGESTIONS) break;
+  }
+  return unique;
+}
+
+/** Remember a chosen suggestion so the route lookup reuses its coordinates. */
+export function rememberSelectedPlace(place: PlaceSuggestion): void {
+  rememberCoordinates(place.label.trim().toLocaleLowerCase("en-US"), place.coordinates);
+}
+
+export async function searchPlaces(query: string, signal: AbortSignal): Promise<PlaceSuggestion[]> {
+  abortIfNeeded(signal);
+  const text = query.trim();
+  if (text.length < 3) return [];
+  if (suggestionMode === "typeahead") {
+    // Photon: GeoJSON FeatureCollection, coordinates are [lon, lat].
+    const params = new URLSearchParams({ q: text, limit: String(MAX_SUGGESTIONS), lang: "en",
+      lat: "28.57", lon: "77.35" });
+    const response = await fetch(`${autocompleteBase}?${params}`, { signal });
+    if (!response.ok) throw new Error("Place suggestions are temporarily unavailable.");
+    const data = await readJsonBounded<{ features?: Array<{
+      geometry?: { coordinates?: [number, number] };
+      properties?: Record<string, string | undefined>;
+    }> }>(response, MAX_GEOCODING_RESPONSE_BYTES, "The location service returned an oversized response.");
+    const items: PlaceSuggestion[] = [];
+    for (const feature of data.features ?? []) {
+      const [lon, lat] = feature.geometry?.coordinates ?? [Number.NaN, Number.NaN];
+      const props = feature.properties ?? {};
+      const label = [props.name ?? props.street, props.district ?? props.city].filter(Boolean).join(", ");
+      if (!label || !validCoordinates(lon, lat)) continue;
+      items.push({ label: label.slice(0, 120), detail: [props.city, props.state].filter(Boolean).join(", ").slice(0, 120), coordinates: [lon, lat] });
+    }
+    return dedupeSuggestions(items);
+  }
+  await acquireGeocodeSlot(signal);
+  const params = new URLSearchParams({
+    q: text,
+    format: "jsonv2",
+    limit: String(MAX_SUGGESTIONS),
+    countrycodes: "in",
+    // Prefer (but do not force) results around Noida / Delhi NCR.
+    viewbox: "76.8,28.9,77.7,28.3",
+    bounded: "0",
+  });
+  const response = await fetch(`${geocodingBase}?${params}`, { signal, headers: { "Accept-Language": "en" } });
+  if (!response.ok) throw new Error("Location search is temporarily unavailable.");
+  const results = await readJsonBounded<GeocodingResult[]>(response, MAX_GEOCODING_RESPONSE_BYTES, "The location service returned an oversized response.");
+  const items: PlaceSuggestion[] = [];
+  for (const match of Array.isArray(results) ? results : []) {
+    const lon = Number(match.lon);
+    const lat = Number(match.lat);
+    if (!validCoordinates(lon, lat) || typeof match.display_name !== "string") continue;
+    items.push({ ...splitDisplayName(match.display_name), coordinates: [lon, lat] });
+  }
+  return dedupeSuggestions(items);
+}
+
 /**
  * Uses OpenStreetMap Nominatim for geocoding and the OSRM demo router for a
  * real road route. Public demo endpoints are rate-limited and are not suitable

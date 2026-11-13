@@ -751,3 +751,108 @@ test("rejects an oversized routing-provider response before parsing or rendering
   expect(routeRequests).toBe(1);
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
 });
+
+// ---- Place search combobox -------------------------------------------------------------
+
+type Place = { lat: string; lon: string; display_name: string };
+const expoResults: Place[] = [
+  { lat: "28.5672", lon: "77.3260", display_name: "Noida Expo Centre, Sector 62, Noida, Gautam Buddha Nagar, Uttar Pradesh, India" },
+  { lat: "28.5700", lon: "77.3300", display_name: "Expo Mart, Sector 62, Noida, Gautam Buddha Nagar, Uttar Pradesh, India" },
+];
+
+async function mockPlaceSearch(page: import("@playwright/test").Page, options: { searchStatus?: number; searchBody?: Place[] } = {}) {
+  const seen = { searches: [] as string[], geocodes: [] as string[], routes: [] as string[] };
+  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
+    const params = new URL(route.request().url()).searchParams;
+    const q = params.get("q") ?? "";
+    if (params.get("limit") !== "1") {
+      seen.searches.push(q);
+      if (options.searchStatus && options.searchStatus !== 200) {
+        await route.fulfill({ status: options.searchStatus, contentType: "application/json", body: "{}" });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(options.searchBody ?? expoResults) });
+      return;
+    }
+    seen.geocodes.push(q);
+    await route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify([{ lat: "28.55", lon: "77.34", display_name: q }]) });
+  });
+  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
+    seen.routes.push(route.request().url());
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(routeFixture) });
+  });
+  await page.route("**://*.tile.openstreetmap.org/**", route => route.abort());
+  return seen;
+}
+
+test("place search runs only on submit, supports the keyboard, and reuses the chosen coordinates", async ({ page }) => {
+  const seen = await mockPlaceSearch(page);
+  await page.goto("/");
+  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  const geocodesAfterInitialRoute = seen.geocodes.length;
+
+  const destination = page.getByRole("combobox", { name: "Drop-off point" });
+  await destination.fill("Noida Expo");
+  await page.waitForTimeout(500);
+  expect(seen.searches).toHaveLength(0); // never per keystroke
+  await expect(page.getByRole("status").filter({ hasText: "Press Enter or Search" })).toBeVisible();
+
+  await destination.press("Enter");
+  const listbox = page.getByRole("listbox", { name: "Suggestions for drop-off" });
+  await expect(listbox.getByRole("option")).toHaveCount(2);
+  expect(seen.searches).toHaveLength(1);
+  await expect(destination).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("status").filter({ hasText: "2 places found" })).toBeVisible();
+
+  await destination.press("ArrowDown");
+  await expect(destination).toHaveAttribute("aria-activedescendant", /.+/);
+  await expect(listbox.getByRole("option", { name: /Noida Expo Centre/ })).toHaveAttribute("aria-selected", "true");
+  await destination.press("Enter");
+
+  await expect(destination).toHaveValue("Noida Expo Centre, Sector 62");
+  await expect(destination).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  // The chosen place's own coordinates are used: no second geocode for it, and the route uses them.
+  expect(seen.geocodes).toHaveLength(geocodesAfterInitialRoute);
+  expect(seen.routes.at(-1)).toContain("77.326,28.5672");
+});
+
+test("place search handles no results, provider errors and Escape without breaking the form", async ({ page }) => {
+  const seen = await mockPlaceSearch(page, { searchBody: [] });
+  await page.goto("/");
+  const pickup = page.getByRole("combobox", { name: "Pickup point" });
+  await pickup.fill("Zzzz Nowhere");
+  await page.getByRole("button", { name: "Search for this place" }).first().click();
+  await expect(page.getByRole("status").filter({ hasText: "No places found" })).toBeVisible();
+  expect(seen.searches).toHaveLength(1);
+
+  await page.unroute("https://nominatim.openstreetmap.org/search?**");
+  await page.route("https://nominatim.openstreetmap.org/search?**", route =>
+    route.fulfill({ status: 503, contentType: "application/json", body: "{}" }));
+  await pickup.fill("Sector 63 Market");
+  await pickup.press("Enter");
+  await expect(page.getByRole("status").filter({ hasText: "temporarily unavailable" })).toBeVisible();
+  await expect(pickup).toHaveValue("Sector 63 Market"); // typed text is never lost
+
+  await pickup.press("Escape");
+  await expect(pickup).toHaveAttribute("aria-expanded", "false");
+});
+
+test("focusing an empty field offers popular places and an opened list has no WCAG 2.2 AA violations", async ({ page }) => {
+  await mockPlaceSearch(page);
+  await page.goto("/");
+  const pickup = page.getByRole("combobox", { name: "Pickup point" });
+  await pickup.fill("");
+  await pickup.focus();
+  const listbox = page.getByRole("listbox", { name: "Suggestions for pickup" });
+  await expect(listbox.getByRole("option")).toHaveCount(5);
+  await listbox.getByRole("option", { name: /Sector 62/ }).click();
+  await expect(pickup).toHaveValue("Sector 62");
+
+  await pickup.fill("");
+  await pickup.focus();
+  await expect(listbox.getByRole("option").first()).toBeVisible();
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
+  expect(results.violations).toEqual([]);
+});

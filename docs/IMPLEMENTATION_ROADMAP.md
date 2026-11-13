@@ -83,7 +83,7 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 
 ## Phase 4 — passenger product completeness
 
-- [ ] Finish pickup/destination autocomplete, map selection, accessible map alternatives and quote expiry handling.
+- [ ] Finish pickup/destination autocomplete, map selection, accessible map alternatives and quote expiry handling. (Done: accessible ARIA combobox place search with keyboard support, submit-only search for public Nominatim, optional Photon typeahead via `VITE_AUTOCOMPLETE_URL`, chosen coordinates reused for routing, quote expiry. Still open: selecting a point by clicking the map, and a text alternative for the map beyond the current route summary.)
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
 - [x] Add passenger trip history with final fare/completion timestamps and a printable demo receipt, plus driver trip history and gross completed-fare summary (not a payout ledger).
 - [x] Add passenger/driver support reporting and admin triage UI.

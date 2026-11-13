@@ -86,3 +86,23 @@
 .app-shell.role-workspace #operations .section-intro{max-width:760px;margin:0 auto 28px}
 .app-shell.role-workspace #operations .booking-layout{max-width:980px}
 @media(max-width:720px){.app-shell.role-workspace #operations{min-height:calc(100vh - 72px);padding:32px 18px 48px}}
+
+/* Location combobox (WAI-ARIA editable combobox with list autocomplete) */
+.location-combobox{position:relative}
+.location-combobox>label{display:block}
+.location-combobox>label>span{display:block;font:8px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#59645c;margin-bottom:6px}
+.location-search{display:inline-grid;place-items:center;width:30px;height:30px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);cursor:pointer;flex-shrink:0}
+.location-search:hover:not(:disabled){background:var(--lime)}
+.location-search:disabled{opacity:.45;cursor:not-allowed}
+.location-search:focus-visible,.location-options li:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.location-options{position:absolute;z-index:30;left:0;right:0;top:100%;margin:6px 0 0;padding:6px;list-style:none;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 40px -18px rgba(23,33,29,.35);max-height:260px;overflow:auto}
+.location-options[hidden]{display:none}
+.location-options li{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;cursor:pointer;min-height:44px;justify-content:center}
+.location-options li strong{font-size:13px;font-weight:700;color:var(--ink)}
+.location-options li small{font-size:11px;color:#59645c}
+.location-options li.is-active,.location-options li[aria-selected="true"]{background:var(--lime);}
+.location-status{min-height:0;font-size:11px;color:#59645c;margin-top:4px}
+.location-status:empty{display:none}
+.spin{animation:rf-spin 1s linear infinite}
+@keyframes rf-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}

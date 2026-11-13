@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { calculateRoute } from "./lib/routing";
 const RouteMap = lazy(() => import("./components/RouteMap"));
 import OperationsWorkspace from "./components/OperationsWorkspace";
+import LocationField from "./components/LocationField";
 import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bike, Check,
   CircleHelp, Clock3, Compass, Crosshair, Gauge, LocateFixed,
@@ -756,11 +757,12 @@ export default function App() {
               <div className="location-fields">
                 <div className="location-rail"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
                 <div className="field-stack">
-                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Pickup point" placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
+                  <LocationField label="Pickup point" value={pickup} icon={<MapPin size={17} />} placeholder="Search pickup in Noida" popularPlaces={locations}
+                    onChange={value => { setPickup(value); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} />
                   <div className="field-separator" />
-                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setRide(null); setNotice(""); }} aria-label="Drop-off point" placeholder="Search destination in Noida" autoComplete="off" /></div></label>
+                  <LocationField label="Drop-off point" value={destination} icon={<Crosshair size={17} />} placeholder="Search destination in Noida" popularPlaces={locations}
+                    onChange={value => { setDestination(value); setQuote(null); setRide(null); setNotice(""); }} />
                 </div>
-                <datalist id="rideforge-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
                 <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
               </div>
               <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Finding a real road route…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Select different locations to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
