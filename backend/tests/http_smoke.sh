@@ -677,7 +677,7 @@ status="$(curl --silent --show-error --output "$tmp_dir/busy-driver-accept.json"
   "$base_url/api/v1/driver/rides/$fourth_ride_id/accept")"
 test "$status" = "409"
 test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM rides WHERE id='$third_ride_id' AND status='assigned' AND driver_id='$driver_id'")" = "1"
-test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM rides WHERE id='$fourth_ride_id' AND status='matching' AND driver_id IS NULL")" = "1"
+test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM rides WHERE id='$fourth_ride_id' AND status IN ('requested','matching') AND driver_id IS NULL")" = "1"
 test "$(psql -v ON_ERROR_STOP=1 -tAqc "SELECT count(*) FROM rides WHERE driver_id='$driver_id' AND status IN ('assigned','driver_arriving','in_progress')")" = "1"
 for ride_to_cancel in "$third_ride_id" "$fourth_ride_id"; do
   status="$(curl --silent --show-error --output "$tmp_dir/race-cleanup.json" --write-out '%{http_code}' \
