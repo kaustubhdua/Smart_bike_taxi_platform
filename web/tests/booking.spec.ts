@@ -49,7 +49,7 @@ test("calculates road route and only shows a fare after a valid server quote", a
       }),
     });
   });
-  await page.goto("/");
+  await page.goto("/live");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("No invented price")).toBeVisible();
   await expect(page.getByText("₹4750")).toHaveCount(0);
@@ -74,7 +74,7 @@ test("rejects expired and malformed server quotes without showing a fare", async
       }),
     });
   });
-  await page.goto("/");
+  await page.goto("/live");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.getByRole("status")).toContainText(/invalid or expired quote/i);
@@ -85,7 +85,7 @@ test("shows route failures honestly and never enables quoting without a route", 
   await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
-  await page.goto("/");
+  await page.goto("/live");
   await expect(page.getByText(/couldn't find/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
   await expect(page.locator(".fare-amount")).toContainText("—");
@@ -113,7 +113,7 @@ test("debounces location edits instead of geocoding every keystroke", async ({ p
   await page.route("https://b.tile.openstreetmap.org/**", route => route.abort());
   await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
 
-  await page.goto("/");
+  await page.goto("/live");
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => geocodingRequests).toBe(2);
   await expect.poll(() => routeRequests).toBe(1);
@@ -132,4 +132,25 @@ test("debounces location edits instead of geocoding every keystroke", async ({ p
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => geocodingRequests).toBe(3);
   await expect.poll(() => routeRequests).toBe(2);
+});
+
+
+test("keeps the root experience visibly simulated and supports a complete local demo ride", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("SIMULATION ONLY")).toBeVisible();
+  await expect(page.getByText(/no real rides or payments/i)).toBeVisible();
+
+  await page.getByRole("button", { name: "Create demo booking" }).click();
+  await expect(page.getByRole("status")).toContainText("Demo booking created");
+
+  await page.getByRole("button", { name: "Driver workspace" }).click();
+  await page.getByRole("button", { name: "Accept request" }).click();
+  await expect(page.getByText(/Driver assigned/)).toBeVisible();
+  await page.getByRole("button", { name: "Start ride" }).click();
+  await page.getByRole("button", { name: "Complete ride" }).click();
+  await expect(page.getByText(/Completed/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Admin workspace" }).click();
+  await expect(page.getByText("Total demo rides")).toBeVisible();
+  await expect(page.getByText("Completed", { exact: true })).toBeVisible();
 });
