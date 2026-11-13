@@ -39,7 +39,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [ ] Re-run the release gate on the exact candidate release SHA after any subsequent code changes; a successful earlier SHA is not evidence for later commits. Durable-offer PR #13 has been opened and its checks are pending.
 - [x] CI applies all versioned migrations, re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; Compose/container validation passes on the recorded SHA.
 
-Acceptance: every required current-head check is green; migrations 001–005 apply in order and a second migration run is a no-op.
+Acceptance: every required current-head check is green; migrations 001–010 apply in order and a second migration run is a no-op.
 
 ## Phase 1 — transactional API and security
 
