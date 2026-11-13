@@ -117,7 +117,7 @@ For the production overlay, use the same command with the additional flags: dock
 
 ### Enable the dedicated read-only backup identity
 
-Migration 015 creates `rideforge_backup` with SELECT on current/future `public` tables and USAGE/SELECT on current/future public sequences. It has BYPASSRLS only so a dump can include every backend-owned row, but it is **NOLOGIN**, has no password, no write privileges and no membership grants by default. Do not enable it unless the scheduled encrypted-backup workflow is being configured.
+Migration 015 creates `rideforge_backup` with SELECT on current/future `public` tables and USAGE/SELECT on current/future public sequences. It has BYPASSRLS only so a dump can include every backend-owned row, but it is **NOLOGIN**, has no password, no write privileges and no application-role memberships (the project administrator remains able to assume it). Do not enable it unless the scheduled encrypted-backup workflow is being configured.
 
 To provision it, connect to the project with the owner connection in a private terminal, then run:
 
@@ -132,7 +132,7 @@ ALTER ROLE rideforge_backup LOGIN;
 \password rideforge_backup
 ~~~
 
-The `\\password` command prompts interactively and avoids placing the password in shell history or SQL text. Exit psql. Add these repository Actions secrets under **Settings → Secrets and variables → Actions**:
+The `\password` command prompts interactively and avoids placing the password in shell history or SQL text. Exit psql. Add these repository Actions secrets under **Settings → Secrets and variables → Actions**:
 
 - `RIDEFORGE_BACKUP_DATABASE_URL`: the Supabase **Session pooler** URI (port 5432), username `rideforge_backup.<PROJECT_REF>`, the new password URL-encoded, and `sslmode=require`.
 - `RIDEFORGE_BACKUP_PASSPHRASE`: a separate strong passphrase used only for AES-256 GPG encryption.
