@@ -232,6 +232,8 @@ void pacing_gate_is_thread_safe() {
 void pacing_configuration() {
     using ms = std::chrono::milliseconds;
     assert(default_pacing_for("https://nominatim.openstreetmap.org/search") == ms(1000));
+    assert(default_pacing_for("https://router.project-osrm.org/route/v1/driving") == ms(1000));
+    assert(default_pacing_for("https://routing.openstreetmap.de/routed-car/route/v1/driving") == ms(1000));
     assert(default_pacing_for("http://127.0.0.1:8090/search") == ms(0));
     assert(default_pacing_for("https://geocoder.example.com/search") == ms(0));
 
