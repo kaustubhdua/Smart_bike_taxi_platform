@@ -65,6 +65,10 @@ struct ProviderRoute {
     json geometry;
 };
 
+// Bounded in-memory caches reduce repeat requests to public geocoding/routing demos.
+rideforge_provider::TtlCache<Location> geocode_cache{512, std::chrono::minutes(10)};
+rideforge_provider::TtlCache<ProviderRoute> route_cache{128, std::chrono::minutes(2)};
+
 struct HttpResult {
     long status{};
     std::string body;
@@ -182,9 +186,10 @@ std::string url_encode(const std::string& value) {
 
 Location geocode(const std::string& label) {
     // RideForge's current service area is Noida. Keep the city context on the
-    // server so preview and fare-quote geocoding resolve the same local places.
+    // server so all fare-quote geocoding resolves the same local places.
     const std::string context = env_or("RIDEFORGE_GEOCODING_CONTEXT", "Noida, Uttar Pradesh, India");
     const std::string query = context.empty() ? label : label + ", " + context;
+    if (const auto cached = geocode_cache.get(query)) return *cached;
     const auto response = get_json(
         env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search") +
         "?format=jsonv2&limit=1&q=" + url_encode(query), geocoding_guard);
@@ -212,15 +217,19 @@ Location geocode(const std::string& label) {
     std::string display = rideforge_provider::sanitize_label(
         item.value("display_name", label), 240);
     if (display.empty()) display = rideforge_provider::sanitize_label(label, 240);
-    return {std::move(display), latitude, longitude};
+    Location location{std::move(display), latitude, longitude};
+    geocode_cache.put(query, location);
+    return location;
 }
 
 ProviderRoute route(const Location& pickup, const Location& destination) {
+    const std::string origin = std::to_string(pickup.longitude) + "," + std::to_string(pickup.latitude);
+    const std::string target = std::to_string(destination.longitude) + "," + std::to_string(destination.latitude);
+    const std::string cache_key = origin + ";" + target;
+    if (const auto cached = route_cache.get(cache_key)) return *cached;
     const std::string url =
         env_or("RIDEFORGE_ROUTING_URL", "https://router.project-osrm.org/route/v1/driving") + "/" +
-        std::to_string(pickup.longitude) + "," + std::to_string(pickup.latitude) + ";" +
-        std::to_string(destination.longitude) + "," + std::to_string(destination.latitude) +
-        "?overview=full&geometries=geojson&alternatives=false&steps=false";
+        cache_key + "?overview=full&geometries=geojson&alternatives=false&steps=false";
     const auto response = get_json(url, routing_guard);
     const auto parsed = json::parse(response.body);
     if (!parsed.is_object() || parsed.value("code", std::string()) != "Ok" ||
@@ -255,7 +264,9 @@ ProviderRoute route(const Location& pickup, const Location& destination) {
             throw std::invalid_argument("Routing provider returned invalid route geometry");
         }
     }
-    return {metrics->meters, metrics->seconds, coordinates};
+    ProviderRoute route_result{metrics->meters, metrics->seconds, coordinates};
+    route_cache.put(cache_key, route_result);
+    return route_result;
 }
 
 class DatabasePool {
