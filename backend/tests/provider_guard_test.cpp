@@ -245,6 +245,15 @@ void ttl_cache_expires_and_is_bounded() {
 }
 void pacing_configuration() {
     using ms = std::chrono::milliseconds;
+    assert(is_public_nominatim_url("https://nominatim.openstreetmap.org/search"));
+    assert(is_public_nominatim_url("http://nominatim.openstreetmap.org/search"));
+    assert(!is_public_nominatim_url("https://nominatim.openstreetmap.org.attacker.example/search"));
+    assert(!is_public_nominatim_url("https://geocoder.example/search"));
+    assert(is_public_demo_landmark("JIIT Sector 128"));
+    assert(is_public_demo_landmark("  botanical   garden metro "));
+    assert(is_public_demo_landmark("NOIDA CITY CENTRE"));
+    assert(!is_public_demo_landmark("12 Main Street, Sector 18"));
+    assert(!is_public_demo_landmark("My Home"));
     assert(default_pacing_for("https://nominatim.openstreetmap.org/search") == ms(1000));
     assert(default_pacing_for("https://router.project-osrm.org/route/v1/driving") == ms(1000));
     assert(default_pacing_for("https://routing.openstreetmap.de/routed-car/route/v1/driving") == ms(1000));
