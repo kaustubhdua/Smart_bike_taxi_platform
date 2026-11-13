@@ -51,7 +51,6 @@ jobs:
     env:
       PGHOST: localhost
       DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
-      RIDEFORGE_APP_PASSWORD: B0jrphAPOY7pg92AN0c9MN4yecczLMdwnx4OkA1KFUk=
       PGPORT: 5432
       PGDATABASE: rideforge_test
       PGUSER: rideforge
@@ -69,6 +68,11 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -c "CREATE ROLE anon NOLOGIN"
           psql -v ON_ERROR_STOP=1 -c "CREATE ROLE authenticated NOLOGIN"
+      - name: Generate ephemeral runtime-role password
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'RIDEFORGE_APP_PASSWORD=%s\\n' "$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - name: Apply all migrations
         env:
           RIDEFORGE_MIGRATIONS_DIR: backend/migrations
@@ -96,7 +100,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          runtime_url="postgresql://rideforge_app:${RIDEFORGE_APP_PASSWORD}@127.0.0.1:5432/rideforge_test"
+          encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["RIDEFORGE_APP_PASSWORD"], safe=""))')"
+          runtime_url="postgresql://rideforge_app:${encoded_password}@127.0.0.1:5432/rideforge_test"
           psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT current_user, has_table_privilege(current_user,'public.accounts','SELECT,INSERT,UPDATE,DELETE') AND NOT has_table_privilege(current_user,'public.accounts','TRUNCATE')" | grep -F 'rideforge_app|t'
       - name: Verify backup and restore into a fresh database
         run: sh backend/tests/backup_restore_smoke.sh
