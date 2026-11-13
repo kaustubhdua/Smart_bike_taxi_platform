@@ -392,8 +392,8 @@ export default function App() {
       setRouteError("");
       setQuote({
         quoteId: data.quoteId, farePaise: data.farePaise as number,
-        baseFarePaise: breakdown!.baseFarePaise as number,
-        distanceFarePaise: breakdown!.distanceFarePaise as number,
+        baseFarePaise: breakdown.baseFarePaise as number,
+        distanceFarePaise: breakdown.distanceFarePaise as number,
         distanceKm: data.distanceKm, durationMinutes: data.durationMinutes as number,
         expiresAt: new Date(expiry).toISOString(),
       });
