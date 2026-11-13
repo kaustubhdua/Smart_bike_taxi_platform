@@ -253,7 +253,7 @@ No schema change, service creation, paid resource or Render environment-variable
 
 - PR #59 latest reviewed head: `5aef954fec46ecff1b7f66965351b09979662f5b` (25 check runs queued/pending at snapshot). It now accepts both PostgreSQL URI aliases, rejects direct/transaction-pooler endpoints for Render, and requires migration 012 in `/api/v1/ready`.
 - PR #60 latest reviewed head: `ebd2bdf1f90a5057c739a9d28cb45300b16e3129` (25 check runs queued/pending).
-- PR #62 latest documentation head at this snapshot: `3fe91098da522c0017fa683721161e4f84a9504a` (25 check runs queued/pending). It distinguishes the UP March draft from the final May rules analysis, cites the signed CAQM Direction 94 amendment, and records DPDP phased commencement dates.
+- PR #62 latest documentation head at this snapshot: `19e3e6738abb4ba8c5985c2e869ec46deb947520` (25 check runs queued/pending). It distinguishes the UP March draft from the final May rules analysis, cites the signed CAQM Direction 94 amendment, and records DPDP phased commencement dates.
 - PR #63 latest reviewed head: `91ca5bf1bd8204cb18a9883f18effe228b55a2e3` (24 check runs queued/pending).
 - All four PRs were mergeable in GitHub's metadata, but no exact-head required check had completed at this snapshot. Do not merge based on mergeability alone.
 - Render workspace `kaustubh dua`: the existing API `rideforge-api-final` remains on `main`, free plan, and unhealthy. Its latest build from `0f69d9f` succeeded but runtime startup failed because the old mainline entrypoint requires `DATABASE_URL` and the protected value is not configured. The static `rideforge-web` service remains the existing live free static site.
