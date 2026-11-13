@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          printf 'RIDEFORGE_APP_PASSWORD=%s\\n' "$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+          printf 'RIDEFORGE_APP_PASSWORD=%s\n' "$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - name: Apply all migrations
         env:
           RIDEFORGE_MIGRATIONS_DIR: backend/migrations
