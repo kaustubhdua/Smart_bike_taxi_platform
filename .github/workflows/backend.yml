@@ -54,7 +54,6 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
-      RIDEFORGE_APP_PASSWORD: rideforge_app_test_password_32_characters_minimum
       PGHOST: localhost
       PGPORT: 5432
       PGDATABASE: rideforge_test
@@ -63,6 +62,7 @@ jobs:
       RIDEFORGE_ALLOWED_ORIGINS: http://localhost:5173,http://driver.localhost:5173
       RIDEFORGE_USER_AGENT: RideForgeGithubActionsSmoke/0.1 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)
       RIDEFORGE_GEOCODING_URL: http://127.0.0.1:8090/search
+      RIDEFORGE_GEOCODING_CONTEXT: "Noida, Uttar Pradesh, India"
       RIDEFORGE_ROUTING_URL: http://127.0.0.1:8090/route/v1/driving
       RIDEFORGE_JWT_SECRET: not-a-production-secret-please-override-32chars
       RIDEFORGE_DISPATCH_RADIUS_KM: ${{ matrix.dispatch_radius_km }}
@@ -95,6 +95,13 @@ jobs:
           set -e
           test "$status" -eq 2
           grep -q 'invalid_dispatch_radius_configuration' /tmp/rideforge-invalid-radius.log
+      - name: Generate ephemeral runtime-role password
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(openssl rand -base64 32 | tr -d '\n')"
+          echo "::add-mask::$password"
+          printf 'RIDEFORGE_APP_PASSWORD=%s\n' "$password" >> "$GITHUB_ENV"
       - name: Apply versioned database migration
         env:
           RIDEFORGE_MIGRATIONS_DIR: backend/migrations
@@ -107,7 +114,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          runtime_url="postgresql://rideforge_app:${RIDEFORGE_APP_PASSWORD}@127.0.0.1:5432/rideforge_test"
+          encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["RIDEFORGE_APP_PASSWORD"], safe=""))')"
+          runtime_url="postgresql://rideforge_app:${encoded_password}@127.0.0.1:5432/rideforge_test"
           psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT NOT rolsuper AND rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole AND has_database_privilege(current_user,current_database(),'CONNECT') FROM pg_roles WHERE rolname=current_user" | grep -Fx t
           # The runtime API needs nextval/currval but never setval; ensure the
           # migration preserves sequence USAGE while revoking UPDATE.
@@ -122,12 +130,12 @@ jobs:
           python3 backend/tests/mock_routing_provider.py > /tmp/rideforge-provider.log 2>&1 &
           provider_pid=$!
           for attempt in $(seq 1 10); do
-            if curl --silent --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null; then
+            if curl --silent --fail --get --data-urlencode 'q=Readiness, Noida, Uttar Pradesh, India' 'http://127.0.0.1:8090/search' >/dev/null; then
               break
             fi
             sleep 1
           done
-          curl --silent --show-error --fail 'http://127.0.0.1:8090/search?q=Readiness' >/dev/null
+          curl --silent --show-error --fail --get --data-urlencode 'q=Readiness, Noida, Uttar Pradesh, India' 'http://127.0.0.1:8090/search' >/dev/null
           ./build-backend/rideforge_api > /tmp/rideforge-api.log 2>&1 &
           api_pid=$!
           worker_pid=""
