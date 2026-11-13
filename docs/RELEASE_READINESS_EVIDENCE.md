@@ -112,7 +112,7 @@ The latest main revision at this report's assessment is `a1eff3bfe4a6e99f668bbf8
 - [x] Exact-candidate CI passed for PRs #20, #21, #22 and #23 as listed above.
 - [ ] Confirm current-main CI passes on `8c6ee2ed12e3cff339c98b4389dacff708e525bb`.
 - [x] Merge PR #26 after its exact head passed the 13-job full release-readiness suite and browser E2E (31 passed, 1 skipped).
-- [ ] Add deterministic PostgreSQL race/recovery coverage for concurrent accept, accept-vs-expiry, cancellation races, worker restart, duplicate worker execution and cross-role/cross-account authorization.
+- [x] Add deterministic PostgreSQL race/recovery test coverage for concurrent accept, accept-vs-expiry, cancellation races, worker restart recovery, duplicate dispatch-worker execution and cross-role/cross-account authorization. [ ] Execute the full integration suite successfully on the exact release SHA; the latest main API smoke run failed before these suites began.
 - [ ] Load-test API, pool saturation, dispatch worker and SSE/outbox with recorded workload, latency, error rates and recovery behavior.
 - [ ] Budget total PostgreSQL connections across all API replicas plus dispatch/outbox workers before scaling.
 
