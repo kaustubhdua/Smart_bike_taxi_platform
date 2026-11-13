@@ -34,6 +34,8 @@ Set these as protected Render environment variables; never commit them:
 | `RIDEFORGE_GEOCODING_MIN_INTERVAL_MS`, `RIDEFORGE_ROUTING_MIN_INTERVAL_MS` | Optional provider pacing overrides in milliseconds. Public Nominatim and OSRM demo hosts default to one request per second; set according to the contracted/self-hosted provider's terms. |
 | `RIDEFORGE_DISPATCH_RADIUS_KM` | Integer 1–100; default 20. |
 
+Public Nominatim explicitly prohibits personal/confidential data and client-side autocomplete. Use public landmarks/test locations only in this demo; do not enter home addresses. For real passenger pickup/drop-off locations, use a contracted provider with appropriate privacy terms or a self-hosted geocoder.
+
 For Supabase, open the project's **Connect** dialog and copy the actual **Session pooler** host and port. Do not construct the hostname from the region: Supabase can assign different pooler cluster indexes. Session mode uses port 5432 and supports long-lived connection features such as PostgreSQL LISTEN/NOTIFY; transaction mode (6543) does not. For `DATABASE_URL_TEMPLATE`, copy the Session-pooler connection string, replace the username with `rideforge_app.PROJECT_REF`, and replace the password with the literal `__RIDEFORGE_PASSWORD__`. For `MIGRATION_DATABASE_URL`, use the owner Session-pooler string with username `postgres.PROJECT_REF` and the actual database password. Copy the exact pooler host/port from Connect—Supabase says the pooler cluster index cannot be derived from the region. Use SSL mode `require`.
 
 Example shapes (replace every angle-bracket value with the exact Connect details; do not use these placeholders literally):
