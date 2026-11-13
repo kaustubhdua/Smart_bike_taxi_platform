@@ -126,8 +126,8 @@ private:
 };
 
 // Spaces calls to one provider at least `interval` apart across every thread. The
-// public Nominatim service allows one request per second for the whole application,
-// not per user, so a per-client limiter cannot keep us inside its policy. A caller is
+// public Nominatim and OSRM demo services allow one request per second for the whole
+// application, not per user, so a per-client limiter cannot keep us inside policy. A caller is
 // told how long to wait before sending; if that wait would exceed `max_wait` it is shed
 // instead of queued, which keeps the number of sleeping threads bounded. An interval
 // of zero disables pacing. Configure before serving requests.
