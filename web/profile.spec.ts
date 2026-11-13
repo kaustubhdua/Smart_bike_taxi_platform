@@ -64,7 +64,7 @@ test("passenger can read the authenticated profile and update their display name
   await expect(page.getByLabel("Display name")).toHaveValue("Profile Rider");
   await page.getByLabel("Display name").fill("Updated Profile Rider");
   await page.getByRole("button", { name: "Save profile" }).click();
-  await expect(page.getByRole("status")).toContainText("Your profile was updated");
+  await expect(page.locator(".inline-notice")).toContainText("Your profile was updated");
   await expect(page.getByLabel("Display name")).toHaveValue("Updated Profile Rider");
   expect(profileUpdates).toBe(1);
   await expect(page.getByText(/Phone verification.*not configured/i)).toBeVisible();
