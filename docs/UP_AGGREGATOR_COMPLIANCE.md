@@ -154,6 +154,7 @@ A source-quality distinction is important for this research:
 
 Sources:
 - [UP Government-hosted 13 March 2026 draft notification (draft only)](https://upidadv.up.gov.in/upload/PublicationRequest/183241/SachivalyaLKO130326Notification639090236220551079.pdf)
+- [MoRTH — Motor Vehicles Aggregator Guidelines, 2025, official 1 July 2025 circular and attached English/Hindi guideline](https://morth.nic.in/sites/default/files/circulars_document/MV-Aggregators-Guidelines-2025%20-%20English%20and%20Hindi.pdf)
 - [Government of Uttar Pradesh — UP MV Aggregator and Delivery Service Provider Scheme portal](https://www.upmyfleet.com/)
 - [Government of Uttar Pradesh — applicant compliance affidavit](https://upmyfleet.com/storage/affidavit/Affidavit.pdf)
 - [Argus Partners — final-rule analysis, 2 October 2026](https://www.argus-p.com/updates/updates/overview-of-the-uttar-pradesh-motor-vehicle-thirty-third-amendment-aggregator-and-delivery-services-provider-rules-2026/)
