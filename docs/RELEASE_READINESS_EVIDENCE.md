@@ -2,7 +2,7 @@
 
 **Assessment date:** 2026-11-13  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Current main SHA at assessment:** `d7a90e24977119618f079ae7f8c1623aae97899d`  
+**Current main SHA at assessment:** `cd0361f9d491a7423f61338a2210cc75ce1a3508`  
 **Release decision:** **Not ready for public/commercial rides.** The repository has a substantially hardened full-stack MVP, but no verified public staging deployment, real two-device journey, production operational service, driver/vehicle compliance process, or transport-authority/legal approval.
 
 This report distinguishes repository implementation and automated CI from evidence that requires real infrastructure. A green build, local Compose stack, mock-provider browser test, or demo receipt is not proof of a commercially operating taxi service.
@@ -32,7 +32,7 @@ The PR added:
 | Authorization and abuse controls | Adversarial tests merged | Distributed limits and independent security review |
 | Dispatch | Durable offers, bounded attempts and concurrency tests | Deterministic accept-vs-expiry, cancellation, duplicate-worker and multi-worker stress testing |
 | Outbox/SSE | Persisted replay and fault tests merged | Real reconnect/load metrics, alerts and production resynchronization |
-| PostgreSQL | 12-connection per-process pool and migration/recovery tests | Least-privilege roles, aggregate connection budget, saturation tests and production restore drill |
+| PostgreSQL | 12-connection per-process pool, migration/recovery tests, and Supabase-verified restricted runtime role/grants | Runtime password/Render connection, aggregate connection budget, saturation tests and production restore drill |
 | Web | React/TypeScript passenger, driver and admin workspaces; Playwright/axe CI | Manual Android/iOS, keyboard/screen-reader and WCAG 2.2 AA sign-off |
 | Routing | Provider guards and deterministic mock tests | Contracted/self-hosted provider, production-wide cache and global rate limits |
 | Deployment | Docker/Compose/Caddy HTTPS templates | Real DNS/TLS, host, durable database, secrets, monitoring and public staging URLs |
@@ -142,7 +142,7 @@ Fill only with observed values:
 ## Follow-up hardening — 2026-11-13
 
 - PR [#46](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/46) merged as `cd0361f9d491a7423f61338a2210cc75ce1a3508`. Its exact head `71f25e9053eb3349bd3daff35ee51a0bad409b47` passed all 13 jobs in [Full release readiness run 43401276877](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43401276877). The new PostgreSQL-backed regression verifies an expired driver offer cannot be accepted, does not assign the ride, and does not create an accepted-offer row.
-- PR [#48](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/48) is the current review for migration/runtime credential separation. It adds migration 010, provisions a separate `rideforge_app` password through the owner-only migration runner, configures Compose/CI to run the API and workers with that role, and strengthens schema/runtime login checks. It must pass exact-head CI before merge.
+- PR [#49](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/49) is the current review for migration/runtime credential separation. It adds migration 010, provisions a separate `rideforge_app` password through the owner-only migration runner, configures Compose/CI to run the API and workers with that role, and strengthens schema/runtime login checks. It must pass exact-head CI before merge.
 - The dedicated Supabase project `rideforge-production` was restored and is now `ACTIVE_HEALTHY`. Supabase migration history confirms migrations 001–010 are recorded. All 12 public tables have RLS enabled; `anon` and `authenticated` have zero table/sequence privileges; `rideforge_app` is LOGIN+BYPASSRLS, non-superuser, has no CREATEDB/CREATEROLE rights, has database CONNECT and table DML but not TRUNCATE. Its password is not yet configured, and a direct login test from the application runtime has not been performed. The Supabase security advisor reports only the expected informational `rls_enabled_no_policy` findings because the Data API roles have no grants; no health findings were returned. The unused-index advisor reports 22 unused indexes on the empty database, which is expected before workload and is not grounds for removing them.
 
 Do not infer that the Render API is deployed from the repository template: the connected Render workspace has no PostgreSQL instance, and its existing RideForge API deploys are on an older branch and have failed. The static site has a previous live deployment, but this is not proof of an integrated passenger-to-driver journey.
