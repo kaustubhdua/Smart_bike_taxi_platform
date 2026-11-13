@@ -4,7 +4,7 @@
 rideforge_build_runtime_database_url() {
   local template="${DATABASE_URL_TEMPLATE:?DATABASE_URL_TEMPLATE is required}"
   local password="${RIDEFORGE_APP_PASSWORD:?RIDEFORGE_APP_PASSWORD is required}"
-  local password_body password_padding encoded
+  local authority userinfo password_body password_padding encoded
 
   case "$template" in
     postgresql://*__RIDEFORGE_PASSWORD__*) ;;
@@ -16,6 +16,22 @@ rideforge_build_runtime_database_url() {
   case "$template" in
     *__RIDEFORGE_PASSWORD__*__RIDEFORGE_PASSWORD__*)
       echo "DATABASE_URL_TEMPLATE must contain the password placeholder exactly once." >&2
+      return 1
+      ;;
+  esac
+  authority=${template#postgresql://}
+  case "$authority" in
+    *@*) ;;
+    *)
+      echo "DATABASE_URL_TEMPLATE must include a PostgreSQL URI authority." >&2
+      return 1
+      ;;
+  esac
+  userinfo=${authority%%@*}
+  case "$userinfo" in
+    *:__RIDEFORGE_PASSWORD__) ;;
+    *)
+      echo "DATABASE_URL_TEMPLATE placeholder must occupy the URI password component." >&2
       return 1
       ;;
   esac
