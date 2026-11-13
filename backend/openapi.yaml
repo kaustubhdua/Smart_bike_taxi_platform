@@ -48,7 +48,12 @@ paths:
             schema:
               $ref: "#/components/schemas/RegisterRequest"
       responses:
-        "201": { description: Account created }
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
         "409": { description: Email already exists }
         "422": { description: Invalid request }
   /auth/login:
@@ -62,7 +67,12 @@ paths:
             schema:
               $ref: "#/components/schemas/LoginRequest"
       responses:
-        "200": { description: Authenticated }
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
         "401": { description: Invalid credentials }
         "429": { description: Rate limited }
   /me:
@@ -549,6 +559,16 @@ components:
         offerExpiresAt: { type: string, format: date-time, description: Offer expiry; expired offers are removed from the queue and redispatched. }
         distanceMeters: { type: integer, minimum: 1 }
         pickupDistanceMeters: { type: integer, minimum: 0, maximum: 100000 }
+    AuthResponse:
+      type: object
+      additionalProperties: false
+      required: [accessToken, tokenType, expiresIn, account]
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, enum: [Bearer] }
+        expiresIn: { type: integer, minimum: 1 }
+        account:
+          $ref: "#/components/schemas/AccountProfile"
     AccountProfile:
       type: object
       additionalProperties: false
