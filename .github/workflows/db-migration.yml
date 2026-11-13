@@ -124,5 +124,7 @@ jobs:
           encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["RIDEFORGE_APP_PASSWORD"], safe=""))')"
           runtime_url="postgresql://rideforge_app:${encoded_password}@127.0.0.1:5432/rideforge_test"
           psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT current_user, has_table_privilege(current_user,'public.accounts','SELECT,INSERT,UPDATE,DELETE') AND NOT has_table_privilege(current_user,'public.accounts','TRUNCATE')" | grep -F 'rideforge_app|t'
+      - name: Verify concurrent backup file safety
+        run: sh backend/tests/backup_script_concurrency_test.sh
       - name: Verify backup and restore into a fresh database
         run: sh backend/tests/backup_restore_smoke.sh
