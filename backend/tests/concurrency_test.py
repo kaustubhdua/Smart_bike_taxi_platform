@@ -554,8 +554,35 @@ def test_an_expired_quote_cannot_be_booked():
           "an expired quote left a ride behind")
 
 
+def reset_dispatch_fixtures():
+    """Keep the live dispatch worker from carrying offers between tests."""
+    psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+         "current_longitude=NULL,last_location_at=NULL")
+    pending = psql(
+        "SELECT id::text || '|' || passenger_id::text FROM rides "
+        "WHERE status IN ('requested','matching') ORDER BY created_at"
+    )
+    for row in pending.splitlines():
+        ride_id, passenger_id = row.split("|", 1)
+        response = request(
+            "POST", "/api/v1/rides/%s/cancel" % ride_id,
+            token=forge_token(passenger_id, "passenger"))
+        check(response.status in (200, 409),
+              "could not isolate pending ride %s before concurrency test: %s %s"
+              % (ride_id, response.status, response.text))
+
+
+def isolated(test):
+    def run():
+        reset_dispatch_fixtures()
+        test()
+    run.__name__ = test.__name__
+    return run
+
+
 def main():
     tests = [value for name, value in sorted(globals().items()) if name.startswith("test_")]
+    tests = [isolated(test) for test in tests]
     runner = Runner("concurrency")
     code = runner.run(tests)
     if code == 0:
