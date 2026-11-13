@@ -44,6 +44,7 @@ test("calculates road route and only shows a fare after a valid server quote", a
         distanceKm: 5.2,
         durationMinutes: 14,
         farePaise: 4750,
+        fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" },
         currency: "INR",
         expiresAt: new Date(Date.now() + 120_000).toISOString(),
       }),
@@ -55,6 +56,9 @@ test("calculates road route and only shows a fare after a valid server quote", a
   await expect(page.getByText("₹4750")).toHaveCount(0);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.getByText("₹47.50")).toBeVisible();
+  await expect(page.getByText("Base fare")).toBeVisible();
+  await expect(page.getByText("₹20.00")).toBeVisible();
+  await expect(page.getByText("₹27.50")).toBeVisible();
   await expect(page.getByRole("status")).toContainText("This checks the quote only");
 });
 
