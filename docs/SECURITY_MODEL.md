@@ -23,6 +23,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 ## Implemented controls
 
 - Passenger registration does not accept a role field; newly registered accounts are passengers.
+- `GET /api/v1/me` and `PATCH /api/v1/me` derive the target account only from a verified bearer-token subject; the client cannot supply another account ID or change email, role, phone verification, or account status. Profile updates accept only a bounded display name and use parameterized SQL.
 - Passwords are stored as PBKDF2-HMAC-SHA-256 hashes with random salts and 600,000 iterations. Verification accepts only the exact four-field format, strictly parses bounded iteration counts, and uses constant-time digest comparison.
 - Access tokens are HMAC-SHA-256 signed and require the expected algorithm, issuer, audience, non-empty subject, supported role, issued-at and expiry claims. Verification enforces a maximum 15-minute lifetime with 60-second future clock skew and canonical unpadded base64url segments.
 - Passenger ride reads are scoped to the authenticated passenger; driver actions are scoped to the assigned driver; admin routes check the admin role.
@@ -36,13 +37,16 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - The API bounds request bodies/headers, applies socket timeouts and rate-limits auth/quote requests in-process.
 - Ride-event insertion automatically creates a durable outbox row in the same transaction.
 - Compose migrations run with the database-owner credential, while the API and both workers use the non-superuser `rideforge_app` login. Its password is provisioned by the migration runner, it has no CREATEDB/CREATEROLE/SUPERUSER rights, and it has only the table/sequence privileges needed by the backend. It has BYPASSRLS because the API enforces object ownership and role authorization; browser roles have no direct table grants.
+- Supabase's connected production schema has RLS enabled on all 12 public application tables and intentionally has zero RLS policies. The `anon` and `authenticated` database roles have no public-table CRUD or sequence grants, so direct browser/PostgREST access is denied. The private `rideforge_app` login is the only application database principal and has `BYPASSRLS` plus narrowly scoped per-table grants; the C++ API enforces object/role authorization in parameterized SQL. Supabase's `rls_enabled_no_policy` advisor result is therefore an expected informational warning for this server-only access model, not a reason to add permissive policies. If direct Supabase client access or Supabase Auth is introduced later, create and test explicit per-user RLS policies before granting browser roles table access.
+- The only public-schema `SECURITY DEFINER` function is `enqueue_ride_event_notification()`, owned by `postgres`, with a fixed `search_path` of `pg_catalog, public`; it only inserts the outbox row for a new ride event. Direct EXECUTE is not granted to `anon`, `authenticated` or `rideforge_app`, and none of those roles has CREATE on `public`, preventing untrusted search-path object shadowing. The function is invoked through the `ride_events` AFTER INSERT trigger.
+- A deeper live privilege query found that `rideforge_app` currently has `USAGE`, `SELECT`, and `UPDATE` on all five public sequences. Application source contains no `setval()` use, so `UPDATE` is unnecessary. PR #69 proposes migration 013 to revoke sequence `UPDATE` on existing and future sequences while retaining `USAGE`/`SELECT`; this privilege reduction is pending exact-head CI and approved production migration, and must not be claimed as already applied.
 
 ## Important limitations
 
 - Tokens remain valid until expiry; there is no general token revocation/session registry yet.
 - In-process rate limits do not coordinate across multiple API replicas and are not a substitute for edge/WAF limits.
-- The API uses a bounded process-local PostgreSQL connection pool (12 connections per API process, 2-second acquisition timeout, rollback/session reset before reuse); it is not shared across replicas. Production monitoring and a verified production restore drill are not evidenced. The API has an authenticated SSE stream backed by PostgreSQL NOTIFY and persisted-event replay, but it has not been load-tested and driver/admin push subscriptions are not implemented. NOTIFY alone is not a durable client-delivery guarantee; REST resynchronization remains necessary.
-- Driver approval is an administrative workflow, not identity, licence, insurance or vehicle-document verification.
+- The API uses a bounded process-local PostgreSQL connection pool (10 connections per API process, 2-second acquisition timeout, rollback/session reset before reuse); it is not shared across replicas. Production monitoring and a verified production restore drill are not evidenced. The API has an authenticated SSE stream backed by PostgreSQL NOTIFY and persisted-event replay, but it has not been load-tested and driver/admin push subscriptions are not implemented. NOTIFY alone is not a durable client-delivery guarantee; REST resynchronization remains necessary.
+- Driver approval is an administrative workflow, not identity, licence, insurance or vehicle-document verification. Passenger profile editing currently covers display name only; verified phone/email workflows and notification preferences require an approved verification/communications provider and are not implemented.
 - Location updates are user-submitted and freshness-checked, not proof of real GPS provenance.
 - Public routing/geocoding endpoints are for development/evaluation only.
 - No payment processing, refunds, safety dispatch or emergency-service integration is implemented. Support reports are an internal demo queue only; they do not promise response times or contact emergency services.
@@ -52,7 +56,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - [ ] Rotate all deployment secrets; never use example values in public environments.
 - [ ] Serve the API only over HTTPS behind a correctly configured reverse proxy.
 - [x] Separate migration-owner and runtime credentials; API/workers use the non-superuser `rideforge_app` role. [ ] Verify the deployed role and restrict network access to PostgreSQL.
-- [ ] Add shared/distributed rate limits and connection pooling; [x] request IDs and redacted structured logs are implemented.
+- [x] Add bounded per-process PostgreSQL connection pooling (10 connections, 2-second acquisition timeout); [ ] add shared/distributed rate limits before horizontal scaling. [x] Request IDs and redacted structured logs are implemented.
 - [ ] Test BOLA/IDOR across passenger, driver and admin identities.
 - [ ] Test stale, revoked, malformed and wrong-role tokens.
 - [ ] Test duplicate/out-of-order requests, cancellation races and competing assignments.

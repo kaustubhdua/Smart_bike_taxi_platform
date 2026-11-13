@@ -16,7 +16,15 @@ trap cleanup EXIT HUP INT TERM
 
 createdb "$target_db"
 DATABASE_URL="$DATABASE_URL" sh backend/scripts/backup.sh "$temporary_dir/source.dump"
-restore_url="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${target_db}"
+cp "$temporary_dir/source.dump" "$temporary_dir/source.expected.dump"
+if DATABASE_URL="$DATABASE_URL" sh backend/scripts/backup.sh "$temporary_dir/source.dump"; then
+  echo "backup script unexpectedly overwrote an existing backup" >&2
+  exit 1
+fi
+cmp "$temporary_dir/source.expected.dump" "$temporary_dir/source.dump"
+# Keep the password in libpq's environment rather than interpolating it into a URI.
+# PostgreSQL passwords may contain URI-reserved characters such as @, /, ?, or #.
+restore_url="postgresql://${PGUSER}@${PGHOST}:${PGPORT}/${target_db}"
 DATABASE_URL="$restore_url" sh backend/scripts/restore.sh "$temporary_dir/source.dump"
 source_versions="$(psql -v ON_ERROR_STOP=1 -d "$DATABASE_URL" -Atqc "SELECT string_agg(version, ',' ORDER BY version) FROM schema_migrations")"
 restored_versions="$(psql -v ON_ERROR_STOP=1 -d "$restore_url" -Atqc "SELECT string_agg(version, ',' ORDER BY version) FROM schema_migrations")"
