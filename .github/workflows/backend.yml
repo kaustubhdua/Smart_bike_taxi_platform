@@ -54,7 +54,6 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
-      RIDEFORGE_APP_PASSWORD: rideforge_app_test_password_32_characters_minimum
       PGHOST: localhost
       PGPORT: 5432
       PGDATABASE: rideforge_test
@@ -95,6 +94,12 @@ jobs:
           set -e
           test "$status" -eq 2
           grep -q 'invalid_dispatch_radius_configuration' /tmp/rideforge-invalid-radius.log
+      - name: Generate ephemeral runtime-role password
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(openssl rand -base64 32 | tr -d '\\n')"
+          printf 'RIDEFORGE_APP_PASSWORD=%s\\n' "$password" >> "$GITHUB_ENV"
       - name: Apply versioned database migration
         env:
           RIDEFORGE_MIGRATIONS_DIR: backend/migrations
