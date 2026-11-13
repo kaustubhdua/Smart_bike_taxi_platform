@@ -42,6 +42,7 @@ A plain `docker compose down` preserves the named database volume. Do not remove
 
 - Migrations are ordered SQL files named with a stable version prefix.
 - Each migration records its version inside its own transaction.
+- For functions created by the RideForge migration owner, public-schema `EXECUTE` is revoked from PUBLIC, anon, authenticated and service_role by default; existing RideForge application functions are not directly executable by those roles. Supabase-managed `supabase_admin` default ACLs are left unchanged; for objects it creates in `public`, its defaults still grant broad table/sequence privileges to anon, authenticated and service_role, and function EXECUTE to those roles. All 12 current RideForge tables are owned by `postgres`, whose defaults are restricted. Do not create RideForge application tables, sequences or functions as `supabase_admin`; use the reviewed migration owner and explicit RLS/grants. Supabase `service_role` retains its standard broad table privileges and BYPASSRLS; it is server-only and its key must never be exposed to a browser.
 - Re-running the migration runner skips versions already recorded.
 - If an accounts table exists without schema_migrations, the runner fails closed. Back up the database and deliberately baseline its schema; do not bypass the check casually.
 - Before production schema changes, take a verified backup, test the migration on a copy, and prepare a rollback/recovery plan. Destructive migrations require a separate reviewed plan.
@@ -73,7 +74,7 @@ Quote requests depend on external geocoding and road-routing services. If the pr
 
 ## Database backup/restore rehearsal (local only)
 
-**Production backup limitation:** the connected Supabase organization is on the Free plan. Automatic daily backups and PITR are not included; Supabase recommends manual exports with the CLI/pg_dump. Free projects can pause after seven days of low activity. The commands below rehearse a local Compose database only. No scheduled encrypted backup of the connected Supabase project or production restore has been verified. Before storing real passenger/driver data, configure a protected backup connection, encrypted off-site retention and a timed restore drill, or obtain explicit approval for a paid backup plan. See [Supabase Free-plan backup guidance](https://supabase.com/kb/faqs/platform/free-plan-backups) and [Database Backups](https://supabase.com/docs/guides/platform/backups).
+**Production backup limitation:** the connected Supabase organization is on the Free plan, so automatic daily backups and PITR are not included. PR #76 adds a daily encrypted GitHub Actions export of the RideForge `public` schema, but it is not active until the dedicated backup role and repository secrets are configured. No successful encrypted backup run, independent off-site retention or production restore drill has been verified. Supabase recommends CLI-based exports and off-site storage for full project backups; this workflow deliberately excludes managed Auth/Storage schemas and global roles. Do not accept real passenger/driver data until a successful backup and isolated restore drill are recorded. See [Supabase Free-plan backup guidance](https://supabase.com/kb/faqs/platform/free-plan-backups) and [Database Backups](https://supabase.com/docs/guides/platform/backups).
 
 A local logical backup can be created with:
 
@@ -90,7 +91,7 @@ Before any public launch, provide HTTPS, managed secrets, least-privilege databa
 
 ## Deployment probes
 
-Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 013 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
+Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 015 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
 
 
 ## Backup and restore
@@ -114,9 +115,35 @@ mv "$temporary" "$backup"
 
 For the production overlay, use the same command with the additional flags: docker compose -f compose.yaml -f compose.production.yaml. Keep backup files encrypted at rest, outside the repository and outside the production host where possible.
 
+### Enable the dedicated read-only backup identity
+
+Migration 015 creates `rideforge_backup` with SELECT on current/future `public` tables and USAGE/SELECT on current/future public sequences. It has BYPASSRLS only so a dump can include every backend-owned row, but it is **NOLOGIN**, has no password, no write privileges and no application-role memberships (the project administrator remains able to assume it). Do not enable it unless the scheduled encrypted-backup workflow is being configured.
+
+To provision it, connect to the project with the owner connection in a private terminal, then run:
+
+~~~sh
+psql "$MIGRATION_DATABASE_URL"
+~~~
+
+At the `psql` prompt:
+
+~~~sql
+ALTER ROLE rideforge_backup LOGIN;
+\password rideforge_backup
+~~~
+
+The `\password` command prompts interactively and avoids placing the password in shell history or SQL text. Exit psql. The separate `rideforge_app` role currently has no password verifier because Render startup has not reached the migration runner. The Render Blueprint declares `RIDEFORGE_RUNTIME_ROLE_PASSWORD` as a generated secret; verify it is present, then correct the owner connection so the entrypoint can set the database password and a real login can be tested. Add these repository Actions secrets under **Settings → Secrets and variables → Actions**:
+
+- `RIDEFORGE_BACKUP_DATABASE_URL`: the Supabase **Session pooler** URI (port 5432), username `rideforge_backup.<PROJECT_REF>`, the new password URL-encoded, and `sslmode=require`.
+- `RIDEFORGE_BACKUP_PASSPHRASE`: a separate strong passphrase used only for AES-256 GPG encryption.
+
+The `Supabase encrypted backup` workflow runs daily at 02:30 UTC and can also be started manually. It exports only the RideForge `public` schema, encrypts the dump before upload, decrypts it in the runner to verify archive readability, and stores the encrypted artifact for 30 days. It never uploads the plaintext dump. The role does not include Supabase Auth or Storage schemas; those are currently unused by RideForge (zero Auth users and zero Storage buckets in the audit), and must be added to a separately reviewed backup plan if adopted later.
+
+**This workflow is not active until the operator configures both secrets and a successful scheduled/manual run is observed.** A readable archive is not a restore drill. Before launch, restore a downloaded encrypted artifact into an isolated PostgreSQL 17 database, verify schema/migration and representative row counts, and record measured recovery time. For stronger disaster recovery, copy encrypted artifacts to a separately administered object-storage account; GitHub artifact retention is only the initial 30-day safety net.
+
 ### Supabase Free manual logical backup (operator-run)
 
-The connected production project is on the Free plan, so this is a manual operator task until a protected schedule and off-site destination are configured. Use the exact **Session pooler** connection string from Supabase Connect (port 5432), with the restricted `rideforge_app` login and a credential that has been verified. Do not use transaction pooling for `pg_dump`. Keep the URL and encryption passphrase in a private shell/session; never commit them or paste them into chat.
+The connected production project is on the Free plan. Until the PR #76 workflow is activated, an operator can run a manual export with the dedicated `rideforge_backup` role after deliberately enabling LOGIN and setting its password as described above. Use the exact **Session pooler** connection string from Supabase Connect (port 5432), username `rideforge_backup.<PROJECT_REF>`, TLS required, and the `RIDEFORGE_BACKUP_DATABASE_URL` secret. Do not use transaction pooling for `pg_dump`. Keep the URL and encryption passphrase in a private shell/session; never commit them or paste them into chat.
 
 ```sh
 set -eu
@@ -151,7 +178,7 @@ docker compose exec -T db psql -U rideforge -d rideforge_restore -X -v ON_ERROR_
 docker compose exec -T db dropdb -U rideforge rideforge_restore
 ~~~
 
-For the production overlay, prefix each command with the same two -f compose file arguments. Run the repository restore script only when RESTORE_DATABASE_URL points to a reachable, deliberately empty restore target; it refuses to overwrite existing relations.
+For the production overlay, prefix each command with the same two -f compose file arguments. Run `backend/scripts/restore.sh` only when `DATABASE_URL` points to a reachable, deliberately empty restore target **using the database-owner credential** (for Supabase, the `postgres.<PROJECT_REF>` Session-pooler identity on port 5432). The restore script recreates roles and ACLs, so the non-superuser `rideforge_app` or read-only `rideforge_backup` credentials are not sufficient; it refuses to overwrite existing relations. After restoring the logical dump, the script replays browser-role lockdown and role/privilege migrations 007 and 009–015 because `pg_dump --no-acl` intentionally excludes global roles and ACLs. Supply a fresh, standard-base64 `RIDEFORGE_APP_PASSWORD` in the private environment so the migration runner can set the restored runtime-role credential; without it, the script warns that the API must not start until the runtime credential is configured.
 
 After restoration, verify representative account, ride, event, and idempotency counts before considering recovery successful. Store backups in a separate access-controlled location, define retention/deletion, and periodically perform a timed restore drill. CI runs a disposable-database backup/restore smoke test; that is not evidence of a production backup schedule or recovery-time objective.
 
