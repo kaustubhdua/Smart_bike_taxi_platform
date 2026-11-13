@@ -16,7 +16,7 @@ Both release-hardening upgrades are merged into `main`:
 | One active dispatch offer per driver (PR #53) | `05581bb1bdcbf68d9675a647db1b334f337dbe3b` | [Full release readiness, run 43433243879](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43433243879), candidate `9216cd69f34c8c7bdddf7df8d86b7cf3a261ee9f` | 13/13 jobs passed. Migration 011 adds a unique partial index; worker selection excludes drivers with another active offer; a two-worker PostgreSQL test verifies the invariant. |
 | Driver offer visibility and portal routing (PR #54) | `2c6ba631815b13feb6d3064de47765967e8db0ec` | [Full release readiness, run 43432850270](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43432850270), candidate `e2300ca274efe342de78cb7924d10595059d8c64` | 13/13 jobs passed. Driver queue polls every five seconds while online; `/driver` and `/admin` entry points are tested; 37 Playwright browser tests passed. |
 
-The latest main-branch full release-readiness run for assessment SHA `2c6ba631815b13feb6d3064de47765967e8db0ec` is [run 43434905271](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43434905271). It was still running at the time this evidence snapshot was written; do not treat PR candidate checks as a substitute for this exact-main result.
+The latest main-branch full release-readiness run for assessment SHA `2c6ba631815b13feb6d3064de47765967e8db0ec` is [run 43434905271](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43434905271), which completed all 13/13 jobs successfully. This is exact-main evidence for that SHA; deployment and commercial-readiness gates remain separate.
 
 ## Current infrastructure snapshot
 
