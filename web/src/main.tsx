@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import DemoExperience from "./DemoExperience";
 import OperationsWorkspace from "./components/OperationsWorkspace";
 import "./styles.css";
 
@@ -8,18 +9,16 @@ const hostname = window.location.hostname.toLowerCase();
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const isDriverPortal = hostname.startsWith("driver.") || pathname === "/driver";
 const isAdminPortal = pathname === "/admin";
+const isLiveApiView = pathname === "/live";
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <>
-      <div className="demo-disclaimer" role="note">
-        <strong>DEMO ONLY</strong> · RideForge is a portfolio prototype, not a live taxi service. Use public landmarks/test locations only—never enter home addresses or personal data. No real passenger trips, payments, driver verification or emergency dispatch.
-      </div>
-      {isDriverPortal
-        ? <OperationsWorkspace mode="driver" />
-        : isAdminPortal
-          ? <OperationsWorkspace mode="admin" />
-          : <App />}
-    </>
+    {isDriverPortal
+      ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured RideForge API and real credentials.</div><OperationsWorkspace mode="driver" /></>
+      : isAdminPortal
+        ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured RideForge API and administrator credentials.</div><OperationsWorkspace mode="admin" /></>
+        : isLiveApiView
+          ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured RideForge API. Not a live transport service.</div><App /></>
+          : <DemoExperience />}
   </React.StrictMode>,
 );

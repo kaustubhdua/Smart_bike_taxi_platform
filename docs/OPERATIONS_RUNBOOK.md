@@ -23,7 +23,7 @@ curl --fail --show-error http://localhost:8080/api/v1/health
 curl --fail --show-error http://localhost:8080/api/v1/ready
 ```
 
-The migration service applies all ordered SQL files in backend/migrations (including the durable-offer schema) and exits only after pending migrations succeed. The dispatch worker issues one 45-second offer at a time per ride, expires unanswered offers, and tries the next eligible driver. Inspect its logs if unassigned rides are not progressing; the demo has no external paging/dispatch SLA. The API waits for migration completion and database readiness. The web app is exposed on port 5173 and the API on port 8080. Compose sets `PGCONNECT_TIMEOUT=5` for PostgreSQL clients so connection establishment fails promptly instead of hanging indefinitely. The API uses a bounded in-process PostgreSQL connection pool (12 connections, with a 2-second acquisition timeout) and rolls back/reset session state before a connection is reused. This is not a shared pool across API replicas, and `PGCONNECT_TIMEOUT` is not a query timeout. Do not horizontally scale until representative concurrency/load tests and an aggregate database connection budget cover every API replica plus the dispatch and outbox workers.
+The migration service applies all ordered SQL files in backend/migrations (including the durable-offer schema) and exits only after pending migrations succeed. The dispatch worker issues one 45-second offer at a time per ride, expires unanswered offers, and tries the next eligible driver. Inspect its logs if unassigned rides are not progressing; the demo has no external paging/dispatch SLA. The API waits for migration completion and database readiness. The web app is exposed on port 5173 and the API on port 8080. Compose sets `PGCONNECT_TIMEOUT=5` for PostgreSQL clients so connection establishment fails promptly instead of hanging indefinitely. The API uses a bounded in-process PostgreSQL connection pool (10 connections, with a 2-second acquisition timeout) and rolls back/reset session state before a connection is reused. This is not a shared pool across API replicas, and `PGCONNECT_TIMEOUT` is not a query timeout. Do not horizontally scale until representative concurrency/load tests and an aggregate database connection budget cover every API replica plus the dispatch and outbox workers.
 
 ## Stop and inspect
 
@@ -73,6 +73,8 @@ Quote requests depend on external geocoding and road-routing services. If the pr
 
 ## Database backup/restore rehearsal (local only)
 
+**Production backup limitation:** the connected Supabase organization is on the Free plan. Automatic daily backups and PITR are not included; Supabase recommends manual exports with the CLI/pg_dump. Free projects can pause after seven days of low activity. The commands below rehearse a local Compose database only. No scheduled encrypted backup of the connected Supabase project or production restore has been verified. Before storing real passenger/driver data, configure a protected backup connection, encrypted off-site retention and a timed restore drill, or obtain explicit approval for a paid backup plan. See [Supabase Free-plan backup guidance](https://supabase.com/kb/faqs/platform/free-plan-backups) and [Database Backups](https://supabase.com/docs/guides/platform/backups).
+
 A local logical backup can be created with:
 
 ```sh
@@ -88,7 +90,7 @@ Before any public launch, provide HTTPS, managed secrets, least-privilege databa
 
 ## Deployment probes
 
-Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 011 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
+Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 013 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
 
 
 ## Backup and restore
@@ -111,6 +113,32 @@ mv "$temporary" "$backup"
 ~~~
 
 For the production overlay, use the same command with the additional flags: docker compose -f compose.yaml -f compose.production.yaml. Keep backup files encrypted at rest, outside the repository and outside the production host where possible.
+
+### Supabase Free manual logical backup (operator-run)
+
+The connected production project is on the Free plan, so this is a manual operator task until a protected schedule and off-site destination are configured. Use the exact **Session pooler** connection string from Supabase Connect (port 5432), with the restricted `rideforge_app` login and a credential that has been verified. Do not use transaction pooling for `pg_dump`. Keep the URL and encryption passphrase in a private shell/session; never commit them or paste them into chat.
+
+```sh
+set -eu
+umask 077
+: "${RIDEFORGE_BACKUP_DATABASE_URL:?Set the verified Session-pooler URL in your private shell}"
+: "${RIDEFORGE_BACKUP_PASSPHRASE:?Set a strong backup encryption passphrase}"
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+temporary="/tmp/rideforge-${timestamp}.dump"
+encrypted="./secure-backups/rideforge-${timestamp}.dump.gpg"
+mkdir -p ./secure-backups
+pg_dump --schema=public --format=custom --no-owner --no-acl \
+  --file="$temporary" "$RIDEFORGE_BACKUP_DATABASE_URL"
+gpg --batch --yes --symmetric --cipher-algo AES256 \
+  --pinentry-mode loopback --passphrase "$RIDEFORGE_BACKUP_PASSPHRASE" \
+  --output "$encrypted" "$temporary"
+gpg --batch --yes --decrypt --passphrase "$RIDEFORGE_BACKUP_PASSPHRASE" \
+  --output "${temporary}.verify" "$encrypted"
+pg_restore --list "${temporary}.verify" >/dev/null
+rm -f "$temporary" "${temporary}.verify"
+```
+
+This backs up the RideForge `public` schema and its data; it does not back up Supabase Storage objects. Restore only into a disposable PostgreSQL 17 database first, verify migration versions and representative row counts, and retain the encrypted artifact off-site with a documented retention period. The command above verifies archive readability, not a completed restore drill. No production backup job or restore has been run yet.
 
 ### Restore rehearsal
 
