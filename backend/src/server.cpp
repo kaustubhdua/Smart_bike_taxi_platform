@@ -185,14 +185,21 @@ std::string url_encode(const std::string& value) {
 }
 
 Location geocode(const std::string& label) {
-    // RideForge's current service area is Noida. Keep the city context on the
-    // server so all fare-quote geocoding resolves the same local places.
+    // The public Nominatim demo is not a place to send arbitrary or personal
+    // addresses. Only allow the fixed public landmarks displayed in this demo.
+    const std::string geocoding_url =
+        env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search");
+    if (rideforge_provider::is_public_nominatim_url(geocoding_url) &&
+        !rideforge_provider::is_public_demo_landmark(label)) {
+        throw std::invalid_argument(
+            "This demo only supports its listed public Noida landmarks. Do not enter home addresses or personal data.");
+    }
+    // Keep city context server-side so every approved landmark resolves locally.
     const std::string context = env_or("RIDEFORGE_GEOCODING_CONTEXT", "Noida, Uttar Pradesh, India");
     const std::string query = context.empty() ? label : label + ", " + context;
     if (const auto cached = geocode_cache.get(query)) return *cached;
     const auto response = get_json(
-        env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search") +
-        "?format=jsonv2&limit=1&q=" + url_encode(query), geocoding_guard);
+        geocoding_url + "?format=jsonv2&limit=1&q=" + url_encode(query), geocoding_guard);
     const auto parsed = json::parse(response.body);
     if (!parsed.is_array() || parsed.empty() || !parsed.at(0).is_object()) {
         throw std::invalid_argument("Location could not be found");
