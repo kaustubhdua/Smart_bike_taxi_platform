@@ -14,7 +14,6 @@ services:
     dockerContext: .
     dockerfilePath: ./backend/Dockerfile
     healthCheckPath: /api/v1/ready
-    maxShutdownDelaySeconds: 60
     autoDeployTrigger: checksPass
     envVars:
       - key: DATABASE_URL
