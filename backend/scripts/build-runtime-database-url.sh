@@ -41,7 +41,7 @@ rideforge_build_runtime_database_url() {
   fi
 
   # Percent-encode base64 reserved characters before substituting into URI.
-  encoded="$(printf '%s' "$password" | sed -e 's/+/%2B/g' -e 's,/, %2F,g' -e 's/=/%3D/g')"
+  encoded="$(printf '%s' "$password" | sed -e 's/+/%2B/g' -e 's,/,\%2F,g' -e 's/=/%3D/g')"
   DATABASE_URL="${template//__RIDEFORGE_PASSWORD__/$encoded}"
   export DATABASE_URL
 }
