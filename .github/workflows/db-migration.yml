@@ -51,7 +51,6 @@ jobs:
     env:
       PGHOST: localhost
       DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
-      RIDEFORGE_APP_PASSWORD: B0jrphAPOY7pg92AN0c9MN4yecczLMdwnx4OkA1KFUk=
       PGPORT: 5432
       PGDATABASE: rideforge_test
       PGUSER: rideforge
@@ -69,6 +68,11 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -c "CREATE ROLE anon NOLOGIN"
           psql -v ON_ERROR_STOP=1 -c "CREATE ROLE authenticated NOLOGIN"
+      - name: Generate ephemeral runtime-role password
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'RIDEFORGE_APP_PASSWORD=%s\n' "$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - name: Apply all migrations
         env:
           RIDEFORGE_MIGRATIONS_DIR: backend/migrations
