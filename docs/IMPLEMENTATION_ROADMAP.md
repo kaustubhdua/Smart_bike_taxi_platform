@@ -48,7 +48,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [x] Expand cross-account and cross-role authorization tests for every protected endpoint (`backend/tests/authz_matrix_test.py`; a guard fails CI if a protected OpenAPI operation is missing from the matrix).
 - [x] Test same-key booking retries, payload conflicts, expired/consumed quotes, expired driver-offer acceptance, accept-vs-expiry race and durable expired-offer redispatch, cancellation races and concurrent driver acceptance (`backend/tests/concurrency_test.py`, real PostgreSQL).
 - [x] Verify event rows and outbox rows commit/rollback together (`backend/tests/outbox_events_test.py`).
-- [x] Implement a bounded per-process PostgreSQL connection pool (12 connections, 2-second acquisition timeout, rollback/session reset before reuse). [ ] Verify pool behavior under concurrent load and budget aggregate connections before horizontal scaling; a per-process pool is not shared across replicas.
+- [x] Implement a bounded per-process PostgreSQL connection pool (10 connections, 2-second acquisition timeout, rollback/session reset before reuse). [ ] Verify pool behavior under concurrent load and budget aggregate connections before horizontal scaling; a per-process pool is not shared across replicas.
 - [x] Make account deactivation/revocation take effect promptly (per-request active/role check, ≤5 s cache, fails closed); the short-lived token model is documented in `docs/HARDENING_AND_TESTING.md`.
 - [ ] Add distributed rate limits before horizontally scaling. (Per-process limits, trusted-proxy client-IP resolution, IPv6 /64 keys and a per-account login throttle are in place and tested; they are not shared across replicas.)
 - [ ] Complete a full SQLSTATE-to-HTTP mapping review and document retryable versus permanent database errors. (Malformed IDs, oversized bodies, auth header forms, and 4xx-not-5xx behavior are now covered by adversarial tests.)
@@ -107,7 +107,7 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 - [x] Add structured redacted request-completion logs, correlation IDs, SIGTERM/SIGINT handling, and bounded graceful draining.
 - [x] Bound routing-provider HTTP connect/total timeouts and HTTP socket read/write deadlines.
 - [x] Bound PostgreSQL connection-establishment time to five seconds in Compose API, migration and outbox-worker services via libpq `PGCONNECT_TIMEOUT`.
-- [x] Implement a bounded per-process PostgreSQL connection pool (12 connections, 2-second acquisition timeout). [ ] Validate pool capacity under concurrent load, size aggregate connections before horizontal scaling, and add broader SSE connection observability.
+- [x] Implement a bounded per-process PostgreSQL connection pool (10 connections, 2-second acquisition timeout). [ ] Validate pool capacity under concurrent load, size aggregate connections before horizontal scaling, and add broader SSE connection observability.
 - [x] Document local and Compose backup/restore procedures and add a CI recovery smoke test.
 - [ ] Complete a production backup/restore drill and rehearse schema upgrade/rollback recovery.
 - [ ] Run API load and concurrency tests; publish hardware/environment and measured results.

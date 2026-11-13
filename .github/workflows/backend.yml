@@ -117,6 +117,9 @@ jobs:
           encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["RIDEFORGE_APP_PASSWORD"], safe=""))')"
           runtime_url="postgresql://rideforge_app:${encoded_password}@127.0.0.1:5432/rideforge_test"
           psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT NOT rolsuper AND rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole AND has_database_privilege(current_user,current_database(),'CONNECT') FROM pg_roles WHERE rolname=current_user" | grep -Fx t
+          # The runtime API needs nextval/currval but never setval; ensure the
+          # migration preserves sequence USAGE while revoking UPDATE.
+          psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT bool_and(has_sequence_privilege(current_user, format('%I.%I', sequence_schema, sequence_name), 'USAGE')) AND NOT bool_or(has_sequence_privilege(current_user, format('%I.%I', sequence_schema, sequence_name), 'UPDATE')) FROM information_schema.sequences WHERE sequence_schema='public'" | grep -Fx t
           echo "DATABASE_URL=$runtime_url" >> "$GITHUB_ENV"
       - name: Seed deterministic quote fixtures
         run: psql -v ON_ERROR_STOP=1 -f backend/tests/seed_quotes.sql
