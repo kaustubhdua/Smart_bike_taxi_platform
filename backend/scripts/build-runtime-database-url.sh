@@ -1,6 +1,61 @@
 #!/usr/bin/env bash
 # Source this file and call rideforge_build_runtime_database_url. The generated
 # Render password is kept out of logs and only exported into DATABASE_URL.
+rideforge_require_sslmode() {
+  case "$1" in
+    *[\?\&]sslmode=require*|*[\?\&]sslmode=verify-ca*|*[\?\&]sslmode=verify-full*) ;;
+    *)
+      echo "Database connection URI must set sslmode=require, verify-ca, or verify-full." >&2
+      return 1
+      ;;
+  esac
+}
+
+rideforge_validate_migration_database_url() {
+  local url="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required}"
+  local scheme authority userinfo hostport owner_password
+
+  case "$url" in
+    postgresql://*) scheme="postgresql://" ;;
+    postgres://*) scheme="postgres://" ;;
+    *)
+      echo "MIGRATION_DATABASE_URL must be a PostgreSQL URI." >&2
+      return 1
+      ;;
+  esac
+  authority=${url#"$scheme"}
+  case "$authority" in
+    *@*) ;;
+    *)
+      echo "MIGRATION_DATABASE_URL must include an owner username and password." >&2
+      return 1
+      ;;
+  esac
+  userinfo=${authority%%@*}
+  case "$userinfo" in
+    postgres.*:*) ;;
+    *)
+      echo "MIGRATION_DATABASE_URL must use the postgres.PROJECT_REF owner username." >&2
+      return 1
+      ;;
+  esac
+  owner_password=${userinfo#*:}
+  if [ -z "$owner_password" ]; then
+    echo "MIGRATION_DATABASE_URL must include the owner password." >&2
+    return 1
+  fi
+  hostport=${authority#*@}
+  hostport=${hostport%%/*}
+  case "$hostport" in
+    aws-*.pooler.supabase.com:5432) ;;
+    *)
+      echo "MIGRATION_DATABASE_URL must use the Supabase shared Session pooler host on port 5432." >&2
+      return 1
+      ;;
+  esac
+  rideforge_require_sslmode "$url"
+}
+
 rideforge_build_runtime_database_url() {
   local template="${DATABASE_URL_TEMPLATE:?DATABASE_URL_TEMPLATE is required}"
   local password="${RIDEFORGE_APP_PASSWORD:?RIDEFORGE_APP_PASSWORD is required}"
@@ -49,6 +104,7 @@ rideforge_build_runtime_database_url() {
       return 1
       ;;
   esac
+  rideforge_require_sslmode "$template"
 
   password_body=${password%%=*}
   password_padding=${password#"$password_body"}
