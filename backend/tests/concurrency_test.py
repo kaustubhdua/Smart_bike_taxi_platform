@@ -93,6 +93,27 @@ INSERT INTO ride_offers (ride_id, driver_id) SELECT id, '{driver}' FROM r
     return ride_id
 
 
+
+
+def plant_ride_without_offer(passenger_id):
+    """Create a matching ride with its initial event but no driver offer."""
+    ride_id = str(uuid.uuid4())
+    sql = """
+WITH r AS (
+  INSERT INTO rides (id, passenger_id, status, pickup_label, pickup_latitude, pickup_longitude,
+                     destination_label, destination_latitude, destination_longitude,
+                     route_distance_m, quoted_fare_paise, idempotency_key)
+  VALUES ('{ride}', '{passenger}', 'matching', 'Parallel pickup', 28.53, 77.35,
+          'Parallel destination', 28.54, 77.36, 2500, 4750, '{key}')
+  RETURNING id)
+INSERT INTO ride_events (ride_id, previous_status, new_status, details)
+SELECT id, NULL, 'matching', '{{"source":"parallel_dispatch_test"}}'::jsonb FROM r
+""".format(ride=ride_id, passenger=passenger_id, key=unique("parallel-dispatch"))
+    proc = subprocess.run(["psql", "-v", "ON_ERROR_STOP=1", "-tAq", "-c", sql],
+                          capture_output=True, text=True)
+    check(proc.returncode == 0, "could not plant a matching ride: " + proc.stderr)
+    return ride_id
+
 def plant_assigned_ride(passenger_id, driver_id):
     ride_id = plant_ride_with_offer(passenger_id, driver_id)
     psql("UPDATE ride_offers SET status='accepted', responded_at=now() WHERE ride_id='%s'" % ride_id)
@@ -345,6 +366,59 @@ def test_expired_offer_is_redispatched_to_next_eligible_driver():
     assert_ride_consistent(ride_id)
     psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
          "current_longitude=NULL,last_location_at=NULL WHERE account_id='%s'" % next_driver)
+
+
+
+
+
+def test_parallel_dispatch_workers_never_offer_one_driver_twice():
+    # Run two real worker processes against the same PostgreSQL database. The
+    # unique partial index is the final guard; worker-side filtering lets the
+    # remaining rides progress to other free drivers after an offer is created.
+    worker_bin = os.environ.get("RIDEFORGE_DISPATCH_BIN", "")
+    check(worker_bin and os.path.isfile(worker_bin),
+          "RIDEFORGE_DISPATCH_BIN must point to the built dispatch worker")
+    psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+         "current_longitude=NULL,last_location_at=NULL")
+    passenger_id, _ = passenger()
+    drivers = [online_driver()[0] for _ in range(4)]
+    rides = [plant_ride_without_offer(passenger_id) for _ in range(12)]
+
+    env = os.environ.copy()
+    env["RIDEFORGE_DISPATCH_POLL_MS"] = "100"
+    second_worker = subprocess.Popen([worker_bin], env=env,
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    driver_filter = ",".join("'%s'" % driver_id for driver_id in drivers)
+    try:
+        def all_drivers_have_one_offer():
+            if second_worker.poll() is not None:
+                return False
+            return psql("SELECT count(*) FROM ride_offers WHERE status='offered' "
+                        "AND driver_id IN (%s)" % driver_filter) == str(len(drivers))
+
+        wait_for(all_drivers_have_one_offer, timeout=30,
+                 message="both dispatch workers to offer one ride to each free driver")
+        active = psql("SELECT count(*) FROM ride_offers WHERE status='offered' "
+                      "AND driver_id IN (%s)" % driver_filter)
+        distinct = psql("SELECT count(DISTINCT driver_id) FROM ride_offers "
+                        "WHERE status='offered' AND driver_id IN (%s)" % driver_filter)
+        duplicates = psql("SELECT count(*) FROM (SELECT driver_id FROM ride_offers "
+                          "WHERE status='offered' AND driver_id IN (%s) "
+                          "GROUP BY driver_id HAVING count(*)>1) busy" % driver_filter)
+        check(active == str(len(drivers)) and distinct == str(len(drivers)) and duplicates == "0",
+              "parallel workers created duplicate active driver offers: active=%s distinct=%s duplicates=%s"
+              % (active, distinct, duplicates))
+        for ride_id in rides:
+            assert_ride_consistent(ride_id)
+    finally:
+        second_worker.terminate()
+        try:
+            second_worker.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            second_worker.kill()
+            second_worker.wait(timeout=5)
+        psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+             "current_longitude=NULL,last_location_at=NULL WHERE account_id IN (%s)" % driver_filter)
 
 
 # ---------------------------------------------------------------- state changes
