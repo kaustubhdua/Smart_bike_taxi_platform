@@ -15,7 +15,7 @@ Its exact candidate head was `b386f4db8da4b5d0817963252d525ac7d0af9610`. The [Fu
 
 The PR added:
 - 20 authorization-matrix checks, including token tampering, role checks, cross-account access and account-state changes.
-- 10 PostgreSQL-backed concurrency tests.
+- 11 PostgreSQL-backed concurrency tests (including expired-offer acceptance).
 - 13 transactional outbox/SSE tests, including lease expiry recovery and out-of-order replay.
 - 19 abuse-control tests covering proxy-aware IP resolution, IPv6 keys, login throttling, request limits and provider pacing.
 - Provider circuit-breaker, concurrency, content-type, route-metric and untrusted-label guards.
@@ -137,3 +137,12 @@ Fill only with observed values:
 - Driver/vehicle verification owner and procedure:
 - Legal/transport authority reviewer:
 - Open P0/P1 issues:
+
+
+## Follow-up hardening — 2026-11-13
+
+- PR [#46](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/46) merged as `cd0361f9d491a7423f61338a2210cc75ce1a3508`. Its exact head `71f25e9053eb3349bd3daff35ee51a0bad409b47` passed all 13 jobs in [Full release readiness run 43401276877](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43401276877). The new PostgreSQL-backed regression verifies an expired driver offer cannot be accepted, does not assign the ride, and does not create an accepted-offer row.
+- PR [#48](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/48) is the current review for migration/runtime credential separation. It adds migration 010, provisions a separate `rideforge_app` password through the owner-only migration runner, configures Compose/CI to run the API and workers with that role, and strengthens schema/runtime login checks. It must pass exact-head CI before merge.
+- The dedicated Supabase project `rideforge-production` was restored and is now `ACTIVE_HEALTHY`. Supabase migration history confirms migrations 001–010 are recorded. All 12 public tables have RLS enabled; `anon` and `authenticated` have zero table/sequence privileges; `rideforge_app` is LOGIN+BYPASSRLS, non-superuser, has no CREATEDB/CREATEROLE rights, has database CONNECT and table DML but not TRUNCATE. Its password is not yet configured, and a direct login test from the application runtime has not been performed. The Supabase security advisor reports only the expected informational `rls_enabled_no_policy` findings because the Data API roles have no grants; no health findings were returned. The unused-index advisor reports 22 unused indexes on the empty database, which is expected before workload and is not grounds for removing them.
+
+Do not infer that the Render API is deployed from the repository template: the connected Render workspace has no PostgreSQL instance, and its existing RideForge API deploys are on an older branch and have failed. The static site has a previous live deployment, but this is not proof of an integrated passenger-to-driver journey.
