@@ -1,0 +1,2 @@
+[functions.rideforge-api]
+verify_jwt = false
