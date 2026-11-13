@@ -7,6 +7,7 @@ set -Eeuo pipefail
 # non-superuser rideforge_app role. If any child exits, stop siblings so the
 # platform restarts the whole service instead of silently losing a worker.
 
+export RIDEFORGE_APP_PASSWORD="${RIDEFORGE_RUNTIME_ROLE_PASSWORD:?RIDEFORGE_RUNTIME_ROLE_PASSWORD is required}"
 source /usr/local/bin/rideforge_build_runtime_database_url
 rideforge_build_runtime_database_url
 runtime_database_url="$DATABASE_URL"
