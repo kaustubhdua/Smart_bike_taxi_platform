@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(RideForgeApi LANGUAGES CXX)
 
+enable_testing()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -33,12 +35,17 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(rideforge_admin_bootstrap PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+add_executable(rideforge_fare_tests tests/fare_test.cpp)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(rideforge_fare_tests PRIVATE -Wall -Wextra -Wpedantic -Werror -UNDEBUG)
+endif()
+add_test(NAME rideforge_fare_tests COMMAND rideforge_fare_tests)
+
 add_executable(rideforge_security_tests tests/security_test.cpp)
 target_link_libraries(rideforge_security_tests PRIVATE OpenSSL::Crypto nlohmann_json::nlohmann_json)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(rideforge_security_tests PRIVATE -Wall -Wextra -Wpedantic -Werror -UNDEBUG)
 endif()
-enable_testing()
 add_test(NAME rideforge_security_tests COMMAND rideforge_security_tests)
 add_executable(rideforge_provider_response_tests tests/provider_response_test.cpp)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

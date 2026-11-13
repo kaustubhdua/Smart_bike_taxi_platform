@@ -628,7 +628,7 @@ components:
     QuoteResponse:
       type: object
       additionalProperties: false
-      required: [quoteId, distanceKm, durationMinutes, farePaise, currency, expiresAt, geometry]
+      required: [quoteId, distanceKm, durationMinutes, farePaise, fareBreakdown, currency, expiresAt, geometry]
       properties:
         quoteId:
           type: string
@@ -643,6 +643,23 @@ components:
           type: integer
           minimum: 0
           description: Integer paise, never floating-point rupees.
+        fareBreakdown:
+          type: object
+          additionalProperties: false
+          required: [baseFarePaise, distanceFarePaise, pricingModel]
+          description: Demo tariff breakdown in integer paise; not a commercial tariff commitment.
+          properties:
+            baseFarePaise:
+              type: integer
+              minimum: 0
+              description: Fixed demo base fare (2000 paise).
+            distanceFarePaise:
+              type: integer
+              minimum: 0
+              description: Distance charge at 1100 paise per kilometre, rounded up to the next paise.
+            pricingModel:
+              type: string
+              const: demo_base_plus_distance
         currency:
           type: string
           enum: [INR]

@@ -22,7 +22,7 @@ Set `VITE_API_BASE_URL` to the API origin when developing against a separately r
 ## What is implemented
 
 - Pickup/destination geocoding and road geometry using configurable Nominatim-compatible and OSRM-compatible providers, with an interactive Leaflet/OpenStreetMap map.
-- Server-authoritative fare quotes in integer paise, with quote expiry validation.
+- Server-authoritative fare quotes in integer paise, with validated ₹20 base + ₹11/km demo breakdown and quote expiry validation.
 - Passenger registration/login, persistent booking, cancellation, trip history, ride-status updates, support reports, and printable **demo receipts** (not tax invoices or proof of payment).
 - Driver login, online/offline availability with browser geolocation, a fresh-location/radius-filtered request queue, transactional Accept, persisted per-driver Decline, trip-state transitions, and trip history.
 - A driver decline hides that request only from that driver's queue. It does **not** cancel the passenger booking. The same driver cannot accept a request after declining it; another eligible driver may still accept.

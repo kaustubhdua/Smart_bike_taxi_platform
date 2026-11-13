@@ -20,7 +20,7 @@ test("calculates road route and shows a fare only after a valid server quote", a
       status: 200, contentType: "application/json",
       body: JSON.stringify({
         quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
-        distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, currency: "INR",
+        distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
         expiresAt: new Date(Date.now() + 120_000).toISOString(),
         geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
       }),
@@ -40,7 +40,31 @@ test("calculates road route and shows a fare only after a valid server quote", a
   expect(tileHosts).toContain("tile.openstreetmap.org");
   expect(tileHosts.every(host => host === "tile.openstreetmap.org")).toBe(true);
   await expect(page.locator(".fare-amount")).toContainText("₹47.50");
+  await expect(page.locator(".fare-breakdown")).toContainText("Base fare");
+  await expect(page.locator(".fare-breakdown")).toContainText("₹20.00");
+  await expect(page.locator(".fare-breakdown")).toContainText("₹27.50");
   await expect(page.locator(".inline-notice")).toContainText("This checks the quote only");
+});
+
+test("rejects a server quote whose fare breakdown does not add up", async ({ page }) => {
+  await blockMapTiles(page);
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
+      distanceKm: 5.2,
+      durationMinutes: 14,
+      farePaise: 4750,
+      fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2749, pricingModel: "demo_base_plus_distance" },
+      currency: "INR",
+      expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
+    }) });
+  });
+  await page.goto("/live");
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.locator(".inline-notice")).toContainText(/invalid quote or route/i);
+  await expect(page.locator(".fare-amount")).toContainText("—");
+  await expect(page.locator(".fare-breakdown")).toHaveCount(0);
 });
 
 test("registers a passenger, creates a persisted ride request, and cancels it", async ({ page }) => {
@@ -48,7 +72,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
-      durationMinutes: 14, farePaise: 4750, currency: "INR",
+      durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
@@ -138,7 +162,7 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
-      durationMinutes: 14, farePaise: 4750, currency: "INR",
+      durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
@@ -532,7 +556,7 @@ test("passenger applies authenticated server-sent ride events without waiting fo
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
-      durationMinutes: 14, farePaise: 4750, currency: "INR",
+      durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
@@ -592,7 +616,7 @@ test("does not geocode while typing; calculates a route only after an explicit q
     quoteRequests += 1;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
-      distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, currency: "INR",
+      distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
@@ -618,7 +642,7 @@ test("rejects malformed road-route coordinates instead of drawing them", async (
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
-      distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, currency: "INR",
+      distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[999, 28.53], [77.34, 28.54]],
     }) });
