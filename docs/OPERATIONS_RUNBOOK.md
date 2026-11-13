@@ -42,6 +42,7 @@ A plain `docker compose down` preserves the named database volume. Do not remove
 
 - Migrations are ordered SQL files named with a stable version prefix.
 - Each migration records its version inside its own transaction.
+- Public-schema function execution is opt-in: browser roles and `service_role` receive no application-function `EXECUTE` rights by default. Grant function execution explicitly only when a reviewed API contract requires it.
 - Re-running the migration runner skips versions already recorded.
 - If an accounts table exists without schema_migrations, the runner fails closed. Back up the database and deliberately baseline its schema; do not bypass the check casually.
 - Before production schema changes, take a verified backup, test the migration on a copy, and prepare a rollback/recovery plan. Destructive migrations require a separate reviewed plan.
@@ -90,7 +91,7 @@ Before any public launch, provide HTTPS, managed secrets, least-privilege databa
 
 ## Deployment probes
 
-Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 013 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
+Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 014 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
 
 
 ## Backup and restore
