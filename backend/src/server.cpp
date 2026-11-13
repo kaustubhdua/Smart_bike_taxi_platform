@@ -2521,8 +2521,8 @@ int main() {
         return 2;
     }
     try {
-        // Nominatim's policy is one request per second for the whole application, so the
-        // public host is paced by default. A different provider can opt in or out here.
+        // Public Nominatim and OSRM demo policies are one request per second for the whole
+        // application, so both public hosts are paced by default. Other providers may override.
         geocoding_guard.pacing.configure(
             rideforge_provider::parse_pacing_interval(
                 env_or("RIDEFORGE_GEOCODING_MIN_INTERVAL_MS", ""),
