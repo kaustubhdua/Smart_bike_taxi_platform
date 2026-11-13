@@ -10,7 +10,11 @@ BEGIN
 END
 $block$;
 
-GRANT CONNECT ON DATABASE postgres TO rideforge_app;
+DO $block$
+BEGIN
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO rideforge_app', current_database());
+END
+$block$;
 GRANT USAGE ON SCHEMA public TO rideforge_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rideforge_app;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO rideforge_app;
