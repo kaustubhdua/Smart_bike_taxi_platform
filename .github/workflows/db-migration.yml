@@ -98,5 +98,16 @@ jobs:
           set -euo pipefail
           runtime_url="postgresql://rideforge_app:${RIDEFORGE_APP_PASSWORD}@127.0.0.1:5432/rideforge_test"
           psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT current_user, has_table_privilege(current_user,'public.accounts','SELECT,INSERT,UPDATE,DELETE') AND NOT has_table_privilege(current_user,'public.accounts','TRUNCATE')" | grep -F 'rideforge_app|t'
+      - name: Verify runtime-only startup without migration-owner credentials
+        shell: bash
+        env:
+          RIDEFORGE_MIGRATIONS_DIR: backend/migrations
+        run: |
+          set -euo pipefail
+          runtime_url="postgresql://rideforge_app:${RIDEFORGE_APP_PASSWORD}@127.0.0.1:5432/rideforge_test"
+          unset RIDEFORGE_APP_PASSWORD
+          export DATABASE_URL="$runtime_url"
+          export RIDEFORGE_MIGRATION_VERIFY_ONLY=1
+          sh backend/scripts/migrate-if-needed.sh
       - name: Verify backup and restore into a fresh database
         run: sh backend/tests/backup_restore_smoke.sh
