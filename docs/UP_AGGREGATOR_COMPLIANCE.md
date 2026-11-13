@@ -32,7 +32,7 @@ Sources:
 
 ## 2. Bike-taxi and vehicle eligibility
 
-The UP rule text distinguishes passenger and delivery use: aggregation of **transport motorcycles** is permitted for passenger mobility, while transport and non-transport motorcycles may be aggregated for **hyperlocal delivery**. Do not use the central guidelines as a substitute for this state-specific rule or treat an ordinary private motorcycle as eligible for paid passenger rides. Vehicle onboarding must meet the state rules and Motor Vehicles Act requirements.
+The March 2026 government-hosted draft proposed a distinction between passenger and delivery use (transport motorcycles for passenger mobility; transport/non-transport motorcycles for hyperlocal delivery). Because that PDF is a draft and the final Gazette text must control, this precise vehicle-class interpretation remains a **written-confirmation gate** until counsel/STA checks the final notified text and any later amendments. Do not use the central guidelines as a substitute for the operative UP rules or treat an ordinary private motorcycle as eligible for paid passenger rides. Vehicle onboarding must meet the final state rules, permit/registration requirements and Motor Vehicles Act requirements.
 
 The guidelines and the UP 2026 rules/legal analysis identify vehicle and safety controls that may include:
 
