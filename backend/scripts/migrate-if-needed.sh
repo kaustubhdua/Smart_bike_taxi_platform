@@ -40,26 +40,6 @@ if [ "$#" -eq 0 ] || [ ! -f "$1" ]; then
   exit 1
 fi
 
-# A Render runtime-only deployment can verify an already-migrated database
-# without receiving the database-owner credential. It must fail closed when
-# any checked-in migration is missing; only the owner connection may apply DDL.
-if [ "${RIDEFORGE_MIGRATION_VERIFY_ONLY:-0}" = "1" ]; then
-  if [ "$migration_table" != "schema_migrations" ]; then
-    echo "Migration metadata is missing; configure MIGRATION_DATABASE_URL to apply the schema." >&2
-    exit 1
-  fi
-  for file do
-    [ -f "$file" ] || continue
-    version="$(basename "$file" .sql)"
-    if ! psql_db -tAc "SELECT 1 FROM schema_migrations WHERE version = '$version'" | grep -Fqx 1; then
-      echo "Migration $version is not applied; configure MIGRATION_DATABASE_URL to apply pending migrations." >&2
-      exit 1
-    fi
-  done
-  echo "All checked-in migrations are applied; verified using the restricted runtime role."
-  exit 0
-fi
-
 for file do
   [ -f "$file" ] || continue
   version="$(basename "$file" .sql)"
@@ -92,7 +72,7 @@ if [ -n "${RIDEFORGE_APP_PASSWORD:-}" ]; then
       exit 1
       ;;
   esac
-  if [ $(("${#RIDEFORGE_APP_PASSWORD}" % 4)) -ne 0 ]; then
+  if [ $((${#RIDEFORGE_APP_PASSWORD} % 4)) -ne 0 ]; then
     echo "RIDEFORGE_APP_PASSWORD must be valid padded base64." >&2
     exit 1
   fi
