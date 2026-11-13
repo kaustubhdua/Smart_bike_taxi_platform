@@ -37,6 +37,9 @@ jobs:
             postgresql://*|postgres://*) ;;
             *) echo "Backup URL must be a PostgreSQL URI." >&2; exit 2 ;;
           esac
+          [[ "$DATABASE_URL" == *"rideforge_backup."* ]] || { echo "Use the dedicated rideforge_backup database role." >&2; exit 2; }
+          [[ "$DATABASE_URL" == *":5432/"* ]] || { echo "Use the Supabase Session pooler on port 5432." >&2; exit 2; }
+          [[ "$DATABASE_URL" == *"sslmode=require"* ]] || { echo "Require sslmode=require in the connection URI." >&2; exit 2; }
 
           workdir="$(mktemp -d)"
           trap 'rm -rf "$workdir"' EXIT
