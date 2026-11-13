@@ -252,27 +252,41 @@ class FakeProvider:
                     provider.in_flight += 1
                     provider.max_in_flight = max(provider.max_in_flight, provider.in_flight)
                     mode = provider.mode
+                released = []
+
+                def release():
+                    # Leave the in-flight count *before* the reply goes out: once the API reads the
+                    # response it frees its own slot and may start another call at once, so
+                    # decrementing afterwards would over-count by a race of the fake's own making.
+                    if not released:
+                        released.append(True)
+                        with provider.lock:
+                            provider.in_flight -= 1
+
+                def reply(*args, **kwargs):
+                    release()
+                    return self._send(*args, **kwargs)
+
                 try:
                     if mode == "slow":
                         time.sleep(1.5)
                     if mode == "http500" or (mode == "route500" and kind == "route"):
-                        return self._send(500, {"error": "down"})
+                        return reply(500, {"error": "down"})
                     if mode == "html200":
-                        return self._send(200, None, "text/html", b"<html>captive portal</html>")
+                        return reply(200, None, "text/html", b"<html>captive portal</html>")
                     if mode == "huge":
-                        return self._send(200, None, raw=b'["' + b"x" * (2 * 1024 * 1024) + b'"]')
+                        return reply(200, None, raw=b'["' + b"x" * (2 * 1024 * 1024) + b'"]')
                     if kind == "search":
                         label = "Evil\x00Label\x07 " + "é" * 200 if mode == "evil" else "Place"
                         far = "dest" in self.path.lower()
-                        return self._send(200, [{"lat": "28.54" if far else "28.53",
+                        return reply(200, [{"lat": "28.54" if far else "28.53",
                                                  "lon": "77.36" if far else "77.35",
                                                  "display_name": label}])
                     distance = 9.0e8 if mode == "far" else 2500.2
-                    return self._send(200, {"code": "Ok",
+                    return reply(200, {"code": "Ok",
                                             "routes": [{"distance": distance, "duration": 600.1}]})
                 finally:
-                    with provider.lock:
-                        provider.in_flight -= 1
+                    release()
 
         self.server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
         self.server.daemon_threads = True
