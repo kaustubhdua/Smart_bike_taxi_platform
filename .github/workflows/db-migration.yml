@@ -68,6 +68,7 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -c "CREATE ROLE anon NOLOGIN"
           psql -v ON_ERROR_STOP=1 -c "CREATE ROLE authenticated NOLOGIN"
+          psql -v ON_ERROR_STOP=1 -c "CREATE ROLE service_role NOLOGIN"
       - name: Generate ephemeral runtime-role password
         shell: bash
         run: |
@@ -88,12 +89,16 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f backend/tests/schema_smoke.sql
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '002_driver_approval_and_outbox'" | grep -Fx '002_driver_approval_and_outbox'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '004_support_reports'" | grep -Fx '004_support_reports'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '013_runtime_role_sequence_least_privilege'" | grep -Fx '013_runtime_role_sequence_least_privilege'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '014_lock_down_public_function_execution_defaults'" | grep -Fx '014_lock_down_public_function_execution_defaults'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '015_create_readonly_backup_role'" | grep -Fx '015_create_readonly_backup_role'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_trigger WHERE tgname = 'ride_event_notification_outbox' AND NOT tgisinternal" | grep -Fx '1'
       - name: Verify public data API lockdown, private runtime role and FK indexes
         run: |
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity" | grep -Fx '0'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_tables t WHERE schemaname = 'public' AND (has_table_privilege('anon', format('%I.%I', schemaname, tablename), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_table_privilege('authenticated', format('%I.%I', schemaname, tablename), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))" | grep -Fx '0'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'S' AND (has_sequence_privilege('anon', c.oid, 'USAGE,SELECT,UPDATE') OR has_sequence_privilege('authenticated', c.oid, 'USAGE,SELECT,UPDATE'))" | grep -Fx '0'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'S' AND has_sequence_privilege('rideforge_app', c.oid, 'UPDATE')" | grep -Fx '0'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT prosecdef AND proconfig @> ARRAY['search_path=pg_catalog, public'] FROM pg_proc WHERE oid = 'public.enqueue_ride_event_notification()'::regprocedure" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT rolcanlogin AND rolbypassrls AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND rolpassword IS NOT NULL AND has_database_privilege('rideforge_app', current_database(), 'CONNECT') FROM pg_roles WHERE rolname = 'rideforge_app'" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT has_table_privilege('rideforge_app','public.accounts','SELECT,INSERT,UPDATE,DELETE') AND NOT has_table_privilege('rideforge_app','public.accounts','TRUNCATE')" | grep -Fx 't'
@@ -101,7 +106,7 @@ jobs:
       - name: Verify public function execution defaults are locked down
         run: |
           psql -v ON_ERROR_STOP=1 -c "CREATE FUNCTION public.__rideforge_default_acl_probe() RETURNS integer LANGUAGE sql AS 'SELECT 1'"
-          psql -v ON_ERROR_STOP=1 -tAc "SELECT NOT has_function_privilege('anon', 'public.__rideforge_default_acl_probe()', 'EXECUTE') AND NOT has_function_privilege('authenticated', 'public.__rideforge_default_acl_probe()', 'EXECUTE')" | grep -Fx 't'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT NOT has_function_privilege('anon', 'public.__rideforge_default_acl_probe()', 'EXECUTE') AND NOT has_function_privilege('authenticated', 'public.__rideforge_default_acl_probe()', 'EXECUTE') AND NOT has_function_privilege('service_role', 'public.__rideforge_default_acl_probe()', 'EXECUTE')" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -c "DROP FUNCTION public.__rideforge_default_acl_probe()"
       - name: Verify disabled read-only backup role and future grants
         run: |
