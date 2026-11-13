@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 type DemoRide = {
   id: string;
@@ -31,9 +31,9 @@ export default function DemoExperience() {
   }, [rides]);
 
   const active = rides.filter(r => !["Completed", "Cancelled"].includes(r.status));
-  const card: React.CSSProperties = { background: "#fff", border: "1px solid #e6e8ec", borderRadius: 18, padding: 20, boxShadow: "0 8px 28px #1720330a" };
-  const button: React.CSSProperties = { border: 0, borderRadius: 12, padding: "12px 16px", background: "#172b4d", color: "white", fontWeight: 700, cursor: "pointer" };
-  const field: React.CSSProperties = { width: "100%", boxSizing: "border-box", border: "1px solid #d8dde5", borderRadius: 10, padding: 12, background: "white", color: "#172033", marginTop: 6 };
+  const card: CSSProperties = { background: "#fff", border: "1px solid #e6e8ec", borderRadius: 18, padding: 20, boxShadow: "0 8px 28px #1720330a" };
+  const button: CSSProperties = { border: 0, borderRadius: 12, padding: "12px 16px", background: "#172b4d", color: "white", fontWeight: 700, cursor: "pointer" };
+  const field: CSSProperties = { width: "100%", boxSizing: "border-box", border: "1px solid #d8dde5", borderRadius: 10, padding: 12, background: "white", color: "#172033", marginTop: 6 };
 
   function updateRide(id: string, status: DemoRide["status"]) {
     setRides(current => current.map(ride => ride.id === id ? { ...ride, status } : ride));
