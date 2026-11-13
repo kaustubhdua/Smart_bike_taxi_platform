@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-11-13. PR #53 (dispatch uniqueness) and PR #54 (driver offer polling and portal routes) are merged. Main assessment SHA: `2c6ba631815b13feb6d3064de47765967e8db0ec`. Their exact PR candidates each passed all 13 release-readiness jobs: PR #53 run `43433243879`; PR #54 run `43432850270`. The exact-main post-merge run `43434905271` passed all 13 release-readiness jobs. Migrations 011 and 012 are applied to Supabase. Read-only production checks confirm the private runtime role has no DELETE grants and audit/event/migration history is append-only; the Render-generated runtime password and owner connection remain pending. Root `render.yaml` defines adoption of the existing free-tier API and static-site services. Render Blueprint `exs-dbrhb55g1s2s738gi39g` has an initial adoption plan awaiting approval; no infrastructure changes have been applied. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live API deployment or commercial readiness is claimed.
+
 
 ## Product goal
 
@@ -41,7 +41,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [ ] Re-run the release gate on the exact candidate release SHA after any subsequent code changes; a successful earlier SHA is not evidence for later commits. Durable-offer PR #13 has been opened and its checks are pending.
 - [x] CI applies all versioned migrations (001–009), re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; the PR #44 exact candidate also passed container/Compose validation and vulnerability scanning.
 
-Acceptance: every required current-head check is green; migrations 001–012 apply in order and a second migration run is a no-op.
+
 
 ## Phase 1 — transactional API and security
 
@@ -52,7 +52,7 @@ Acceptance: every required current-head check is green; migrations 001–012 app
 - [x] Make account deactivation/revocation take effect promptly (per-request active/role check, ≤5 s cache, fails closed); the short-lived token model is documented in `docs/HARDENING_AND_TESTING.md`.
 - [ ] Add distributed rate limits before horizontally scaling. (Per-process limits, trusted-proxy client-IP resolution, IPv6 /64 keys and a per-account login throttle are in place and tested; they are not shared across replicas.)
 - [ ] Complete a full SQLSTATE-to-HTTP mapping review and document retryable versus permanent database errors. (Malformed IDs, oversized bodies, auth header forms, and 4xx-not-5xx behavior are now covered by adversarial tests.)
-- [x] Separate migration-owner credentials from the non-superuser `rideforge_app` runtime role; CI verifies role attributes, password login, grants and API/worker connectivity. [ ] Verify the deployed role and restrict database network access.
+- [x] Separate migration-owner credentials from the non-superuser `rideforge_app` runtime role; CI verifies role attributes, password login, grants and API/worker connectivity. [x] Add candidate migration 012 to revoke unused runtime DELETE and audit/ledger mutation rights. [ ] Verify deployed credentials and restrict database network access.
 
 Acceptance: adversarial integration tests pass and no client can read or mutate another account's ride.
 
@@ -87,7 +87,7 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 
 ## Phase 4 — passenger product completeness
 
-- [ ] Finish pickup/destination autocomplete, map selection, accessible map alternatives and quote expiry handling.
+- [x] Calculate the road route and fare only after an explicit server-quote action; keep public geocoding off browser keystrokes and enforce provider pacing server-side. [ ] Add optional place suggestions only after selecting a contracted/self-hosted geocoder, plus accessible map selection and keyboard alternatives.
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
 - [x] Add passenger trip history with final fare/completion timestamps and a printable demo receipt, plus driver trip history and gross completed-fare summary (not a payout ledger).
 - [x] Add passenger/driver support reporting and admin triage UI.

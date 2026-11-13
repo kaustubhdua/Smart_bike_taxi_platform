@@ -20,6 +20,8 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/search":
             query = parse_qs(parsed.query).get("q", [""])[0]
+            if not query.endswith(", Noida, Uttar Pradesh, India"):
+                return self._send(400, {"error": "missing_service_area_context"})
             if "provider timeout" in query.lower():
                 time.sleep(7)
                 return self._send(200, [{"lat": "28.53", "lon": "77.35", "display_name": "Late response"}])
@@ -44,7 +46,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"code": "NoRoute", "routes": []})
             return self._send(200, {
                 "code": "Ok",
-                "routes": [{"distance": 2500.2, "duration": 600.1}],
+                "routes": [{
+                    "distance": 2500.2, "duration": 600.1,
+                    "geometry": {"type": "LineString", "coordinates": [[77.35, 28.53], [77.36, 28.54]]},
+                }],
             })
         return self._send(404, {"error": "not_found"})
 

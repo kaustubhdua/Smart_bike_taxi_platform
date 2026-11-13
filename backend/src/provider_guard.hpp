@@ -5,17 +5,116 @@
 // API must fail fast instead of tying up one thread per request for the full
 // timeout, and must not hammer a provider that is already rate limiting it.
 
+#include <array>
 #include <atomic>
+#include <cctype>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <mutex>
 #include <optional>
 #include <stdexcept>
+#include <unordered_map>
 #include <string>
 #include <string_view>
 #include <utility>
 
 namespace rideforge_provider {
+
+inline bool is_public_nominatim_url(std::string_view url) {
+    std::string normalized(url);
+    for (char& ch : normalized) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    const std::string_view value(normalized);
+    constexpr std::string_view https = "https://nominatim.openstreetmap.org";
+    constexpr std::string_view http = "http://nominatim.openstreetmap.org";
+    const auto has_host = [value](std::string_view prefix) {
+        if (value.substr(0, prefix.size()) != prefix) return false;
+        return value.size() == prefix.size() || value[prefix.size()] == '/' ||
+               value[prefix.size()] == ':' || value[prefix.size()] == '?' ||
+               value[prefix.size()] == '#';
+    };
+    return has_host(https) || has_host(http);
+}
+
+// The public Nominatim demo must never receive arbitrary user-entered addresses.
+// Keep its use restricted to the fixed, public Noida landmarks shown in the demo.
+inline bool is_public_demo_landmark(std::string_view label) {
+    static constexpr std::array<std::string_view, 5> allowed{
+        "jiit sector 128",
+        "botanical garden metro",
+        "sector 18 market",
+        "noida city centre",
+        "sector 62",
+    };
+    std::string normalized;
+    normalized.reserve(label.size());
+    bool pending_space = false;
+    for (const unsigned char ch : label) {
+        if (std::isspace(ch) != 0) {
+            if (!normalized.empty()) pending_space = true;
+            continue;
+        }
+        if (pending_space) normalized.push_back(' ');
+        normalized.push_back(static_cast<char>(std::tolower(ch)));
+        pending_space = false;
+    }
+    for (const auto candidate : allowed) {
+        if (normalized == candidate) return true;
+    }
+    return false;
+}
+
+template <typename Value>
+class TtlCache {
+public:
+    using Clock = std::chrono::steady_clock;
+
+    TtlCache(std::size_t max_entries, std::chrono::milliseconds ttl)
+        : max_entries_(max_entries), ttl_(ttl) {}
+
+    std::optional<Value> get(std::string_view key, Clock::time_point now = Clock::now()) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto it = entries_.find(std::string(key));
+        if (it == entries_.end()) return std::nullopt;
+        if (it->second.expires_at <= now) {
+            entries_.erase(it);
+            return std::nullopt;
+        }
+        return it->second.value;
+    }
+
+    void put(std::string key, Value value, Clock::time_point now = Clock::now()) {
+        if (max_entries_ == 0 || ttl_.count() <= 0) return;
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto expires_at = now + ttl_;
+        if (entries_.find(key) == entries_.end() && entries_.size() >= max_entries_) {
+            auto oldest = entries_.begin();
+            for (auto it = entries_.begin(); it != entries_.end(); ++it) {
+                if (it->second.expires_at < oldest->second.expires_at) oldest = it;
+            }
+            if (oldest != entries_.end()) entries_.erase(oldest);
+        }
+        entries_.insert_or_assign(std::move(key), Entry{std::move(value), expires_at});
+    }
+
+    std::size_t size() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return entries_.size();
+    }
+
+private:
+    struct Entry {
+        Value value;
+        Clock::time_point expires_at;
+    };
+
+    std::size_t max_entries_;
+    std::chrono::milliseconds ttl_;
+    mutable std::mutex mutex_;
+    std::unordered_map<std::string, Entry> entries_;
+};
 
 // Thrown when a call is refused locally (breaker open or provider saturated)
 // before any request is sent.
@@ -126,8 +225,8 @@ private:
 };
 
 // Spaces calls to one provider at least `interval` apart across every thread. The
-// public Nominatim service allows one request per second for the whole application,
-// not per user, so a per-client limiter cannot keep us inside its policy. A caller is
+// public Nominatim and OSRM demo services allow one request per second for the whole
+// application, not per user, so a per-client limiter cannot keep us inside policy. A caller is
 // told how long to wait before sending; if that wait would exceed `max_wait` it is shed
 // instead of queued, which keeps the number of sleeping threads bounded. An interval
 // of zero disables pacing. Configure before serving requests.
@@ -164,14 +263,18 @@ struct ProviderGuard {
     PacingGate pacing;
 };
 
-// The public OpenStreetMap geocoder is paced by default; any other URL (a contracted
-// or self-hosted provider, a test double) is not, unless configured explicitly.
-inline std::chrono::milliseconds default_pacing_for(std::string_view geocoding_url) {
-    return geocoding_url.find("nominatim.openstreetmap.org") != std::string_view::npos
-        ? std::chrono::milliseconds(1000) : std::chrono::milliseconds(0);
+// Public Nominatim and OSRM demo hosts are paced at one request per second by default.
+// Contracted/self-hosted providers and test doubles are not paced unless configured.
+inline std::chrono::milliseconds default_pacing_for(std::string_view provider_url) {
+    if (provider_url.find("nominatim.openstreetmap.org") != std::string_view::npos ||
+        provider_url.find("router.project-osrm.org") != std::string_view::npos ||
+        provider_url.find("routing.openstreetmap.de") != std::string_view::npos) {
+        return std::chrono::milliseconds(1000);
+    }
+    return std::chrono::milliseconds(0);
 }
 
-// Parses RIDEFORGE_GEOCODING_MIN_INTERVAL_MS: an empty value keeps `fallback`, anything
+// Parses a provider MIN_INTERVAL_MS setting: an empty value keeps `fallback`, anything
 // else must be plain digits no larger than 60000. Throws so a typo stops start-up
 // instead of silently disabling the limit.
 inline std::chrono::milliseconds parse_pacing_interval(const std::string& value,

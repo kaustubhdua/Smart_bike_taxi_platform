@@ -229,9 +229,35 @@ void pacing_gate_is_thread_safe() {
     assert(total_wait_ms == 10LL * (799LL * 800LL / 2LL));
 }
 
+void ttl_cache_expires_and_is_bounded() {
+    using ms = std::chrono::milliseconds;
+    TtlCache<int> cache(2, ms(25));
+    const auto t0 = TtlCache<int>::Clock::now();
+    cache.put("first", 1, t0);
+    cache.put("second", 2, t0 + ms(5));
+    assert(cache.get("first", t0 + ms(1)).value() == 1);
+    cache.put("third", 3, t0 + ms(10));
+    assert(!cache.get("first", t0 + ms(11)).has_value());
+    assert(cache.get("second", t0 + ms(11)).value() == 2);
+    assert(cache.get("third", t0 + ms(11)).value() == 3);
+    assert(!cache.get("second", t0 + ms(31)).has_value());
+    assert(!cache.get("third", t0 + ms(36)).has_value());
+}
 void pacing_configuration() {
     using ms = std::chrono::milliseconds;
+    assert(is_public_nominatim_url("https://nominatim.openstreetmap.org/search"));
+    assert(is_public_nominatim_url("http://nominatim.openstreetmap.org/search"));
+    assert(is_public_nominatim_url("HTTPS://NOMINATIM.OPENSTREETMAP.ORG/search"));
+    assert(!is_public_nominatim_url("https://nominatim.openstreetmap.org.attacker.example/search"));
+    assert(!is_public_nominatim_url("https://geocoder.example/search"));
+    assert(is_public_demo_landmark("JIIT Sector 128"));
+    assert(is_public_demo_landmark("  botanical   garden metro "));
+    assert(is_public_demo_landmark("NOIDA CITY CENTRE"));
+    assert(!is_public_demo_landmark("12 Main Street, Sector 18"));
+    assert(!is_public_demo_landmark("My Home"));
     assert(default_pacing_for("https://nominatim.openstreetmap.org/search") == ms(1000));
+    assert(default_pacing_for("https://router.project-osrm.org/route/v1/driving") == ms(1000));
+    assert(default_pacing_for("https://routing.openstreetmap.de/routed-car/route/v1/driving") == ms(1000));
     assert(default_pacing_for("http://127.0.0.1:8090/search") == ms(0));
     assert(default_pacing_for("https://geocoder.example.com/search") == ms(0));
 
@@ -252,6 +278,7 @@ int main() {
     pacing_gate_spaces_calls_and_sheds_excess();
     pacing_gate_is_thread_safe();
     pacing_configuration();
+    ttl_cache_expires_and_is_bounded();
     breaker_state_machine();
     limiter_bounds_in_flight();
     failure_classification();

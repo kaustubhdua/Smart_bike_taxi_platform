@@ -59,6 +59,16 @@ struct Location {
     double longitude{};
 };
 
+struct ProviderRoute {
+    int meters{};
+    int seconds{};
+    json geometry;
+};
+
+// Bounded in-memory caches reduce repeat requests to public geocoding/routing demos.
+rideforge_provider::TtlCache<Location> geocode_cache{512, std::chrono::minutes(10)};
+rideforge_provider::TtlCache<ProviderRoute> route_cache{128, std::chrono::minutes(2)};
+
 struct HttpResult {
     long status{};
     std::string body;
@@ -175,9 +185,21 @@ std::string url_encode(const std::string& value) {
 }
 
 Location geocode(const std::string& label) {
+    // The public Nominatim demo is not a place to send arbitrary or personal
+    // addresses. Only allow the fixed public landmarks displayed in this demo.
+    const std::string geocoding_url =
+        env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search");
+    if (rideforge_provider::is_public_nominatim_url(geocoding_url) &&
+        !rideforge_provider::is_public_demo_landmark(label)) {
+        throw std::invalid_argument(
+            "This demo only supports its listed public Noida landmarks. Do not enter home addresses or personal data.");
+    }
+    // Keep city context server-side so every approved landmark resolves locally.
+    const std::string context = env_or("RIDEFORGE_GEOCODING_CONTEXT", "Noida, Uttar Pradesh, India");
+    const std::string query = context.empty() ? label : label + ", " + context;
+    if (const auto cached = geocode_cache.get(query)) return *cached;
     const auto response = get_json(
-        env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search") +
-        "?format=jsonv2&limit=1&q=" + url_encode(label), geocoding_guard);
+        geocoding_url + "?format=jsonv2&limit=1&q=" + url_encode(query), geocoding_guard);
     const auto parsed = json::parse(response.body);
     if (!parsed.is_array() || parsed.empty() || !parsed.at(0).is_object()) {
         throw std::invalid_argument("Location could not be found");
@@ -202,15 +224,19 @@ Location geocode(const std::string& label) {
     std::string display = rideforge_provider::sanitize_label(
         item.value("display_name", label), 240);
     if (display.empty()) display = rideforge_provider::sanitize_label(label, 240);
-    return {std::move(display), latitude, longitude};
+    Location location{std::move(display), latitude, longitude};
+    geocode_cache.put(query, location);
+    return location;
 }
 
-std::pair<int, int> route(const Location& pickup, const Location& destination) {
+ProviderRoute route(const Location& pickup, const Location& destination) {
+    const std::string origin = std::to_string(pickup.longitude) + "," + std::to_string(pickup.latitude);
+    const std::string target = std::to_string(destination.longitude) + "," + std::to_string(destination.latitude);
+    const std::string cache_key = origin + ";" + target;
+    if (const auto cached = route_cache.get(cache_key)) return *cached;
     const std::string url =
         env_or("RIDEFORGE_ROUTING_URL", "https://router.project-osrm.org/route/v1/driving") + "/" +
-        std::to_string(pickup.longitude) + "," + std::to_string(pickup.latitude) + ";" +
-        std::to_string(destination.longitude) + "," + std::to_string(destination.latitude) +
-        "?overview=false&alternatives=false&steps=false";
+        cache_key + "?overview=full&geometries=geojson&alternatives=false&steps=false";
     const auto response = get_json(url, routing_guard);
     const auto parsed = json::parse(response.body);
     if (!parsed.is_object() || parsed.value("code", std::string()) != "Ok" ||
@@ -221,13 +247,33 @@ std::pair<int, int> route(const Location& pickup, const Location& destination) {
     const auto& result = parsed["routes"][0];
     const double meters = result.at("distance").get<double>();
     const double seconds = result.at("duration").get<double>();
-    // Bounded well below INT_MAX: a route past the cap is a provider error or a wrong
-    // geocode, and must not turn into an absurd persisted fare.
     const auto metrics = rideforge_provider::validate_route_metrics(meters, seconds);
-    if (!metrics) {
-        throw std::invalid_argument("Routing provider returned invalid route metrics");
+    if (!metrics) throw std::invalid_argument("Routing provider returned invalid route metrics");
+    if (!result.contains("geometry") || !result["geometry"].is_object() ||
+        result["geometry"].value("type", std::string()) != "LineString" ||
+        !result["geometry"].contains("coordinates") ||
+        !result["geometry"]["coordinates"].is_array()) {
+        throw std::invalid_argument("Routing provider returned invalid route geometry");
     }
-    return {metrics->meters, metrics->seconds};
+    const auto& coordinates = result["geometry"]["coordinates"];
+    if (coordinates.size() < 2 || coordinates.size() > 10000) {
+        throw std::invalid_argument("Routing provider returned invalid route geometry");
+    }
+    for (const auto& point : coordinates) {
+        if (!point.is_array() || point.size() != 2 ||
+            !point[0].is_number() || !point[1].is_number()) {
+            throw std::invalid_argument("Routing provider returned invalid route geometry");
+        }
+        const double longitude = point[0].get<double>();
+        const double latitude = point[1].get<double>();
+        if (!std::isfinite(longitude) || !std::isfinite(latitude) ||
+            longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) {
+            throw std::invalid_argument("Routing provider returned invalid route geometry");
+        }
+    }
+    ProviderRoute route_result{metrics->meters, metrics->seconds, coordinates};
+    route_cache.put(cache_key, route_result);
+    return route_result;
 }
 
 class DatabasePool {
@@ -2118,7 +2164,9 @@ void handle_request(tcp::socket socket) {
                     std::abs(pickup.longitude - destination.longitude) < 1e-7) {
                     throw std::invalid_argument("Pickup and destination resolve to the same place");
                 }
-                const auto [distance_m, duration_seconds] = route(pickup, destination);
+                const auto routed = route(pickup, destination);
+                const int distance_m = routed.meters;
+                const int duration_seconds = routed.seconds;
                 // Demo tariff: ₹20 base + ₹11/km, rounded up to the next paise.
                 const long long fare = 2000LL +
                     (static_cast<long long>(distance_m) * 1100LL + 999LL) / 1000LL;
@@ -2134,7 +2182,8 @@ void handle_request(tcp::socket socket) {
                     {"durationMinutes", std::max(1, static_cast<int>(std::ceil(duration_seconds / 60.0)))},
                     {"farePaise", fare},
                     {"currency", "INR"},
-                    {"expiresAt", saved.at("expiresAt")}
+                    {"expiresAt", saved.at("expiresAt")},
+                    {"geometry", routed.geometry}
                 }, request);
             } catch (const std::invalid_argument& error) {
                 result = response(http::status::unprocessable_entity, {{"error", error.what()}}, request);
@@ -2494,13 +2543,19 @@ int main() {
         return 2;
     }
     try {
-        // Nominatim's policy is one request per second for the whole application, so the
-        // public host is paced by default. A different provider can opt in or out here.
+        // Public Nominatim and OSRM demo policies are one request per second for the whole
+        // application, so both public hosts are paced by default. Other providers may override.
         geocoding_guard.pacing.configure(
             rideforge_provider::parse_pacing_interval(
                 env_or("RIDEFORGE_GEOCODING_MIN_INTERVAL_MS", ""),
                 rideforge_provider::default_pacing_for(
                     env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search"))),
+            std::chrono::milliseconds(3000));
+        routing_guard.pacing.configure(
+            rideforge_provider::parse_pacing_interval(
+                env_or("RIDEFORGE_ROUTING_MIN_INTERVAL_MS", ""),
+                rideforge_provider::default_pacing_for(
+                    env_or("RIDEFORGE_ROUTING_URL", "https://router.project-osrm.org/route/v1/driving"))),
             std::chrono::milliseconds(3000));
     } catch (const std::exception&) {
         std::cerr << "{\"event\":\"invalid_provider_pacing_configuration\"}\n";
