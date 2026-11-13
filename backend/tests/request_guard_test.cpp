@@ -1,12 +1,16 @@
 #include "../src/request_guard.hpp"
 
 #include <cassert>
+#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <thread>
+#include <vector>
 
 using rideforge_guard::FailureThrottle;
+using rideforge_guard::RateLimiter;
 using rideforge_guard::TrustedProxies;
 using rideforge_guard::parse_address;
 using rideforge_guard::parse_network;
@@ -121,6 +125,64 @@ void limiter_keys() {
     assert(limiter_key("::ffff:203.0.113.9") == "203.0.113.9");
 }
 
+void request_rate_limiter() {
+    using clock = RateLimiter::clock;
+    const auto t0 = clock::now();
+
+    RateLimiter limiter(2, 2, std::chrono::seconds(60));
+    assert(limiter.allow("client-a", t0));
+    assert(limiter.allow("client-a", t0 + std::chrono::seconds(1)));
+    assert(!limiter.allow("client-a", t0 + std::chrono::seconds(2)));
+    assert(limiter.allow("client-b", t0 + std::chrono::seconds(2)));
+    // The table is full of live keys; a new source is rejected instead of
+    // growing memory without bound.
+    assert(!limiter.allow("client-c", t0 + std::chrono::seconds(3)));
+    assert(limiter.size() == 2);
+
+    // Expired windows are reclaimed at capacity and a new source can proceed.
+    assert(limiter.allow("client-c", t0 + std::chrono::seconds(61)));
+    assert(limiter.size() <= 2);
+    // Existing client keys reset their fixed window after expiry.
+    assert(limiter.allow("client-a", t0 + std::chrono::seconds(62)));
+    assert(limiter.allow("client-a", t0 + std::chrono::seconds(63)));
+    assert(!limiter.allow("client-a", t0 + std::chrono::seconds(64)));
+}
+
+
+void concurrent_request_rate_limiter() {
+    using clock = RateLimiter::clock;
+    const auto t0 = clock::now();
+
+    // Concurrent requests for one key must never exceed its configured allowance.
+    RateLimiter shared_key(100, 16, std::chrono::seconds(60));
+    std::atomic<unsigned> accepted{0};
+    std::vector<std::thread> workers;
+    for (unsigned worker = 0; worker < 8; ++worker) {
+        workers.emplace_back([&] {
+            for (unsigned request = 0; request < 100; ++request) {
+                if (shared_key.allow("one-client", t0)) ++accepted;
+            }
+        });
+    }
+    for (auto& worker : workers) worker.join();
+    assert(accepted.load() == 100);
+    assert(shared_key.size() == 1);
+
+    // Concurrent unique keys must respect the hard capacity, independent of
+    // thread scheduling. No key expires during this fixed-time test.
+    RateLimiter bounded(10, 8, std::chrono::seconds(60));
+    std::atomic<unsigned> admitted{0};
+    workers.clear();
+    for (unsigned client = 0; client < 32; ++client) {
+        workers.emplace_back([&, client] {
+            if (bounded.allow("client-" + std::to_string(client), t0)) ++admitted;
+        });
+    }
+    for (auto& worker : workers) worker.join();
+    assert(admitted.load() == 8);
+    assert(bounded.size() == 8);
+}
+
 void failure_throttle() {
     using clock = FailureThrottle::clock;
     const auto t0 = clock::now();
@@ -168,6 +230,8 @@ int main() {
     proxy_list_parsing();
     client_resolution();
     limiter_keys();
+    request_rate_limiter();
+    concurrent_request_rate_limiter();
     failure_throttle();
     std::cout << "Request guard tests passed\n";
 }
