@@ -24,7 +24,7 @@ Set these as protected Render environment variables; never commit them:
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Private runtime connection using the `rideforge_app` role. This role is non-superuser, has required table DML/sequence rights, and BYPASSRLS because API-level ownership checks are authoritative. |
-| `RIDEFORGE_APP_PASSWORD` | At least 32 random characters; the startup migration runner provisions this password on `rideforge`'s `rideforge_app` role. Use the same password in the runtime `DATABASE_URL`. |
+| `RIDEFORGE_APP_PASSWORD` | A 64-character hexadecimal secret (generate with `openssl rand -hex 32`); the startup migration runner provisions this password on `rideforge`'s `rideforge_app` role. Use the same password in the runtime `DATABASE_URL`. |
 | `MIGRATION_DATABASE_URL` | Private migration-owner connection. Used only by the startup migration runner. Do not use this for normal API requests. |
 | `RIDEFORGE_JWT_SECRET` | Independent random secret, at least 32 bytes. |
 | `RIDEFORGE_USER_AGENT` | Contact-bearing identifier for the geocoding provider. |
