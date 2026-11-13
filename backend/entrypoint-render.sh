@@ -10,8 +10,9 @@ set -Eeuo pipefail
 export RIDEFORGE_APP_PASSWORD="${RIDEFORGE_RUNTIME_ROLE_PASSWORD:?RIDEFORGE_RUNTIME_ROLE_PASSWORD is required}"
 source /usr/local/bin/rideforge_build_runtime_database_url
 rideforge_build_runtime_database_url
-runtime_database_url="$DATABASE_URL"
 migration_database_url="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL (migration owner) is required}"
+rideforge_validate_migration_database_url
+runtime_database_url="$DATABASE_URL"
 
 export DATABASE_URL="$migration_database_url"
 export RIDEFORGE_MIGRATIONS_DIR=/opt/rideforge/migrations
