@@ -5,7 +5,7 @@
 The native C++17 HTTP service implements the following verified code paths; deployment and commercial operations remain separate release gates:
 
 - `GET /api/v1/health`: checks whether PostgreSQL is reachable. `GET /api/v1/ready` additionally checks required schema tables and all thirteen recorded migration versions for deployment rollout probes.
-- `POST /api/v1/routes/quote`: validates labels, geocodes through Nominatim, routes through OSRM, calculates a server-side demo fare, and persists a five-minute quote.
+- `POST /api/v1/routes/quote`: validates labels, geocodes through Nominatim, routes through OSRM, calculates a server-side demo fare with integer-paise base/distance components, returns the breakdown, and persists a five-minute quote.
 - `POST /api/v1/auth/register` and `POST /api/v1/auth/login`: passenger accounts, PBKDF2-HMAC-SHA-256 password hashes using 600,000 iterations for new hashes, short-lived HMAC-signed access tokens, duplicate-email handling, and per-IP authentication throttling. Login returns the stored display name; `GET /api/v1/me` reads the authenticated caller's own profile and `PATCH /api/v1/me` updates only that caller's display name. Phone verification and profile preferences are not implemented.
 - `POST /api/v1/rides`: authenticated quote consumption and ride creation in a PostgreSQL transaction, with idempotency replay/conflict handling and ride-event history.
 - `GET /api/v1/rides`, `GET /api/v1/rides/{rideId}`, and `POST /api/v1/rides/{rideId}/cancel`: passenger history with final fare/completion data, ownership-scoped reads, and transactional cancellation. The web app provides a printable demo receipt, explicitly not a tax invoice or proof of payment.
