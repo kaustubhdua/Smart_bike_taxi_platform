@@ -91,7 +91,7 @@ curl http://localhost:8080/api/v1/health
 curl --fail http://localhost:8080/api/v1/ready
 ```
 
-The API keeps at most 12 PostgreSQL connections per process and waits up to 2 seconds to acquire a connection; this bounds one API process but does not provide a shared connection budget across replicas. Validate the total database connection budget and run concurrent load tests before horizontal scaling. Compose applies all ordered migrations to the local PostgreSQL volume before starting the API and outbox worker. Use a strong local password and do not reuse development values in a public deployment. The quote endpoint depends on public Nominatim/OSRM demo services; configure a real provider/contact identifier before use and do not treat these endpoints as production infrastructure.
+The API keeps at most 10 PostgreSQL connections per process and waits up to 2 seconds to acquire a connection; this bounds one API process but does not provide a shared connection budget across replicas. Validate the total database connection budget and run concurrent load tests before horizontal scaling. Compose applies all ordered migrations to the local PostgreSQL volume before starting the API and outbox worker. Use a strong local password and do not reuse development values in a public deployment. The quote endpoint depends on public Nominatim/OSRM demo services; configure a real provider/contact identifier before use and do not treat these endpoints as production infrastructure.
 
 ### Container deployment
 
