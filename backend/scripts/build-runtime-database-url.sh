@@ -46,6 +46,10 @@ rideforge_validate_migration_database_url() {
     echo "MIGRATION_DATABASE_URL must include the owner password." >&2
     return 1
   fi
+  if [[ ! "$owner_password" =~ ^([A-Za-z0-9._~-]|%[[:xdigit:]]{2})+$ ]]; then
+    echo "MIGRATION_DATABASE_URL owner password must be URL-encoded before insertion." >&2
+    return 1
+  fi
   hostport=${authority#*@}
   hostport=${hostport%%/*}
   case "$hostport" in
