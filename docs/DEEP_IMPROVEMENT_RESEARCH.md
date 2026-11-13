@@ -1,6 +1,6 @@
 # RideForge — deep improvement research and engineering plan
 
-Last reviewed: 2026-10-28  
+Last reviewed: 2026-11-13
 Scope: current feature branch, not a claim of commercial or production readiness.
 
 ## Executive recommendation
@@ -238,3 +238,12 @@ This review informs product boundaries and acceptance criteria; it does **not** 
 ### License and originality rule
 
 RideForge should retain its existing C++/React/PostgreSQL architecture unless a documented engineering decision justifies a change. Prefer original implementations of general patterns. Before copying any source, record the exact upstream commit, license, notices, modifications, dependency transitivity, and whether copyleft terms are compatible with the intended distribution/hosting model. Never copy competitor logos, branding, private assets, or user data.
+
+
+## Review addendum — 2026-11-13
+
+PR #44 was merged as `d7a90e24977119618f079ae7f8c1623aae97899d` after all 13 jobs in the exact candidate's [Full release readiness run 43377409848](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43377409848) passed. The candidate added adversarial authorization, PostgreSQL concurrency, transactional outbox/SSE and abuse-control suites, plus provider circuit-breaker/pacing/validation controls. The merged changes fix the invalid quote-ID response, an SSE replay gap, and cancellation leaving an active offer.
+
+The post-merge main SHA was `d7a90e24977119618f079ae7f8c1623aae97899d`; its exact-SHA workflows were still running at the time of this update. PR-candidate success is not post-merge verification.
+
+The most important remaining engineering gates are deterministic accept-vs-expiry and duplicate-worker tests, dispatch/outbox multi-process load testing, database least-privilege runtime roles, aggregate connection budgeting, distributed rate limits, manual mobile/accessibility acceptance, a real staging deployment with production-grade routing, monitoring and restore rehearsal, and privacy/legal/driver operations approval. No commercial ride authorization or live deployment is claimed.
