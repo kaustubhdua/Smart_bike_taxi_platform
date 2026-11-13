@@ -21,6 +21,7 @@ pg_restore --no-owner --no-acl --exit-on-error --dbname="$DATABASE_URL" "$input"
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 migrations_dir="${RIDEFORGE_MIGRATIONS_DIR:-$script_dir/../migrations}"
 for migration in \
+  007_lock_down_public_data_api \
   009_create_private_backend_role \
   010_runtime_role_database_access \
   012_runtime_role_least_privilege \
