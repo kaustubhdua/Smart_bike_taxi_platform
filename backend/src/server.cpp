@@ -328,7 +328,10 @@ public:
     }
 
 private:
-    static constexpr std::size_t kMaxConnections = 12;
+    // Supabase Nano's default shared-pooler pool is 15 connections per role.
+    // Keep the API at 10 so the dispatch/outbox workers and health/maintenance
+    // activity retain headroom instead of exhausting the role's session pool.
+    static constexpr std::size_t kMaxConnections = 10;
     static constexpr std::chrono::milliseconds kAcquireTimeout{2000};
     std::mutex mutex_;
     std::condition_variable cv_;
