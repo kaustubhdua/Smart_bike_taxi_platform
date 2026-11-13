@@ -63,6 +63,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
+      - name: Verify Render runtime database URL construction
+        run: bash backend/tests/render_database_url_test.sh
       - name: Create Supabase compatibility roles for local PostgreSQL
         run: |
           psql -v ON_ERROR_STOP=1 -c "CREATE ROLE anon NOLOGIN"
