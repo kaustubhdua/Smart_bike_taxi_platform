@@ -129,7 +129,27 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   useEffect(() => {
     if (mode !== "driver" || !online || !token || apiBase === undefined) return;
     let cancelled = false;
-    const refreshLocationAndQueue = async () => {
+    let queueInFlight = false;
+    let locationInFlight = false;
+
+    // Offers expire after 45 seconds. Poll the queue independently from GPS
+    // refresh so a slow geolocation request can never hide an available offer.
+    const refreshQueue = async () => {
+      if (cancelled || queueInFlight) return;
+      queueInFlight = true;
+      try {
+        const data = await request("/api/v1/driver/rides");
+        if (!cancelled) setRides(Array.isArray(data.rides) ? data.rides as RideRequest[] : []);
+      } catch {
+        if (!cancelled) setError("Ride queue could not refresh. Check your connection.");
+      } finally {
+        queueInFlight = false;
+      }
+    };
+
+    const refreshLocation = async () => {
+      if (cancelled || locationInFlight) return;
+      locationInFlight = true;
       try {
         const location = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(
@@ -142,16 +162,22 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ online: true, latitude: location.latitude, longitude: location.longitude }),
         });
-        if (cancelled) return;
-        setDriverLocation(location);
-        const data = await request("/api/v1/driver/rides");
-        if (!cancelled) setRides(Array.isArray(data.rides) ? data.rides as RideRequest[] : []);
+        if (!cancelled) setDriverLocation(location);
       } catch {
         if (!cancelled) setError("Could not refresh your live location. Dispatch eligibility will expire if the location remains stale; check permission and connection.");
+      } finally {
+        locationInFlight = false;
       }
     };
-    const interval = window.setInterval(() => { void refreshLocationAndQueue(); }, 60_000);
-    return () => { cancelled = true; window.clearInterval(interval); };
+
+    void refreshQueue();
+    const queueInterval = window.setInterval(() => { void refreshQueue(); }, 5_000);
+    const locationInterval = window.setInterval(() => { void refreshLocation(); }, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(queueInterval);
+      window.clearInterval(locationInterval);
+    };
   }, [mode, online, token, apiBase]);
 
   async function refreshLocationNow() {
