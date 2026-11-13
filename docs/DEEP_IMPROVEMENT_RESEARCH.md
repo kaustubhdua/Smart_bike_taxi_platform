@@ -38,7 +38,7 @@ Implemented or documented in this branch:
 
 ## Remaining release gaps — reviewed 2026-11-05
 The following are not claimed as complete merely because the relevant code or workflow exists:
-- Deterministic PostgreSQL race coverage for simultaneous accepts, accept-vs-expiry, cancellation, worker restart/duplicate execution, and cross-account/role authorization.
+- Deterministic PostgreSQL test code now covers simultaneous accepts, accept-vs-expiry, cancellation, parallel dispatch-worker execution, worker restart recovery and cross-account/role authorization (`backend/tests/concurrency_test.py`, `dispatch_worker_restart_test.py`, and `authz_matrix_test.py`). The latest main API smoke run failed during runtime-role password validation before these integration suites executed; rerun on the exact candidate SHA before marking this verification gate complete.
 - The API now has a bounded process-local PostgreSQL connection pool (10 connections per API process, 2-second acquisition timeout, rollback/session reset before reuse). Remaining work: test saturation under representative concurrency and budget aggregate connections across API replicas plus workers; this is not a shared cross-replica pool.
 - Dispatch matching based on real road ETA and fresh driver locations; current eligibility and sequential offer logic is not a fully optimized commercial matching engine.
 - Production routing/geocoding provider and terms. Public Nominatim/OSRM endpoints are evaluation defaults, not a production SLA.
