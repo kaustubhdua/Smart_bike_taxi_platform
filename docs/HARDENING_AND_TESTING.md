@@ -30,4 +30,4 @@ Only standards and published guidance informed the design: OWASP API Security 20
 
 ## Still open
 
-Distributed (cross-replica) rate limits, least-privilege database roles, full SQLSTATE-mapping review, ETA-based driver ranking, payments and earnings ledger, load/stress tests, and a geocode cache. Limits and breakers are per-process.
+Per-IP request limiters are bounded to 10,000 keys per process and fail closed for new keys while all slots contain live windows; deterministic C++ tests cover expiry and capacity. These limits and provider breakers remain per-process, not distributed across replicas. Distributed (cross-replica) rate limits, full SQLSTATE-mapping review, ETA-based driver ranking, payments and earnings ledger, load/stress tests, and a geocode cache remain outstanding.
