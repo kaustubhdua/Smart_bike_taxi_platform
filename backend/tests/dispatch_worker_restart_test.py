@@ -28,9 +28,12 @@ def prepare():
     check(ride.status == 201, "booking failed while dispatch worker was stopped: %s %s" %
           (ride.status, ride.text))
     ride_id = ride.json["rideId"]
-    # Make this fixture the oldest pending request so unrelated leftovers from
-    # earlier suites cannot delay the restart assertion.
-    psql("UPDATE rides SET created_at=now()-interval '1 day' WHERE id='%s'" % ride_id)
+    # Make this fixture unambiguously older than any rows left by earlier
+    # suites. The worker selects the oldest pending ride first; a fixed epoch
+    # avoids a flaky restart assertion when test data is more than one day old.
+    psql("UPDATE rides SET created_at='1970-01-01 00:00:00+00' WHERE id='%s'" % ride_id)
+    state = psql("SELECT status FROM rides WHERE id='%s'" % ride_id)
+    check(state in ("requested", "matching"), "ride was not pending while worker was stopped: %s" % state)
     offers = psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s'" % ride_id)
     check(offers == "0", "an offer appeared while the dispatch worker was stopped")
     print(ride_id)
