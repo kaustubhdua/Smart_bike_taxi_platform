@@ -1,0 +1,42 @@
+name: Supabase Edge API
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "web/**"
+      - ".github/workflows/supabase-edge.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - "web/**"
+      - ".github/workflows/supabase-edge.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  edge-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Supabase Edge Function
+        run: deno check supabase/functions/rideforge-api/index.ts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+      - name: Type-check frontend
+        working-directory: web
+        run: npm run typecheck
+      - name: Build frontend
+        working-directory: web
+        run: npm run build
