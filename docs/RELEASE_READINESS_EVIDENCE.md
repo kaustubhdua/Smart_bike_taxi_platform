@@ -2,7 +2,7 @@
 
 **Assessment date:** 2026-11-13  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Main SHA at assessment:** `2c6ba631815b13feb6d3064de47765967e8db0ec`  
+**Main SHA at assessment:** `a1eff3bfe4a6e99f668bbf8c2d4796beda084f2d`  
 **Release decision:** **Not ready for public/commercial rides.** The repository has a substantially hardened full-stack MVP, but no verified public staging deployment, real two-device journey, production operational service, driver/vehicle compliance process, or transport-authority/legal approval.
 
 This report distinguishes repository implementation and automated CI from evidence that requires real infrastructure. A green build, local Compose stack, mock-provider browser test, or demo receipt is not proof of a commercially operating taxi service.
@@ -16,15 +16,18 @@ Both release-hardening upgrades are merged into `main`:
 | One active dispatch offer per driver (PR #53) | `05581bb1bdcbf68d9675a647db1b334f337dbe3b` | [Full release readiness, run 43433243879](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43433243879), candidate `9216cd69f34c8c7bdddf7df8d86b7cf3a261ee9f` | 13/13 jobs passed. Migration 011 adds a unique partial index; worker selection excludes drivers with another active offer; a two-worker PostgreSQL test verifies the invariant. |
 | Driver offer visibility and portal routing (PR #54) | `2c6ba631815b13feb6d3064de47765967e8db0ec` | [Full release readiness, run 43432850270](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43432850270), candidate `e2300ca274efe342de78cb7924d10595059d8c64` | 13/13 jobs passed. Driver queue polls every five seconds while online; `/driver` and `/admin` entry points are tested; 37 Playwright browser tests passed. |
 
-The latest main-branch full release-readiness run for assessment SHA `2c6ba631815b13feb6d3064de47765967e8db0ec` is [run 43434905271](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43434905271), which completed all 13/13 jobs successfully. This is exact-main evidence for that SHA; deployment and commercial-readiness gates remain separate.
+The latest main-branch full release-readiness run for the previous assessment SHA `2c6ba631815b13feb6d3064de47765967e8db0ec` is [run 43434905271](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43434905271), which completed all 13/13 jobs successfully. This is exact-main evidence for that SHA; deployment and commercial-readiness gates remain separate.
 
-## Current infrastructure snapshot
+## Current infrastructure snapshot — 2026-11-13 (latest recheck)
 
-- The connected Supabase project is active and records migrations 001–011. All 12 public tables have RLS enabled, browser roles have no table grants, and the `rideforge_app` role has the intended restricted non-superuser posture. Its password is not yet configured.
-- The Render workspace contains the `rideforge-web` static site and several API service entries. The static site is live on the old `deploy/render-api-workers` branch; the API services have failed prior deployments. No running API connected to Supabase or verified full-stack public deployment is established.
-- No Render Postgres instance exists or is required by this configuration; the app uses the existing Supabase PostgreSQL project.
-- Root `render.yaml` describes adoption of only `rideforge-api-final` and `rideforge-web`, both on `main`, with deploy-after-checks behavior and the SPA rewrite. Render Blueprint `exs-dbrhb55g1s2s738gi39g` has been created with `existingResources=adopt` and `autoSync=false`; its initial plan proposes updates to exactly those two existing services, no new database, no paid resources and no duplicate services. The plan is awaiting review/approval; no infrastructure changes have been applied. [Review the planned sync](https://dashboard.render.com/blueprint/exs-dbrhb55g1s2s738gi39g/sync/exe-dbrhb5lg1s2s738gi58g).
-- Supabase confirms the `rideforge_app` login role exists but currently has no password configured. Before the API can authenticate, provision a generated `RIDEFORGE_APP_PASSWORD` through the migration-owner connection and set matching runtime `DATABASE_URL`, `MIGRATION_DATABASE_URL` and `RIDEFORGE_APP_PASSWORD` values in Render's protected environment settings. The actual Supabase Session Pooler host/port and owner password must come from the project's Connect dialog; they are not available in the connected project metadata. No credentials are committed to the repository.
+- Supabase project `rideforge-production` (`ghcufcegfvvjhsnqnrzr`) is `ACTIVE_HEALTHY`, PostgreSQL 17.11, region `ap-south-1`. Direct read-only SQL checks confirm all 12 public tables have RLS enabled and migrations 001–011 are recorded.
+- The private `rideforge_app` role exists, is LOGIN and BYPASSRLS, and is not a superuser. It has SELECT/INSERT/UPDATE/DELETE grants on the 12 application tables. The `anon` and `authenticated` roles have no table grants. The RLS-enabled/no-policy Supabase advisor findings (12 INFOs) are expected under this deliberate model: browser roles cannot reach the tables, while only the trusted backend role bypasses RLS and enforces account/role ownership in the API. This is a high-trust backend boundary and must remain covered by authorization tests. A later read-only SQL recheck confirmed a password verifier exists for `rideforge_app`; the password itself is not retrievable, and whether Render has a matching runtime secret remains unverified.
+- The Supabase performance advisor currently reports 21 unused indexes. These are not removed: the database has little/no production traffic, and the indexes support expected history, dispatch, expiry and foreign-key access paths. Reassess with representative workload statistics before considering removal.
+- Render Blueprint sync `exe-dbrhk33m8hqs73d2tvn0` was approved and applied to the existing `rideforge-api-final` and `rideforge-web` services only. Both now track `main`; no Render database, duplicate service or paid resource was created.
+- The static site is live at [https://rideforge-web.onrender.com](https://rideforge-web.onrender.com), deployed from PR #57 merge SHA `0f69d9fc735aa0cea330cd4672ec2c721bd1a03d`. The API Docker image also built from that SHA, but the service exited at startup because the required private-role `DATABASE_URL` was absent. There is no healthy public API or verified end-to-end journey yet. API service: [Render dashboard](https://dashboard.render.com/web/srv-dbloqnom7kps73br5ojg).
+- The existing Supabase database is used; no Render Postgres instance exists or is needed for this architecture. Render's free web-service plan sleeps when idle, so even after configuration it is evaluation hosting, not a production availability commitment.
+- PR #59 proposes a safer deployment contract: Render-generated 256-bit base64 runtime-role password, a password-free `DATABASE_URL_TEMPLATE`, URI-safe password construction, one protected migration-owner URL, and candidate migration 012 to revoke unused runtime DELETE rights and protect append-only audit/event and schema-migration records. PR #60 moves route lookup behind explicit server-side quote requests and adds a persistent demo-only warning. PR #62 adds the state-compliance research and this evidence refresh. At the latest recheck, exact-head CI for PRs #59, #60, #62 and #63 was queued. None of these exact heads has completed all required checks; do not merge them yet.
+- Required manual inputs remain: (1) `DATABASE_URL_TEMPLATE` built from the exact Supabase **Session pooler** host/port and username `rideforge_app.PROJECT_REF`, with `__RIDEFORGE_PASSWORD__` in the password component; and (2) `MIGRATION_DATABASE_URL` using the exact owner Session-pooler URI and the actual database-owner password. The host/port and owner password are not returned by Supabase project metadata or the connected database inspection tools; the exact values are available only in Supabase **Connect**/Database Settings. They must be entered into Render's protected environment settings. Never paste either secret into chat. The new variables must be added manually to the existing Render service after the Blueprint update because Render ignores newly added `sync: false` values on subsequent syncs.
 
 
 ## Earlier verified engineering milestone — PR #44 (historical)
@@ -63,7 +66,7 @@ The table below is retained for history and is superseded by the current evidenc
 
 ## External blockers
 
-A Render workspace is connected, but its existing API services are not healthy and the static site is on a stale branch. No verified running API, end-to-end public booking journey, production DNS/custom domain, or real two-device passenger-to-driver acceptance has been established. The Supabase runtime-role password and Render connection settings remain outstanding. Do not infer deployment from a Blueprint file, template, or CI.
+The existing Render static site is live from `main`, but the API service is not healthy. No verified running API, end-to-end booking journey, production DNS/custom domain, or real two-device passenger-to-driver acceptance has been established. The Supabase `rideforge_app` role has a password verifier, but the matching runtime connection string and owner migration connection are not configured/verified in Render. Do not infer deployment from a Blueprint file, template, or CI.
 
 The repository also reports `main` as unprotected. The GitHub integration available for this review cannot change repository branch-protection settings; a repository administrator must configure a ruleset requiring pull requests and the relevant release checks, while preventing force pushes and branch deletion.
 
@@ -83,7 +86,7 @@ The repository also reports `main` as unprotected. The GitHub integration availa
 | Dispatch expiry/ride lock-order hardening (PR #23) | `8c6ee2ed12e3cff339c98b4389dacff708e525bb` | [Full release readiness, run 40651307975](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40651307975), candidate `0fc4bb5cf54adfb03cc4b583a63b7175e36dec3d` | All 13 jobs passed. Main-branch workflows for the merge SHA are running separately and were not yet complete at the time of this report. |
 | Debounce location geocoding while typing (PR #26) | `d2e1cd1449d471d6fd3bdc58e0457675446c2d84` | [Full release readiness, run 40651766311](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40651766311), candidate `1ae3ad8b05662d5720715b73491f775167ba7aaa` | All 13 jobs passed; browser workflow reported 31 passed, 1 skipped. |
 
-The latest main revision `e234e434dad8cda26a90cb096722eaa5c1faeab0` requires its own exact-SHA workflow verification. The merged PR's test presence does not substitute for confirming the full release-readiness workflow on main. Do not describe current-main CI as green until those exact-SHA runs complete.
+The latest main revision at this report's assessment is `a1eff3bfe4a6e99f668bbf8c2d4796beda084f2d` (PR #61 merge); its exact-SHA CI passed as recorded above. The merged PR's test presence does not substitute for confirming the full release-readiness workflow on main. Do not describe current-main CI as green until those exact-SHA runs complete.
 
 ## Capability and limitation matrix
 
@@ -94,7 +97,7 @@ The latest main revision `e234e434dad8cda26a90cb096722eaa5c1faeab0` requires its
 | Admin workspace | Implemented in repository | Production access controls and tested operator procedures. |
 | PostgreSQL persistence and migrations | Implemented in repository | Production database, least-privilege roles, off-host backup and restore rehearsal. |
 | Live ride events (SSE/outbox) | Implemented in repository | Production reconnect/load measurements and alerts for lag/dead letters. |
-| PostgreSQL API pool | Bounded to 12 connections per API process, 2-second acquisition wait | Aggregate connection budgeting across replicas/workers and representative saturation/load tests. It is not a shared cross-replica pool. |
+| PostgreSQL API pool | Bounded to 12 connections per API process on current main, 2-second acquisition wait; PR #59 proposes reducing it to 10 for the Supabase shared-pooler budget | Aggregate connection budgeting across replicas/workers and representative saturation/load tests. It is not a shared cross-replica pool. |
 | Maps/geocoding/routing | Public OSM Nominatim and OSRM evaluation endpoints are defaults; route caching and malformed-response validation are implemented | Public endpoints do not provide a commercial SLA. Nominatim's one-request/second ceiling applies across all users of an application, and its policy prohibits client-side autocomplete. A browser-local queue is not an application-wide limiter. Configure a suitable provider or self-hosted stack, with global rate limiting, caching, terms and attribution. |
 | Payments/refunds/driver payouts | Not implemented as a real commercial money flow | Provider integration, server-verified webhooks, idempotency, refunds, reconciliation and ledger. Demo receipts are not payment evidence. |
 | Driver identity, licence, vehicle, insurance and permits | Not verified by the software alone | Documented real-world verification and competent-authority checks before activating drivers. |
@@ -182,3 +185,77 @@ Source review after PR #51 found a real multi-replica race: separate dispatch wo
 The follow-up branch `fix/dispatch-one-offer-per-driver` adds migration 011 with a fail-closed duplicate preflight and unique partial index on `ride_offers(driver_id) WHERE status='offered'`. The dispatch worker excludes drivers with active offers both in ride eligibility and final driver selection; the unique index remains the final race guard. CI schema smoke verifies the index and rejects a second active offer for the same driver, and the API integration suite runs two dispatch-worker processes against PostgreSQL with multiple rides/drivers.
 
 The migration was applied to the connected Supabase project. The migration ledger records 011, the index is unique with the expected predicate, and there were zero active offers at application time. Do not mark the code fix complete until the exact PR head passes CI and is merged.
+
+
+
+## Current deployment and release evidence — 2026-11-13
+
+### Merged mainline changes
+
+- PR [#61](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/61) merged to main as `a1eff3bfe4a6e99f668bbf8c2d4796beda084f2d`. Its exact candidate `e2420b39f3d35dcf33a97f629e4ed830cf24cc5c` passed all seven top-level workflow runs, including [Full release readiness run 43441762858](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43441762858), C++/API/PostgreSQL/web/container tests, CodeQL and container vulnerability scan. The change isolates the accept-vs-expiry test fixture from the live dispatcher.
+- Mainline already includes PRs #53, #54 and #57 for per-driver active-offer exclusion, driver/admin experience and Render Blueprint adoption.
+
+### Render deployment observation
+
+- The existing static service is live at [https://rideforge-web.onrender.com](https://rideforge-web.onrender.com), deployed from commit `0f69d9fc735aa0cea330cd4672ec2c721bd1a03d` (PR #57) at 2026-11-13 14:09:38 UTC.
+- The existing API service [rideforge-api-final](https://dashboard.render.com/web/srv-dbloqnom7kps73br5ojg) built its image, but deployment `dep-dbrhk556e07s73bo8kcg` failed at runtime. Its exact startup error was `DATABASE_URL (private runtime role) is required`; no API health/readiness or full-stack E2E pass is claimed.
+- The Render Blueprint intentionally adopts the two existing free services and does not create a Render database. The existing Supabase project remains the database.
+
+### Supabase production database recheck
+
+- Project `rideforge-production` is `ACTIVE_HEALTHY`, Postgres 17.11 in `ap-south-1`.
+- Migration history records 001–011; 12 application tables are present and all 12 have RLS enabled.
+- `anon` and `authenticated` have no table privileges in the public schema. The backend role `rideforge_app` is LOGIN, non-superuser, has a password verifier, has table DML but not TRUNCATE, and has BYPASSRLS. Tables are owned by `postgres`, not the app role. This is a privileged backend-only role; the password must never enter browser variables, source control or chat.
+- The earlier statement above that the `rideforge_app` password was unset is superseded by this read-only recheck. Its current password verifier does not establish that Render has the matching runtime URL configured; PR #59 provisions the generated Render password during deployment.
+
+### Open exact-head candidates
+
+- PR [#59](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/59): Render-generated runtime password, password-free URI template, URL-encoding helper, CI tests and candidate migration 012 least-privilege grants. All exact-head checks were queued at this snapshot.
+- PR [#60](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/60), head `a7439986146491cb244f39de672bda844f439526`: explicit server-side quote routing, bounded GeoJSON, Noida geocoding context, public Nominatim allowlist for five public landmarks, policy-compliant OSM tile host and persistent demo-only notice. All exact-head checks were queued at this snapshot.
+- PR [#62](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/62) (this branch): UP aggregator licensing/vehicle/driver/fare/DPDP research and OSM/OSRM provider restrictions. Exact-head checks were queued at this snapshot.
+- PR [#63](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/63), head `b7510bcccbac74b12f5c2ac6423a34d2ca069494`: process-level dispatch-worker restart recovery regression. All exact-head checks were queued at this snapshot.
+
+### Remaining non-negotiable gates
+
+1. Pass exact-head CI for PRs #59, #60, #62 and #63 before merging.
+2. Configure protected `DATABASE_URL_TEMPLATE` (actual Supabase Session-pooler host copied from Connect; runtime username `rideforge_app.PROJECT_REF`; literal `__RIDEFORGE_PASSWORD__` placeholder) and protected `MIGRATION_DATABASE_URL` (owner Session-pooler URI) in Render.
+3. Merge the validated candidates, sync the Render Blueprint, redeploy the API, and verify `/api/v1/health` and `/api/v1/ready`.
+4. Run passenger, driver and admin E2E journeys against the deployed SHA using separate sessions/devices; verify workers, reconnect/replay, cancellation, expiry/redispatch and support triage.
+5. Complete production provider capacity, distributed rate limiting, load/connection-budget tests, monitoring/alerts, off-host backup restore, privacy retention/deletion and manual mobile/accessibility QA.
+6. Keep real passenger transport disabled until UP licensing, transport-motorcycle eligibility, driver screening/training/insurance, CAQM/NCR constraints, required independent app-security certification, 24x7 safety operations and qualified legal/privacy review are evidenced.
+7. Configure and test main-branch protection/rulesets (issue #17): require PRs and release checks, block force-push/deletion, and verify that missing checks block merging. This could not be changed through the connected GitHub integration in this session.
+
+The static frontend being live is not a full-stack deployment. No commercial rides, payment processing, verified driver onboarding, staffed emergency dispatch or transport authorization are claimed.
+
+## Live Supabase production recheck — 13 November 2026, 15:50 UTC
+
+This read-only database inspection supersedes earlier snapshots in this document that described migration 012 as merely a candidate or stated that the role still had DELETE grants.
+
+- Supabase project `rideforge-production` is `ACTIVE_HEALTHY`, PostgreSQL 17.11, region `ap-south-1`.
+- The live `public.schema_migrations` ledger records migrations 001 through 012, including `012_runtime_role_least_privilege` at 2026-11-13 15:42:34 UTC. The migration is already applied in production; it must not be applied a second time manually.
+- `rideforge_app` is LOGIN+BYPASSRLS, non-superuser, without CREATEDB/CREATEROLE, and has a password verifier. The secret itself is not retrievable. A Render-side login using the generated runtime password has not yet been proven.
+- A direct read-only privilege check found **zero DELETE table grants** for `rideforge_app`. UPDATE/DELETE on `admin_audit_events`, `ride_events`, and `driver_ride_declines` are all false; INSERT/UPDATE/DELETE on `schema_migrations` are false. This confirms the append-only/least-privilege migration is live.
+- The 12 public tables remain RLS-enabled. `anon` and `authenticated` have no public-table grants. The trusted server-side `rideforge_app` role remains the only application role with direct table DML (excluding DELETE). This role has BYPASSRLS and must never be exposed to browser clients.
+- Supabase security advisor: 12 INFO findings named `rls_enabled_no_policy`, expected because the Data API roles have no table grants; no health findings. Performance advisor: 21 unused-index INFO findings on an essentially empty database. Do not drop indexes until representative workload and query-plan evidence exists.
+- The project metadata exposes the direct endpoint `db.ghcufcegfvvjhsnqnrzr.supabase.co`, but not the exact shared Session-pooler cluster index/hostname or the database-owner password. Do not derive or guess the pooler host from the Mumbai region; copy it from Supabase Connect.
+
+The remaining database/Render blocker is therefore not the schema migration or the existence of the runtime role. It is the protected connection configuration and proof that the Render-generated runtime secret is provisioned through the owner connection and successfully used by the API.
+
+The Render service still needs:
+1. `DATABASE_URL_TEMPLATE` using the exact shared Session-pooler hostname from Supabase Connect, port 5432, username `rideforge_app.ghcufcegfvvjhsnqnrzr`, and the literal `__RIDEFORGE_PASSWORD__` placeholder.
+2. `MIGRATION_DATABASE_URL` using the same exact Session-pooler host/port, owner username `postgres.ghcufcegfvvjhsnqnrzr`, and the actual database-owner password.
+
+Set these only in the existing Render service's protected Environment page. Never send passwords through chat. The generated Render runtime password is applied by the migration runner's `ALTER ROLE rideforge_app PASSWORD ...` step, even when migration 012 is already recorded.
+
+No schema change, service creation, paid resource or Render environment-variable update was performed during this inspection.
+
+## Final exact-head and hosting snapshot — 13 November 2026 (latest tool recheck)
+
+- PR #59 latest reviewed head: `4beb2cdaa167e77f92c1595169d6b213e2b79d44` (25 check runs queued/pending at snapshot). It now accepts both PostgreSQL URI aliases, rejects direct/transaction-pooler endpoints for Render, and requires migration 012 in `/api/v1/ready`.
+- PR #60 latest reviewed head: `ebd2bdf1f90a5057c739a9d28cb45300b16e3129` (25 check runs queued/pending).
+- PR #62 is the documentation/compliance evidence branch; its own commits are excluded from the code-test gate except for the required repository-wide workflows. It distinguishes the UP March draft from the final May rules analysis, cites the signed CAQM Direction 94 amendment, and records DPDP phased commencement dates.
+- PR #63 latest reviewed head: `91ca5bf1bd8204cb18a9883f18effe228b55a2e3` (24 check runs queued/pending).
+- All four PRs were mergeable in GitHub's metadata, but no exact-head required check had completed at this snapshot. Do not merge based on mergeability alone.
+- Render workspace `kaustubh dua`: the existing API `rideforge-api-final` remains on `main`, free plan, and unhealthy. Its latest build from `0f69d9f` succeeded but runtime startup failed because the old mainline entrypoint requires `DATABASE_URL` and the protected value is not configured. The static `rideforge-web` service remains the existing live free static site.
+- Render Blueprint remains paused with `autoSync=false`. A fresh plan against current mainline proposes only one change to the existing static site's publish path (`web/dist` → `./web/dist`); it creates no resource and changes no service plan. The plan was not approved/applied. It does not yet include PR #59's generated runtime secret/template because that branch has not merged.
+- The remaining manual values are still the exact Supabase shared Session-pooler hostname from Connect and the owner database password. Supabase's current documentation confirms shared Session mode is the IPv4-compatible option for persistent services and uses port 5432; transaction mode on 6543 is for transient workloads. The project metadata does not reveal the assigned pooler hostname.
