@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-11-13. PR #44, PR #46 and PR #49 are merged. PR #49 adds migration 010 and separates migration-owner credentials from the non-superuser `rideforge_app` runtime role; its exact candidate `b42c590d41b5df38e4682247f2a9b0fbad8d4acf` passed all 13 release-readiness jobs in run `43403681589`. Main now points to `4d4ff78d7ed12ce7b4432bd4fbce07678bc82603`; its post-merge full release-readiness run `43404828111` passed all 13 jobs. The Supabase schema is restored and reconciled, but Render credentials and a live application connection are still pending. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live deployment or commercial readiness is claimed.
+Last reconciled: 2026-11-13. PR #44, PR #46, PR #49, PR #50 and PR #51 are merged. PR #49 adds migration 010 and separates migration-owner credentials from the non-superuser `rideforge_app` runtime role. PR #51 adds accept-vs-expiry and durable redispatch tests; its exact candidate `5c034885970939d4f2175e4492c2f0db6c3e32b5` passed all 13 release-readiness jobs in run `43406783109`. Main is `e39687deb5e696bccdc2bbf9a31737a2c72fd29a` after PR #51 merge; its post-merge full release-readiness workflows are running. A follow-up multi-worker uniqueness fix is in review on `fix/dispatch-one-offer-per-driver`. The Supabase schema is restored and reconciled, but Render credentials and a live application connection are still pending. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live deployment or commercial readiness is claimed.
 
 ## Product goal
 
@@ -39,7 +39,7 @@ Build an original, accessible, portfolio-grade bike-taxi product with a React/Ty
 - [ ] Re-run the release gate on the exact candidate release SHA after any subsequent code changes; a successful earlier SHA is not evidence for later commits. Durable-offer PR #13 has been opened and its checks are pending.
 - [x] CI applies all versioned migrations (001–009), re-runs the migration runner for idempotency, verifies integrity constraints and restores a backup into a fresh database; the PR #44 exact candidate also passed container/Compose validation and vulnerability scanning.
 
-Acceptance: every required current-head check is green; migrations 001–009 apply in order and a second migration run is a no-op.
+Acceptance: every required current-head check is green; migrations 001–011 apply in order and a second migration run is a no-op.
 
 ## Phase 1 — transactional API and security
 
