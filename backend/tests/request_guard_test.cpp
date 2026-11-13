@@ -129,6 +129,11 @@ void request_rate_limiter() {
     using clock = RateLimiter::clock;
     const auto t0 = clock::now();
 
+    assert(throws_invalid_argument([] { RateLimiter(0); }));
+    assert(throws_invalid_argument([] { RateLimiter(1, 0); }));
+    assert(throws_invalid_argument([] { RateLimiter(1, 1, std::chrono::seconds::zero()); }));
+    assert(throws_invalid_argument([] { RateLimiter(1, 1, std::chrono::seconds(-1)); }));
+
     RateLimiter limiter(2, 2, std::chrono::seconds(60));
     assert(limiter.allow("client-a", t0));
     assert(limiter.allow("client-a", t0 + std::chrono::seconds(1)));
