@@ -2,7 +2,7 @@
 
 **Assessment date:** 2026-11-14  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Main SHA at assessment:** `7e8145c3a647f7d6950a0c02fabe4a76154cc231`  
+**Main SHA at assessment:** `e07cff31886e5bf32eaa4b052480221e55c6e44a`  
 **Release decision:** **Not ready for public/commercial rides.** The repository has a substantially hardened full-stack MVP, but no verified public staging deployment, real two-device journey, production operational service, driver/vehicle compliance process, or transport-authority/legal approval.
 
 This report distinguishes repository implementation and automated CI from evidence that requires real infrastructure. A green build, local Compose stack, mock-provider browser test, or demo receipt is not proof of a commercially operating taxi service.
