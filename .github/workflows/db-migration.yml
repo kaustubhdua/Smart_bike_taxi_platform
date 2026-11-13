@@ -51,6 +51,7 @@ jobs:
     env:
       PGHOST: localhost
       DATABASE_URL: postgresql://rideforge:rideforge_test_password@127.0.0.1:5432/rideforge_test
+      RIDEFORGE_APP_PASSWORD: rideforge_app_test_password_32_characters_minimum
       PGPORT: 5432
       PGDATABASE: rideforge_test
       PGUSER: rideforge
@@ -86,8 +87,14 @@ jobs:
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_tables t WHERE schemaname = 'public' AND (has_table_privilege('anon', format('%I.%I', schemaname, tablename), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_table_privilege('authenticated', format('%I.%I', schemaname, tablename), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))" | grep -Fx '0'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'S' AND (has_sequence_privilege('anon', c.oid, 'USAGE,SELECT,UPDATE') OR has_sequence_privilege('authenticated', c.oid, 'USAGE,SELECT,UPDATE'))" | grep -Fx '0'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT prosecdef AND proconfig @> ARRAY['search_path=pg_catalog, public'] FROM pg_proc WHERE oid = 'public.enqueue_ride_event_notification()'::regprocedure" | grep -Fx 't'
-          psql -v ON_ERROR_STOP=1 -tAc "SELECT rolcanlogin AND rolbypassrls AND NOT rolsuper FROM pg_roles WHERE rolname = 'rideforge_app'" | grep -Fx 't'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT rolcanlogin AND rolbypassrls AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND rolpassword IS NOT NULL AND has_database_privilege('rideforge_app', current_database(), 'CONNECT') FROM pg_roles WHERE rolname = 'rideforge_app'" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT has_table_privilege('rideforge_app','public.accounts','SELECT,INSERT,UPDATE,DELETE') AND NOT has_table_privilege('rideforge_app','public.accounts','TRUNCATE')" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname IN ('admin_audit_events_actor_id_idx','booking_idempotency_ride_id_idx','driver_profiles_approved_by_idx','ride_event_outbox_ride_id_idx','ride_events_actor_id_idx','support_reports_resolved_by_idx','support_reports_ride_id_idx')" | grep -Fx '7'
+      - name: Verify runtime role password authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime_url="postgresql://rideforge_app:${RIDEFORGE_APP_PASSWORD}@127.0.0.1:5432/rideforge_test"
+          psql "$runtime_url" -v ON_ERROR_STOP=1 -tAc "SELECT current_user, has_table_privilege(current_user,'public.accounts','SELECT,INSERT,UPDATE,DELETE') AND NOT has_table_privilege(current_user,'public.accounts','TRUNCATE')" | grep -F 'rideforge_app|t'
       - name: Verify backup and restore into a fresh database
         run: sh backend/tests/backup_restore_smoke.sh
