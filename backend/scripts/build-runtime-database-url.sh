@@ -3,7 +3,7 @@
 # Render password is kept out of logs and only exported into DATABASE_URL.
 rideforge_require_sslmode() {
   case "$1" in
-    *[?&]sslmode=require*|*[?&]sslmode=verify-ca*|*[?&]sslmode=verify-full*) ;;
+    *'?sslmode=require'*|*'&sslmode=require'*|*'?sslmode=verify-ca'*|*'&sslmode=verify-ca'*|*'?sslmode=verify-full'*|*'&sslmode=verify-full'*) ;;
     *)
       echo "Database connection URI must set sslmode=require, verify-ca, or verify-full." >&2
       return 1
