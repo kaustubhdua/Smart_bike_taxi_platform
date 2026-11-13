@@ -21,7 +21,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 - Supabase schema, both migration ledgers, RLS state and runtime-role privilege boundaries were verified read-only.
 - Main SHA `b4f91bc` has a failed full release-readiness run: API smoke failed on a non-base64 CI password placeholder and web tests used textbox locators for datalist comboboxes. PR #64 is the current CI-only repair branch; its exact-head workflows remain queued.
-- PR #64 contains CI-only fixes; PR #65 contains demo/live separation and active browser-test fixes; PR #68 contains display-name profile management; PR #67 contains documentation updates; PR #69 removes unnecessary sequence UPDATE privilege; PR #70 hardens backup/restore URI handling; PR #71 bounds per-IP rate-limiter memory. The current open PR set is #64–71. PR #65 has advanced to head `e36e1eb`; PR #64 is open again as the CI-only repair; PR #66 is deferred and must not be merged/deployed until the hosting decision is revisited. Exact-head checks for the open implementation PRs remain queued, not passed.
+- PR #64 contains CI-only fixes; PR #65 contains demo/live separation and active browser-test fixes; PR #68 contains display-name profile management; PR #67 contains documentation updates; PR #69 removes unnecessary sequence UPDATE privilege; PR #70 hardens backup/restore URI handling; PR #71 bounds per-IP rate-limiter memory. The current open PR set is #64–65 and #67–71; PR #66 is closed/deferred. PR #65 has advanced to head `e36e1eb`; PR #64 is open again as the CI-only repair; PR #66 is closed/deferred and its branch is retained for a future hosting decision. Exact-head checks for the open implementation PRs remain queued, not passed.
 - PR #66 is Render-specific and deferred; no Render deployment or Vercel deployment is being performed in this phase.
 - Supabase is on the Free plan: no automatic daily backup/PITR; no production backup/restore drill has been verified.
 - Commercial operations are not authorised.
@@ -165,7 +165,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
-| 91 | Reliable CI pipeline | BLOCKED | GitHub / Engineering | Exact-head workflows for PRs #64–71 are queued; main SHA b4f91bc failed API smoke and web tests; PR #64 carries the CI-only repairs but has not executed |
+| 91 | Reliable CI pipeline | BLOCKED | GitHub / Engineering | Exact-head workflows for active PRs #64, #65 and #67–71 are queued; main SHA b4f91bc failed API smoke and web tests; PR #64 carries the CI-only repairs but has not executed |
 | 92 | Meaningful required checks | IMPLEMENTED | Engineering | C++, sanitizer, PostgreSQL, API, web, CodeQL, dependency and container scan jobs exist; exact-head pass pending |
 | 93 | Unit/component tests | IMPLEMENTED | Engineering | Fare, provider, security and frontend tests exist; exact-head CI pending |
 | 94 | Integration tests | IMPLEMENTED | Engineering | PostgreSQL, API, outbox and authz integration suites exist; exact-head CI pending |
