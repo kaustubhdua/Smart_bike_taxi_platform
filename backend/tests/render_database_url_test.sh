@@ -46,4 +46,10 @@ if rideforge_build_runtime_database_url >/dev/null 2>&1; then
   exit 1
 fi
 
+RIDEFORGE_APP_PASSWORD='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+if rideforge_build_runtime_database_url >/dev/null 2>&1; then
+  echo "Expected a base64 value with invalid length to fail." >&2
+  exit 1
+fi
+
 echo "Render runtime database URL construction tests passed."
