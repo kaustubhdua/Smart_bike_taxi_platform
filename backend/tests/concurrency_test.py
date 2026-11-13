@@ -197,18 +197,41 @@ def test_only_the_offered_driver_wins_when_another_driver_races_them():
 
 
 def test_a_driver_cannot_be_assigned_two_rides_at_once():
-    passenger_id, _ = passenger()
+    passenger_id, passenger_token = passenger()
     for _ in range(ROUNDS):
         driver_id, token = online_driver()
         first = plant_ride_with_offer(passenger_id, driver_id)
-        second = plant_ride_with_offer(passenger_id, driver_id)
-        responses = race([accept(first, token), accept(second, token)])
-        no_server_errors(responses)
-        check(sorted(r.status for r in responses).count(200) == 1,
-              "both rides were accepted: %s" % [r.status for r in responses])
+        response = request("POST", "/api/v1/driver/rides/%s/accept" % first, token=token)
+        check(response.status == 200, "first ride could not be accepted: %s" % response.status)
+        check(ride_state(first) == ("assigned", driver_id), "first ride was not assigned")
+
+        # Once the driver is busy, a second live offer should never be produced
+        # by dispatch. Plant one deliberately to exercise the API's final
+        # busy-driver guard even if a stale/duplicate offer exists.
+        psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+             "current_longitude=NULL,last_location_at=NULL WHERE account_id <> '%s'" % driver_id)
+        second = plant_ride_without_offer(passenger_id)
+        psql("INSERT INTO ride_offers (ride_id,driver_id) VALUES ('%s','%s')" % (second, driver_id))
+        response = request("POST", "/api/v1/driver/rides/%s/accept" % second, token=token)
+        check(response.status == 409,
+              "busy driver accepted a second ride: %s %s" % (response.status, response.text))
+        check(ride_state(first) == ("assigned", driver_id), "first assignment changed")
+        check(ride_state(second) == ("matching", ""), "second ride was assigned: %s" % (ride_state(second),))
         check(active_rides_of(driver_id) == 1, "driver holds %d active rides" % active_rides_of(driver_id))
+        check(psql("SELECT status FROM ride_offers WHERE ride_id='%s' AND driver_id='%s'"
+                   % (second, driver_id)) == "offered",
+              "rejected busy-driver acceptance mutated the offer")
+        check(psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s' AND status='accepted'"
+                   % second) == "0", "busy driver offer was accepted")
+        assert_ride_consistent(first)
+        assert_ride_consistent(second)
+
         for ride_id in (first, second):
+            cancelled = request("POST", "/api/v1/rides/%s/cancel" % ride_id, token=passenger_token)
+            check(cancelled.status == 200, "cleanup cancellation failed: %s" % cancelled.status)
             assert_ride_consistent(ride_id)
+        psql("UPDATE driver_profiles SET is_online=false,current_latitude=NULL,"
+             "current_longitude=NULL,last_location_at=NULL WHERE account_id='%s'" % driver_id)
 
 
 def test_accept_racing_cancel_never_leaves_a_half_state():
