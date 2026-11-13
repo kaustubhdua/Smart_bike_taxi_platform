@@ -36,6 +36,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - The API bounds request bodies/headers, applies socket timeouts and rate-limits auth/quote requests in-process.
 - Ride-event insertion automatically creates a durable outbox row in the same transaction.
 - Compose migrations run with the database-owner credential, while the API and both workers use the non-superuser `rideforge_app` login. Its password is provisioned by the migration runner, it has no CREATEDB/CREATEROLE/SUPERUSER rights, and it has only the table/sequence privileges needed by the backend. It has BYPASSRLS because the API enforces object ownership and role authorization; browser roles have no direct table grants.
+- Supabase's connected production schema has RLS enabled on all 12 public application tables and intentionally has zero RLS policies. The `anon` and `authenticated` database roles have no public-table CRUD or sequence grants, so direct browser/PostgREST access is denied. The private `rideforge_app` login is the only application database principal and has `BYPASSRLS` plus narrowly scoped per-table grants; the C++ API enforces object/role authorization in parameterized SQL. Supabase's `rls_enabled_no_policy` advisor result is therefore an expected informational warning for this server-only access model, not a reason to add permissive policies. If direct Supabase client access or Supabase Auth is introduced later, create and test explicit per-user RLS policies before granting browser roles table access.
 
 ## Important limitations
 
