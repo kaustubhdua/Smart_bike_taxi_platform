@@ -1,7 +1,7 @@
 # RideForge 100-point completion matrix
 
 **Snapshot:** 2026-11-14  
-**Repository main SHA assessed:** `7e8145c3a647f7d6950a0c02fabe4a76154cc231`  
+**Repository main SHA assessed:** `e07cff31886e5bf32eaa4b052480221e55c6e44a`  
 **Target:** L4 operationally ready software, with L5 commercial authorization separate.
 
 This is an evidence register, not a feature-count scoreboard. A task is **VERIFIED** only when its stated acceptance evidence exists. **IMPLEMENTED** means code/documentation exists but exact-head tests or real-environment proof are still outstanding. A queued workflow is not a pass. A blocked external dependency is not silently marked complete.
@@ -20,8 +20,8 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 ## Current release summary
 
 - Supabase schema, both migration ledgers, RLS state and runtime-role privilege boundaries were verified read-only.
-- Main SHA `7e8145c` is the current repository head. Its latest push-triggered C++ build, API smoke, PostgreSQL migration/recovery, container, vulnerability, CodeQL and full release-readiness runs were observed queued; no fresh successful full-suite result is established for this SHA.
-- PRs #64, #65 and #67–70 are merged. PR #66 is closed without merge and remains deferred. PR #71 is the only open implementation PR; it adds bounded per-IP rate-limiter storage and deterministic concurrency/capacity tests. Additional validation commits were pushed to its branch, latest observed branch SHA `0365c117`; exact-head workflows have not been observed passing.
+- Main SHA `e07cff3` is the current repository head. Its push-triggered C++ build, API smoke, PostgreSQL migration/recovery, container, vulnerability, web and full release-readiness runs were observed queued; no fresh successful full-suite result is established for this SHA.
+- PRs #64, #65 and #67–71 are merged. PR #66 is closed without merge and remains deferred. PR #72 refreshes release documentation; PR #73 adds positive configuration validation and saturating counters to the rate limiter. Exact-head checks for PR #73 have not been observed passing.
 - PR #69's migration 013 is in `main`, but production application of migration 013 has not been verified. Do not claim the live Supabase sequence privilege reduction is complete until read-only verification confirms it.
 - GitHub reports `main` unprotected. Issue #17 remains an administrator action; the available integration cannot write branch-protection/ruleset settings.
 - PR #66 remains intentionally deferred. No Render deployment or Vercel deployment is being performed in this phase; merges to `main` may trigger the existing Render auto-deploy.
@@ -113,7 +113,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 43 | Strict request validation and size limits | IMPLEMENTED | Engineering | Body limits and route-specific validation exist; fuzz/property tests remain |
 | 44 | Role-based authorization | IMPLEMENTED | Engineering | Passenger/driver/admin checks and authorization matrix tests exist; exact-head execution pending |
 | 45 | Object-level authorization | IMPLEMENTED | Engineering | SQL queries scope by authenticated subject; cross-account tests exist; exact-head execution pending |
-| 46 | Rate limiting | PARTIAL | Engineering | Auth and quote have per-IP limits and support has a per-account limit; booking/cancellation lack dedicated limits. PR #71 adds bounded per-IP keys and concurrency tests but remains unmerged pending exact-head CI; limits remain process-local and distributed enforcement is outstanding |
+| 46 | Rate limiting | PARTIAL | Engineering | Auth and quote have per-IP limits and support has a per-account limit; booking/cancellation lack dedicated limits. PR #71 merged bounded per-IP keys and concurrency tests; PR #73 adds counter saturation and invalid-configuration tests. Distributed enforcement remains outstanding |
 | 47 | Idempotency and safe retries | PARTIAL | Engineering | Booking idempotency and durable outbox retry exist; provider/payment retries and all mutation boundaries need review |
 | 48 | External-service timeouts and failure handling | IMPLEMENTED | Engineering | Curl connect/total timeouts, bounded response and provider circuit breaker exist; provider SLA not guaranteed |
 | 49 | API versioning and compatibility | PARTIAL | Engineering | `/api/v1` exists; automated backwards-compatibility contract tests need expansion |
@@ -183,7 +183,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
-| 91 | Reliable CI pipeline | BLOCKED | GitHub / Engineering | Current-main workflows for SHA 7e8145c and PR #71 workflows were observed queued; no fresh full-suite pass is established. PR #64/#65 CI repairs are merged; the updated PR #71 head still requires exact-head checks |
+| 91 | Reliable CI pipeline | BLOCKED | GitHub / Engineering | Current-main workflows for SHA e07cff3 and PR #73 workflows were observed queued; no fresh full-suite pass is established. PR #64/#65 CI repairs and PR #71 bounded limiter are merged; PR #73 still requires exact-head checks |
 | 92 | Meaningful required checks | IMPLEMENTED | Engineering | C++, sanitizer, PostgreSQL, API, web, CodeQL, dependency and container scan jobs exist; exact-head pass pending |
 | 93 | Unit/component tests | IMPLEMENTED | Engineering | Fare, provider, security and frontend tests exist; exact-head CI pending |
 | 94 | Integration tests | IMPLEMENTED | Engineering | PostgreSQL, API, outbox and authz integration suites exist; exact-head CI pending |
