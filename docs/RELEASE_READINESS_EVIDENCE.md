@@ -38,7 +38,7 @@ Its exact candidate head was `b386f4db8da4b5d0817963252d525ac7d0af9610`. The [Fu
 
 The PR added:
 - 20 authorization-matrix checks, including token tampering, role checks, cross-account access and account-state changes.
-- 11 PostgreSQL-backed concurrency tests (including expired-offer acceptance).
+- 14 PostgreSQL-backed concurrency tests cover simultaneous acceptance, accept-vs-expiry, cancellation, redispatch, parallel dispatch workers, status transitions and booking idempotency. The latest main API smoke run failed before these integration suites executed; current exact-head execution is still required.
 - 13 transactional outbox/SSE tests, including lease expiry recovery and out-of-order replay.
 - 19 abuse-control tests covering proxy-aware IP resolution, IPv6 keys, login throttling, request limits and provider pacing.
 - Provider circuit-breaker, concurrency, content-type, route-metric and untrusted-label guards.
