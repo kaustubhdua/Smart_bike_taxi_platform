@@ -28,6 +28,9 @@ def prepare():
     check(ride.status == 201, "booking failed while dispatch worker was stopped: %s %s" %
           (ride.status, ride.text))
     ride_id = ride.json["rideId"]
+    # Make this fixture the oldest pending request so unrelated leftovers from
+    # earlier suites cannot delay the restart assertion.
+    psql("UPDATE rides SET created_at=now()-interval '1 day' WHERE id='%s'" % ride_id)
     offers = psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s'" % ride_id)
     check(offers == "0", "an offer appeared while the dispatch worker was stopped")
     print(ride_id)
@@ -37,7 +40,7 @@ def verify(ride_id):
     wait_for(
         lambda: psql("SELECT count(*) FROM ride_offers WHERE ride_id='%s' "
                      "AND status='offered' AND expires_at > now()" % ride_id) == "1",
-        timeout=15,
+        timeout=30,
         message="the restarted dispatch worker to create a durable offer",
     )
     status = psql("SELECT status FROM rides WHERE id='%s'" % ride_id)
