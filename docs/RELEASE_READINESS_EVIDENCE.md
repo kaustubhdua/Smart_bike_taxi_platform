@@ -220,5 +220,6 @@ The migration was applied to the connected Supabase project. The migration ledge
 4. Run passenger, driver and admin E2E journeys against the deployed SHA using separate sessions/devices; verify workers, reconnect/replay, cancellation, expiry/redispatch and support triage.
 5. Complete production provider capacity, distributed rate limiting, load/connection-budget tests, monitoring/alerts, off-host backup restore, privacy retention/deletion and manual mobile/accessibility QA.
 6. Keep real passenger transport disabled until UP licensing, transport-motorcycle eligibility, driver screening/training/insurance, CAQM/NCR constraints, required independent app-security certification, 24x7 safety operations and qualified legal/privacy review are evidenced.
+7. Configure and test main-branch protection/rulesets (issue #17): require PRs and release checks, block force-push/deletion, and verify that missing checks block merging. This could not be changed through the connected GitHub integration in this session.
 
 The static frontend being live is not a full-stack deployment. No commercial rides, payment processing, verified driver onboarding, staffed emergency dispatch or transport authorization are claimed.
