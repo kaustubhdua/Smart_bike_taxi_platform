@@ -6,7 +6,7 @@ import OperationsWorkspace from "./components/OperationsWorkspace";
 import "./styles.css";
 
 const hostname = window.location.hostname.toLowerCase();
-const pathname = window.location.pathname.replace(/\\/+$/, "") || "/";
+const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const isDriverPortal = hostname.startsWith("driver.") || pathname === "/driver";
 const isAdminPortal = pathname === "/admin";
 const isLiveApiView = pathname === "/live";
