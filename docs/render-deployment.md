@@ -35,6 +35,13 @@ Set these as protected Render environment variables; never commit them:
 
 For Supabase, open the project's **Connect** dialog and copy the actual **Session pooler** host and port. Do not construct the hostname from the region: Supabase can assign different pooler cluster indexes. Session mode uses port 5432 and supports long-lived connection features such as PostgreSQL LISTEN/NOTIFY; transaction mode (6543) does not. For `DATABASE_URL_TEMPLATE`, copy the Session-pooler connection string, replace the username with `rideforge_app.PROJECT_REF`, and replace the password with the literal `__RIDEFORGE_PASSWORD__`. For `MIGRATION_DATABASE_URL`, use the owner Session-pooler string with username `postgres.PROJECT_REF` and the actual database password. Copy the exact pooler host/port from Connect—Supabase says the pooler cluster index cannot be derived from the region. Use SSL mode `require`.
 
+Example shapes (replace every angle-bracket value with the exact Connect details; do not use these placeholders literally):
+
+```text
+DATABASE_URL_TEMPLATE=postgresql://rideforge_app.<PROJECT_REF>:__RIDEFORGE_PASSWORD__@<SESSION_POOLER_HOST>:5432/postgres?sslmode=require
+MIGRATION_DATABASE_URL=postgresql://postgres.<PROJECT_REF>:<DATABASE_OWNER_PASSWORD>@<SESSION_POOLER_HOST>:5432/postgres?sslmode=require
+```
+
 Use the project owner password only in `MIGRATION_DATABASE_URL`. Store all connection strings only in Render's encrypted environment variables. Rotate credentials if they have ever been pasted into chat, source control or logs.
 
 ## Frontend build
