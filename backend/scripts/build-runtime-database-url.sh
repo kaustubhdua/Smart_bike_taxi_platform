@@ -51,6 +51,10 @@ rideforge_build_runtime_database_url() {
       return 1
       ;;
   esac
+  if [ $((${#password} % 4)) -ne 0 ]; then
+    echo "RIDEFORGE_APP_PASSWORD must be valid padded base64." >&2
+    return 1
+  fi
   if [ "${#password}" -lt 32 ]; then
     echo "RIDEFORGE_APP_PASSWORD must contain at least 32 characters." >&2
     return 1
