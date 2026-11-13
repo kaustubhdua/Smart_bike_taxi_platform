@@ -23,7 +23,6 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 ## Implemented controls
 
 - Passenger registration does not accept a role field; newly registered accounts are passengers.
-- `GET /api/v1/me` and `PATCH /api/v1/me` derive the target account only from a verified bearer-token subject; the client cannot supply another account ID or change email, role, phone verification, or account status. Profile updates accept only a bounded display name and use parameterized SQL.
 - Passwords are stored as PBKDF2-HMAC-SHA-256 hashes with random salts and 600,000 iterations. Verification accepts only the exact four-field format, strictly parses bounded iteration counts, and uses constant-time digest comparison.
 - Access tokens are HMAC-SHA-256 signed and require the expected algorithm, issuer, audience, non-empty subject, supported role, issued-at and expiry claims. Verification enforces a maximum 15-minute lifetime with 60-second future clock skew and canonical unpadded base64url segments.
 - Passenger ride reads are scoped to the authenticated passenger; driver actions are scoped to the assigned driver; admin routes check the admin role.
@@ -43,7 +42,7 @@ RideForge is a portfolio MVP, not an authorized commercial transport service. Th
 - Tokens remain valid until expiry; there is no general token revocation/session registry yet.
 - In-process rate limits do not coordinate across multiple API replicas and are not a substitute for edge/WAF limits.
 - The API uses a bounded process-local PostgreSQL connection pool (12 connections per API process, 2-second acquisition timeout, rollback/session reset before reuse); it is not shared across replicas. Production monitoring and a verified production restore drill are not evidenced. The API has an authenticated SSE stream backed by PostgreSQL NOTIFY and persisted-event replay, but it has not been load-tested and driver/admin push subscriptions are not implemented. NOTIFY alone is not a durable client-delivery guarantee; REST resynchronization remains necessary.
-- Driver approval is an administrative workflow, not identity, licence, insurance or vehicle-document verification. Passenger profile editing currently covers display name only; verified phone/email workflows and notification preferences require an approved verification/communications provider and are not implemented.
+- Driver approval is an administrative workflow, not identity, licence, insurance or vehicle-document verification.
 - Location updates are user-submitted and freshness-checked, not proof of real GPS provenance.
 - Public routing/geocoding endpoints are for development/evaluation only.
 - No payment processing, refunds, safety dispatch or emergency-service integration is implemented. Support reports are an internal demo queue only; they do not promise response times or contact emergency services.
