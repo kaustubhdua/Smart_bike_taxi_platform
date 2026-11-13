@@ -40,6 +40,20 @@ The latest exact-main release-readiness workflow for `b4f91bc43e5b3185580a84f472
 - Render-specific connection inputs (`DATABASE_URL_TEMPLATE` and the maintenance-only `MIGRATION_DATABASE_URL`) are not being configured as part of the current pre-Vercel work. If Render is selected later, use the exact Supabase Session-pooler host/port from the project's **Connect** dialog and never paste credentials into chat.
 
 
+## Safe merge and deployment sequence
+
+No active PR has been merged in this execution. There are three independent gates:
+
+1. **GitHub Actions execution:** current exact-head workflows are queued, not passed. Resolve the runner/queue issue and obtain green checks on each current head.
+2. **Repository protection:** enable required PR reviews/checks and prevent force-push/deletion on `main` (issue #17). The branch listing currently reports `protected=false`.
+3. **Hosting safety:** the existing Render API service auto-deploys from `main` with `checksPass`. Merging any PR can initiate a Render deployment. The user has deferred Vercel/hosting changes, so do not merge until the user confirms the hosting target or explicitly disables Render auto-deploy.
+
+After those gates:
+- Merge the CI-only baseline (PR #64) first, then rebase/retest dependent feature and documentation PRs.
+- Apply and verify migration 013 through an approved Supabase operator procedure before any deployment that requires PR #69 readiness; never merge/deploy with the live database still at migration 012.
+- Merge backup/restore and rate-limiter hardening only after their exact-head CI passes.
+- Keep Vercel deployment deferred. If selected for the frontend, separately choose persistent compute for the native C++ API and dispatch/outbox workers, or approve a tested backend rewrite.
+
 ## Branch and repository hygiene audit — 2026-11-14
 
 - GitHub reports 69 branches, 67 pull requests and 64 unique PR head refs. The four non-main branches without an associated PR are:
