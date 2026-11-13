@@ -5,7 +5,9 @@
 // API must fail fast instead of tying up one thread per request for the full
 // timeout, and must not hammer a provider that is already rate limiting it.
 
+#include <array>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -18,6 +20,46 @@
 #include <utility>
 
 namespace rideforge_provider {
+
+inline bool is_public_nominatim_url(std::string_view url) {
+    constexpr std::string_view https = "https://nominatim.openstreetmap.org";
+    constexpr std::string_view http = "http://nominatim.openstreetmap.org";
+    const auto has_host = [url](std::string_view prefix) {
+        if (url.substr(0, prefix.size()) != prefix) return false;
+        return url.size() == prefix.size() || url[prefix.size()] == '/' ||
+               url[prefix.size()] == ':' || url[prefix.size()] == '?' ||
+               url[prefix.size()] == '#';
+    };
+    return has_host(https) || has_host(http);
+}
+
+// The public Nominatim demo must never receive arbitrary user-entered addresses.
+// Keep its use restricted to the fixed, public Noida landmarks shown in the demo.
+inline bool is_public_demo_landmark(std::string_view label) {
+    static constexpr std::array<std::string_view, 5> allowed{
+        "jiit sector 128",
+        "botanical garden metro",
+        "sector 18 market",
+        "noida city centre",
+        "sector 62",
+    };
+    std::string normalized;
+    normalized.reserve(label.size());
+    bool pending_space = false;
+    for (const unsigned char ch : label) {
+        if (std::isspace(ch) != 0) {
+            if (!normalized.empty()) pending_space = true;
+            continue;
+        }
+        if (pending_space) normalized.push_back(' ');
+        normalized.push_back(static_cast<char>(std::tolower(ch)));
+        pending_space = false;
+    }
+    for (const auto candidate : allowed) {
+        if (normalized == candidate) return true;
+    }
+    return false;
+}
 
 template <typename Value>
 class TtlCache {
