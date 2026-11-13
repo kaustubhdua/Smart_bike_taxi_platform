@@ -72,6 +72,10 @@ if [ -n "${RIDEFORGE_APP_PASSWORD:-}" ]; then
       exit 1
       ;;
   esac
+  if [ $((${#RIDEFORGE_APP_PASSWORD} % 4)) -ne 0 ]; then
+    echo "RIDEFORGE_APP_PASSWORD must be valid padded base64." >&2
+    exit 1
+  fi
   if [ "${#RIDEFORGE_APP_PASSWORD}" -lt 32 ]; then
     echo "RIDEFORGE_APP_PASSWORD must contain at least 32 characters." >&2
     exit 1
