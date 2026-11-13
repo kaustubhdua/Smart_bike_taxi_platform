@@ -13,7 +13,7 @@ createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <>
       <div className="demo-disclaimer" role="note">
-        <strong>DEMO ONLY</strong> · RideForge is a portfolio prototype, not a live taxi service. No real rides, payments, driver verification or emergency dispatch.
+        <strong>DEMO ONLY</strong> · RideForge is a portfolio prototype, not a live taxi service. No real passenger trips, payments, driver verification or emergency dispatch.
       </div>
       {isDriverPortal
         ? <OperationsWorkspace mode="driver" />
