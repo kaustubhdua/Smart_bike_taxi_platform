@@ -2,6 +2,8 @@
 
 React + TypeScript + Vite passenger experience with driver and admin operational workspaces. The passenger and driver workspaces use the same API and PostgreSQL-backed ride records; they are not separate booking systems.
 
+The passenger portal is `/`, the driver portal is `/driver` (or a `driver.` hostname), and the protected administrator portal is `/admin`. These path entry points work on a single static-site deployment; backend role checks remain authoritative.
+
 ## Run locally
 
 From this directory:
@@ -29,7 +31,7 @@ Set `VITE_API_BASE_URL` to the API origin when developing against a separately r
 
 ## Important limitations
 
-- Driver requests are currently exposed in a live queue that refreshes while the driver workspace is open. There is no durable time-limited offer delivery/expiry scheduler, automated sequential offer dispatch, browser push, SMS delivery, or guarantee of notification when the page is closed.
+- The backend dispatch worker creates durable 45-second offers, expires unanswered offers, and advances sequentially to the next eligible driver. The driver workspace refreshes its queue every five seconds while online so offers are visible before expiry. There is no browser push, SMS delivery, or guarantee of notification when the page is closed.
 - The public Nominatim and OSRM demo services are evaluation defaults, not production capacity or uptime guarantees. Configure contracted or self-hosted services before a public pilot.
 - Payment collection, refunds, payouts, commercial driver/vehicle verification and real emergency response are not implemented. A support report is not an emergency service.
 - The repository includes a deployment template, not proof of a deployed public service. No live passenger or driver URL is claimed.
