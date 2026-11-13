@@ -173,6 +173,27 @@ jobs:
             fi
             echo "::endgroup::"
           done
+          # Prove a newly started dispatch-worker process recovers durable work.
+          if ! kill -0 "$dispatch_pid" 2>/dev/null; then
+            echo "Dispatch worker exited before the restart recovery test."
+            cat /tmp/rideforge-dispatch.log
+            exit 1
+          fi
+          kill -TERM "$dispatch_pid"
+          if ! wait "$dispatch_pid"; then
+            echo "Dispatch worker did not stop cleanly before restart."
+            cat /tmp/rideforge-dispatch.log
+            exit 1
+          fi
+          dispatch_pid=""
+          restart_ride_id="$(python3 -I backend/tests/dispatch_worker_restart_test.py prepare)"
+          ./build-backend/rideforge_dispatch_worker > /tmp/rideforge-dispatch-restarted.log 2>&1 &
+          dispatch_pid=$!
+          if ! python3 -I backend/tests/dispatch_worker_restart_test.py verify "$restart_ride_id"; then
+            echo "Restarted dispatch worker failed to recover pending work:"
+            cat /tmp/rideforge-dispatch-restarted.log
+            exit 1
+          fi
           kill -TERM "$api_pid"
           if ! wait "$api_pid"; then
             echo "API did not shut down cleanly:"
