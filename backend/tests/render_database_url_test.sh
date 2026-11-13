@@ -27,6 +27,18 @@ if rideforge_build_runtime_database_url >/dev/null 2>&1; then
   exit 1
 fi
 
+DATABASE_URL_TEMPLATE='postgresql://rideforge_app.projectref:plain-password@host:5432/postgres?value=__RIDEFORGE_PASSWORD__'
+if rideforge_build_runtime_database_url >/dev/null 2>&1; then
+  echo "Expected a placeholder outside the URI password component to fail." >&2
+  exit 1
+fi
+
+DATABASE_URL_TEMPLATE='postgresql://__RIDEFORGE_PASSWORD__@host:5432/postgres'
+if rideforge_build_runtime_database_url >/dev/null 2>&1; then
+  echo "Expected a placeholder in the URI username to fail." >&2
+  exit 1
+fi
+
 DATABASE_URL_TEMPLATE='postgresql://rideforge_app.projectref:__RIDEFORGE_PASSWORD__@host:5432/postgres'
 RIDEFORGE_APP_PASSWORD='not-base64-password'
 if rideforge_build_runtime_database_url >/dev/null 2>&1; then
