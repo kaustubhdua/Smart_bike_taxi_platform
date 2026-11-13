@@ -132,7 +132,7 @@ ALTER ROLE rideforge_backup LOGIN;
 \password rideforge_backup
 ~~~
 
-The `\password` command prompts interactively and avoids placing the password in shell history or SQL text. Exit psql. The separate `rideforge_app` role currently has no password verifier; the API must not be expected to authenticate until `RIDEFORGE_APP_PASSWORD` is provisioned through the normal migration runner in the chosen API host and a real connection is verified. Add these repository Actions secrets under **Settings → Secrets and variables → Actions**:
+The `\password` command prompts interactively and avoids placing the password in shell history or SQL text. Exit psql. The separate `rideforge_app` role currently has no password verifier because Render startup has not reached the migration runner. The Render Blueprint declares `RIDEFORGE_RUNTIME_ROLE_PASSWORD` as a generated secret; verify it is present, then correct the owner connection so the entrypoint can set the database password and a real login can be tested. Add these repository Actions secrets under **Settings → Secrets and variables → Actions**:
 
 - `RIDEFORGE_BACKUP_DATABASE_URL`: the Supabase **Session pooler** URI (port 5432), username `rideforge_backup.<PROJECT_REF>`, the new password URL-encoded, and `sslmode=require`.
 - `RIDEFORGE_BACKUP_PASSPHRASE`: a separate strong passphrase used only for AES-256 GPG encryption.
