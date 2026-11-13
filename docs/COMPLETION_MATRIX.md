@@ -19,10 +19,10 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 ## Current release summary
 
-- Supabase schema, both migration ledgers, RLS state and runtime-role privilege boundaries were verified read-only.
+- Live Supabase schema, the RideForge application migration ledger and runtime-role privilege boundaries were verified; migrations 013–014 were subsequently applied and their post-change privileges rechecked.
 - Main SHA `e07cff3` is the current repository head. Its push-triggered C++ build, API smoke, PostgreSQL migration/recovery, container, vulnerability, web and full release-readiness runs were observed queued; no fresh successful full-suite result is established for this SHA.
-- PRs #64, #65 and #67–71 are merged. PR #66 is closed without merge and remains deferred. PR #72 refreshes release documentation; PR #73 adds positive configuration validation and saturating counters to the rate limiter; PR #74 adds transparent integer fare breakdowns and boundary tests. Exact-head checks for PRs #73–74 have not been observed passing.
-- PR #69's migration 013 is in `main` but is confirmed absent from the live Supabase migration ledger (001–012 only). Direct privilege checks show UPDATE remains granted on all five public sequences; application requires an approved operator migration and post-change verification.
+- PRs #64, #65 and #67–71 are merged. PR #66 is closed without merge and remains deferred. PR #72 refreshes release documentation; PR #73 adds positive configuration validation and saturating counters; PR #74 adds transparent integer fare breakdowns; PR #75 adds public-function execution hardening and a CI regression probe. Exact-head checks remain queued, not passed.
+- Migration 013 is applied and verified in the live RideForge application ledger `public.schema_migrations`; `rideforge_app` retains USAGE/SELECT but no UPDATE on all five public sequences. Migration 014 is also applied and verified live; its source migration and CI regression test are in PR #75. The Supabase platform migration history is a separate audit ledger and contains four operator-applied DDL entries in addition to the timestamped baseline records.
 - GitHub reports `main` unprotected. Issue #17 remains an administrator action; the available integration cannot write branch-protection/ruleset settings.
 - PR #66 remains intentionally deferred. No Render deployment or Vercel deployment is being performed in this phase. Read-only Render logs show the latest API startup blocker is a malformed `DATABASE_URL_TEMPLATE`: the latest environment-updated deploy fails because the URI does not contain the literal `__RIDEFORGE_PASSWORD__` placeholder. An earlier attempt failed because the variable was missing; `MIGRATION_DATABASE_URL` remains unvalidated. The Render service is configured with `autoDeployTrigger=checksPass`, so a merge with passing repository checks can initiate a deployment.
 - Supabase is on the Free plan: no automatic daily backup/PITR; no production backup/restore drill has been verified.
@@ -121,13 +121,13 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
 | 51 | Audit tables, relationships and constraints | VERIFIED | Engineering | Read-only SQL inspected all 12 tables, PK/FK/UNIQUE/CHECK constraints, indexes, ride-status/account-role enums and the ride-event outbox trigger; all FK delete actions are RESTRICT |
-| 52 | Verify migration history | VERIFIED | Engineering | Both application and Supabase migration ledgers record 001–012 |
+| 52 | Verify migration history | VERIFIED | Engineering | RideForge application ledger `public.schema_migrations` records 001–014; Supabase platform migration history is a separate audit ledger with additional operator-applied DDL records |
 | 53 | Clean-database migration reproducibility | IMPLEMENTED | Engineering | PostgreSQL CI migration smoke exists; main failed before full API integration; PR #64 exact-head run pending |
 | 54 | Database role separation | VERIFIED | Engineering | `rideforge_app` is LOGIN/BYPASSRLS, non-superuser, cannot create DB/roles |
 | 55 | Runtime database connection configuration | BLOCKED | User / Engineering | Exact runtime host/credential authentication from an application process is not proven; deployment later |
 | 56 | Synchronize and prove runtime-role credentials | BLOCKED | User / Engineering | Password verifier exists but secret is not retrievable; never paste credentials into chat |
 | 57 | RLS and browser-role exposure | VERIFIED | Engineering | RLS enabled on all 12 tables; zero policies intentionally; anon/authenticated have no table CRUD grants |
-| 58 | Database least privilege | PARTIAL | Engineering | Runtime has no DELETE/TRUNCATE and append-only records are protected. PR #69's migration 013 is in main but not applied live; `rideforge_app` still has UPDATE on five public sequences. Apply through approved operator procedure and verify. |
+| 58 | Database least privilege | PARTIAL | Engineering | Live DB verified: no runtime DELETE/TRUNCATE, no UPDATE on five sequences, append-only tables protected, public function EXECUTE removed from browser/service roles and defaults. Migration 014 source/CI is pending PR #75 checks; live runtime-credential authentication and independent security review remain. |
 | 59 | Query/index performance | PARTIAL | Engineering | 21 unused-index notices retained because workload is negligible; EXPLAIN and load evidence remain |
 | 60 | Production backup and restore | BLOCKED | User / Engineering | Supabase Free has no automatic daily backups/PITR; PR #70 hardens local backup/restore URI handling, but no encrypted scheduled export or production restore drill exists |
 
