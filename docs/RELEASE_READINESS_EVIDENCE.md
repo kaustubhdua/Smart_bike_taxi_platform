@@ -9,17 +9,15 @@ This report distinguishes repository implementation and automated CI from eviden
 
 ## Repository refresh — 2026-11-14
 
-The current GitHub `main` branch is `7e8145c3a647f7d6950a0c02fabe4a76154cc231`. PRs #64, #65, #67, #68, #69 and #70 are merged. PR #66 remains closed without merge and is deferred. PR #71 is the only currently open implementation PR.
+The current GitHub `main` branch is `e07cff31886e5bf32eaa4b052480221e55c6e44a`. PRs #64, #65, #67, #68, #69, #70 and #71 are merged. PR #66 remains closed without merge and is deferred. PR #72 is the documentation refresh; PR #73 is the open rate-limiter follow-up.
 
 PR #69's migration 013 is now present in `main`; the earlier live-database observation was at migration 012. No post-merge evidence proves migration 013 has been applied to Supabase. Treat the live sequence privilege state as unverified until an operator applies the migration through the approved migration process and verifies the result read-only.
 
-The current-main push workflows for SHA `7e8145c` were observed queued, not passed. PR #71's workflow jobs were also observed queued on its earlier head. Additional rate-limiter test and validation commits were subsequently written to its branch (latest branch ref observed: `0365c117113c3f9636df094ce0a6aa5de78b1390`); no exact-head successful CI evidence was observed for that commit. Do not merge based on queued checks.
-
-PR #71 now includes deterministic concurrent same-key and concurrent-capacity tests, rejects zero/negative limiter configuration, and saturates counters rather than allowing unsigned wraparound. These changes are committed but await exact-head CI execution.
+The current-main push workflows for SHA `e07cff3` were observed queued, not passed. PR #71 merged the bounded per-IP key table and deterministic concurrent same-key/capacity tests. Follow-up changes in PR #73 add positive configuration validation and saturating counters to prevent unsigned wraparound; its exact-head CI must pass before merge. Do not merge based on queued checks.
 
 The branch-protection issue #17 remains open: GitHub reports `main` as unprotected, and the available repository integration cannot configure branch protection/rulesets. The administrator must enable PR-only changes, required checks, and force-push/deletion protection.
 
-All previously documented external release blockers remain: no verified healthy API deployment, no production runtime-credential authentication proof, no encrypted scheduled off-site backup or production restore drill, no external two-device ride journey, no real payment provider, no driver/vehicle verification process, and no transport-authority/legal approval. Render auto-deploys from `main`; keep merges and deployments separate until the hosting decision and deployment guard are explicitly resolved.
+PR #72 refreshes this evidence and the 100-point matrix. All previously documented external release blockers remain: no verified healthy API deployment, no production runtime-credential authentication proof, no encrypted scheduled off-site backup or production restore drill, no external two-device ride journey, no real payment provider, no driver/vehicle verification process, and no transport-authority/legal approval. Render auto-deploys from `main`; keep merges and deployments separate until the hosting decision and deployment guard are explicitly resolved.
 
 ## Latest merged upgrades — PR #53 and PR #54
 
