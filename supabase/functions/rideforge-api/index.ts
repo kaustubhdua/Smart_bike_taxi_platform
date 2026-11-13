@@ -98,7 +98,8 @@ async function quoteRoute(body: Record<string, unknown>) {
       quoteId: saved.id, farePaise, baseFarePaise: 2000,
       distanceFarePaise: farePaise - 2000, distanceKm: distanceM / 1000,
       durationMinutes: Math.max(1, Math.round(route.duration / 60)), expiresAt: saved.expires_at,
-      route: { distanceKm: distanceM / 1000, durationMinutes: Math.round(route.duration / 60), geometry },
+      fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: farePaise - 2000, pricingModel: "demo_base_plus_distance" },
+      currency: "INR", geometry,
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Route quote unavailable.", status: 503 };
@@ -140,6 +141,11 @@ async function handle(req: Request): Promise<Response> {
     return error ? fail("Database not ready.", 503, origin) : json({ status: "ready", backend: "supabase" }, 200, origin);
   }
 
+  if (path === "/routes/quote" && method === "POST") {
+    const result = await quoteRoute(body);
+    return "status" in result ? fail(String(result.error), Number(result.status), origin) : json(result, 200, origin);
+  }
+
   const ctx = await authenticate(req);
   if (isResponse(ctx)) return ctx;
   const accountId = ctx.user.id;
@@ -151,11 +157,6 @@ async function handle(req: Request): Promise<Response> {
     if (!displayName) return fail("Display name is required.", 422, origin);
     const { error } = await db.from("accounts").update({ display_name: displayName, updated_at: new Date().toISOString() }).eq("id", accountId);
     return error ? fail("Could not update profile.", 500, origin) : json({ displayName }, 200, origin);
-  }
-
-  if (path === "/routes/quote" && method === "POST") {
-    const result = await quoteRoute(body);
-    return "status" in result ? fail(String(result.error), Number(result.status), origin) : json(result, 200, origin);
   }
 
   if (path === "/rides" && method === "GET") {
