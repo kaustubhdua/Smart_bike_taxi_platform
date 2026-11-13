@@ -7,7 +7,7 @@
 
 ## 1. System boundary
 
-RideForge is a Noida-focused bike-taxi software prototype. It has a passenger booking experience, driver workspace, admin/support workspace, native C++ API, PostgreSQL persistence, durable dispatch/outbox workers and external geocoding/routing providers.
+RideForge is a Noida-focused bike-taxi software prototype. It has a passenger booking experience, driver workspace, admin/support workspace, Supabase Auth, PostgreSQL persistence, an Edge Function HTTP API, transactional dispatch RPCs and external geocoding/routing providers. The original C++ API and workers are legacy rollback components during migration.
 
 It is **not** an authorised commercial aggregator. Demo mode, live API mode, simulated receipts and actual financial transactions must remain distinct. A successful local build or database test is not proof of a live ride.
 
@@ -30,7 +30,7 @@ flowchart TB
   API -->|authenticated SSE| WEB
 ```
 
-The diagram shows logical responsibilities, not separate cloud services. In the existing Compose/Render container configuration, the API, dispatch worker and outbox worker are separate processes. They share the same database and fail as a group when one child exits in the Render entrypoint. The user has deferred Vercel deployment; no Vercel project or deployment is part of this assessment.
+The diagram shows the target Supabase-native application path. The React static site remains on Render; authentication, HTTP API, database and transactional ride operations are Supabase-hosted. The old C++ API/worker stack remains in the repository only for rollback until release verification and Render service retirement are complete.
 
 ## 3. Components and responsibilities
 
@@ -38,10 +38,10 @@ The diagram shows logical responsibilities, not separate cloud services. In the 
 |---|---|---|---|
 | Web client | `web/src/App.tsx`, `web/src/components/OperationsWorkspace.tsx` | Passenger booking, driver workspace, admin operations, support UI | API-backed flows require the C++ API; no payment is implied |
 | Browser demo | Pending PR #65: `web/src/DemoExperience.tsx` | Local passenger/driver/admin walkthrough | Browser `localStorage` only; no real account, GPS, dispatch, payment or database write |
-| HTTP API | `backend/src/server.cpp` | Auth, quotes, bookings, passenger rides, driver actions, admin/support, SSE | Stateless HTTP process; validates bearer tokens and scopes database queries |
+| HTTP API | `supabase/functions/rideforge-api/index.ts` | Supabase Auth, quotes, bookings, passenger rides, driver actions, admin/support, SSE compatibility | Validates bearer JWT and account role before service-role operations |
 | Database | Supabase project `ghcufcegfvvjhsnqnrzr` | Accounts, quotes, rides, offers, events, outbox, support and audit records | PostgreSQL 17; 12 application migrations currently recorded |
-| Dispatch worker | `rideforge_dispatch_worker` | Finds eligible approved/online drivers, creates durable exclusive offers, expires/retries offers | Durable database state; no guarantee of a driver or a live ETA |
-| Outbox worker | `rideforge_outbox_worker` | Publishes committed ride events through PostgreSQL NOTIFY, retries and dead-letters failures | Database outbox is source of truth; SSE clients must recover through REST |
+| Dispatch RPC | `public.rideforge_dispatch_ride` | Finds eligible approved/online drivers and creates one exclusive 45-second offer | Called after booking and during driver queue refresh; max five distinct drivers |
+| Ride events | `public.ride_events` + Supabase Realtime | Persists ride lifecycle changes; SSE compatibility endpoint replays event rows | Realtime publication is participant-scoped by RLS; legacy outbox worker is retained only during cutover |
 | Geocoding | Nominatim | Converts location labels into coordinates | Public demo endpoint, paced and cached; no production SLA |
 | Routing | OSRM | Returns road distance, duration and geometry | Public demo endpoint, paced and cached; not live traffic |
 | Map tiles | OpenStreetMap tile service | Displays route map | External tile service; map failure must not block manual address entry |
@@ -62,17 +62,17 @@ The current driver start action validates driver ownership and lifecycle state, 
 
 ## 5. Authentication and trust boundaries
 
-- New passenger passwords are hashed with PBKDF2-HMAC-SHA-256 (600,000 iterations); access tokens are short-lived HMAC-signed bearer tokens.
+- Supabase Auth owns password hashing, email verification and access-token issuance. The Auth trigger creates the corresponding `public.accounts` row with the same UUID.
 - Passenger, driver and admin roles are distinct. Driver profiles are provisioned by an administrator and start unapproved. Approval/suspension is audited.
 - Passenger and driver ride queries are scoped to the authenticated account in SQL. UUIDs are not authorization.
 - Admin driver approval, support triage and audit endpoints are admin-only.
-- Rate limiting is currently process-local, not distributed. Horizontal scaling requires shared limits and aggregate connection budgeting.
+- Quote-provider rate limiting and distributed abuse controls still need additional hardening before a public production launch.
 - Phone/email verification, password reset, account deletion, push/SMS notifications and emergency response are not implemented.
 - Driver approval is not identity, licence, insurance or vehicle-document verification.
 
 ### Supabase database boundary
 
-The connected Supabase project has 12 public application tables, all with RLS enabled and intentionally no policies. Browser roles `anon` and `authenticated` have no public-table CRUD grants. The private `rideforge_app` role is a non-superuser LOGIN with BYPASSRLS and explicit backend grants; it has no DELETE/TRUNCATE privileges. The runtime role is trusted only because the C++ API enforces authentication and object-level authorization. Do not add broad browser policies to silence the informational RLS advisor findings.
+The connected Supabase project has RLS enabled on all 12 application tables. Migration 016 adds participant/self SELECT policies for the small set of tables needed by Realtime and explicit deny policies for internal tables; browser roles have no table write grants. Service-role operations are confined to the Edge Function after JWT/account/role validation. The old `rideforge_app` PostgreSQL role is legacy and must not be used by the new Edge API.
 
 Both `public.schema_migrations` and Supabase's migration ledger record versions 001–012. The runtime role's password verifier exists, but authentication from a deployed application process has not been proven.
 
