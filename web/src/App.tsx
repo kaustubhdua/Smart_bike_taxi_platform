@@ -366,13 +366,15 @@ export default function App() {
         currency?: string; expiresAt?: string; geometry?: unknown;
       };
       const expiry = data.expiresAt ? Date.parse(data.expiresAt) : Number.NaN;
+      const breakdown = data.fareBreakdown;
       if (
         typeof data.quoteId !== "string" || data.quoteId.trim().length < 8 ||
         !Number.isSafeInteger(data.farePaise) || (data.farePaise as number) < 0 ||
-        !Number.isSafeInteger(data.fareBreakdown?.baseFarePaise) || (data.fareBreakdown?.baseFarePaise as number) < 0 ||
-        !Number.isSafeInteger(data.fareBreakdown?.distanceFarePaise) || (data.fareBreakdown?.distanceFarePaise as number) < 0 ||
-        data.fareBreakdown?.pricingModel !== "demo_base_plus_distance" ||
-        (data.fareBreakdown.baseFarePaise as number) + (data.fareBreakdown.distanceFarePaise as number) !== data.farePaise ||
+        !breakdown ||
+        !Number.isSafeInteger(breakdown.baseFarePaise) || (breakdown.baseFarePaise as number) < 0 ||
+        !Number.isSafeInteger(breakdown.distanceFarePaise) || (breakdown.distanceFarePaise as number) < 0 ||
+        breakdown.pricingModel !== "demo_base_plus_distance" ||
+        (breakdown.baseFarePaise as number) + (breakdown.distanceFarePaise as number) !== data.farePaise ||
         typeof data.distanceKm !== "number" || !Number.isFinite(data.distanceKm) || data.distanceKm <= 0 ||
         !Number.isSafeInteger(data.durationMinutes) || (data.durationMinutes as number) <= 0 ||
         data.currency !== "INR" || !Number.isFinite(expiry) || expiry <= Date.now() ||
@@ -390,8 +392,8 @@ export default function App() {
       setRouteError("");
       setQuote({
         quoteId: data.quoteId, farePaise: data.farePaise as number,
-        baseFarePaise: data.fareBreakdown!.baseFarePaise as number,
-        distanceFarePaise: data.fareBreakdown!.distanceFarePaise as number,
+        baseFarePaise: breakdown!.baseFarePaise as number,
+        distanceFarePaise: breakdown!.distanceFarePaise as number,
         distanceKm: data.distanceKm, durationMinutes: data.durationMinutes as number,
         expiresAt: new Date(expiry).toISOString(),
       });
