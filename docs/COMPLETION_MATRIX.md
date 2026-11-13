@@ -1,7 +1,7 @@
 # RideForge 100-point completion matrix
 
 **Snapshot:** 2026-11-14  
-**Repository main SHA assessed:** `b4f91bc43e5b3185580a84f47238bb9085b2026c`  
+**Repository main SHA assessed:** `e07cff31886e5bf32eaa4b052480221e55c6e44a`  
 **Target:** L4 operationally ready software, with L5 commercial authorization separate.
 
 This is an evidence register, not a feature-count scoreboard. A task is **VERIFIED** only when its stated acceptance evidence exists. **IMPLEMENTED** means code/documentation exists but exact-head tests or real-environment proof are still outstanding. A queued workflow is not a pass. A blocked external dependency is not silently marked complete.
@@ -19,10 +19,12 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 ## Current release summary
 
-- Supabase schema, both migration ledgers, RLS state and runtime-role privilege boundaries were verified read-only.
-- Main SHA `b4f91bc` has a failed full release-readiness run: API smoke failed on a non-base64 CI password placeholder and web tests used textbox locators for datalist comboboxes. PR #64 is the current CI-only repair branch; its exact-head workflows remain queued.
-- PR #64 contains CI-only fixes; PR #65 contains demo/live separation and active browser-test fixes; PR #68 contains display-name profile management; PR #67 contains documentation updates; PR #69 removes unnecessary sequence UPDATE privilege; PR #70 hardens backup/restore URI handling; PR #71 bounds per-IP rate-limiter memory. The current open PR set is #64–65 and #67–71; PR #66 is closed/deferred. PR #65 has advanced to head `e36e1eb`; PR #64 is open again as the CI-only repair; PR #66 is closed/deferred and its branch is retained for a future hosting decision. Exact-head checks for the open implementation PRs remain queued, not passed.
-- PR #66 is Render-specific and deferred; no Render deployment or Vercel deployment is being performed in this phase.
+- Live Supabase schema, the RideForge application migration ledger and runtime-role privilege boundaries were verified; migrations 013–015 were subsequently applied and their post-change privileges rechecked.
+- Main SHA `e07cff3` is the current repository head. Its push-triggered C++ build, API smoke, PostgreSQL migration/recovery, container, vulnerability, web and full release-readiness runs were observed queued; no fresh successful full-suite result is established for this SHA.
+- PRs #64, #65 and #67–71 are merged. PR #66 is closed without merge and remains deferred. PR #72 refreshes release documentation; PR #73 adds positive configuration validation and saturating counters; PR #74 adds transparent integer fare breakdowns; PR #75 adds public-function execution hardening, a disabled read-only backup identity, an encrypted backup workflow and CI regression probes. Exact-head checks remain queued, not passed.
+- Migrations 013–015 are applied and verified in the live RideForge application ledger `public.schema_migrations`; `rideforge_app` retains USAGE/SELECT but no UPDATE on all five public sequences; public function execution is opt-in; and `rideforge_backup` is NOLOGIN with SELECT-only access. PR #75 carries the source migrations, readiness updates, CI regression checks and a scheduled encrypted backup workflow. The workflow is not active until repository secrets are configured and a successful run is observed. The Supabase platform migration history is a separate audit ledger and contains operator-applied DDL records in addition to the timestamped baseline records.
+- GitHub reports `main` unprotected. Issue #17 remains an administrator action; the available integration cannot write branch-protection/ruleset settings.
+- PR #66 remains intentionally deferred. No Render deployment or Vercel deployment is being performed in this phase. Read-only Render logs show the latest API startup blocker is a malformed `DATABASE_URL_TEMPLATE`: the latest environment-updated deploy fails because the URI does not contain the literal `__RIDEFORGE_PASSWORD__` placeholder. An earlier attempt failed because the variable was missing; `MIGRATION_DATABASE_URL` remains unvalidated. The Render service is configured with `autoDeployTrigger=checksPass`, so a merge with passing repository checks can initiate a deployment.
 - Supabase is on the Free plan: no automatic daily backup/PITR; no production backup/restore drill has been verified.
 - Commercial operations are not authorised.
 
@@ -43,7 +45,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
-| 1 | Audit branches, PRs, issues, commits, packages, directories and configuration | PARTIAL | Engineering | Main tree, open PRs #64–68 and open issues reviewed; PR inventory is 67 historical PRs with #64–71 currently open; 69 branches and four orphan branches were inventoried in the PR review. Commit/package/configuration history still needs a full systematic review |
+| 1 | Audit branches, PRs, issues, commits, packages, directories and configuration | PARTIAL | Engineering | Main tree, current PRs #72–74 and open issues #2, #3, #10 and #17 reviewed; historical inventory recorded 69 branches and four orphan branches. Full commit/package/configuration history and a complete dead-code sweep remain |
 | 2 | Source-of-truth architecture document | IMPLEMENTED | Engineering | `docs/ARCHITECTURE.md` in PR #67; merge and review against final deployment choice |
 | 3 | Define passenger, driver, admin and support scope | PARTIAL | Engineering | API/UI scope documented; product acceptance and support operating model still need sign-off |
 | 4 | Remove duplicate implementations and configuration paths | PARTIAL | Engineering | Active Vite entrypoint identified; complete duplicate/dead-code sweep remains |
@@ -64,7 +66,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 14 | Destination selection and saved destinations | PARTIAL | Engineering | Label selection exists; saved destinations and manual pin placement are absent |
 | 15 | Strict service-area validation | PARTIAL | Engineering | Noida geocoding context exists; context is not a polygonal geofence or service-hours check |
 | 16 | Server-side fare estimation | IMPLEMENTED | Engineering | Server geocodes/routes and computes the demo tariff; exact-head integration pass pending |
-| 17 | Transparent fare breakdown | PARTIAL | Engineering | Total fare is shown; base/distance/fees breakdown and commercial tariff configuration are absent |
+| 17 | Transparent fare breakdown | PARTIAL | Engineering | Main still returns only the total fare. Open PR #74 adds base/distance components and UI display; commercial tariff configuration, taxes/fees, surge and regulatory fare review remain out of scope |
 | 18 | Durable, idempotent booking creation | IMPLEMENTED | Engineering | Transactional booking and idempotency fingerprint tests exist; exact-head CI pending |
 | 19 | Booking lifecycle tracking | IMPLEMENTED | Engineering | Persisted ride events, authenticated SSE replay and REST recovery exist; deployed live journey not verified |
 | 20 | Passenger trip history and receipts | IMPLEMENTED | Engineering | History and printable receipt exist; receipt is explicitly demo-only, not tax invoice/payment proof |
@@ -108,7 +110,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 43 | Strict request validation and size limits | IMPLEMENTED | Engineering | Body limits and route-specific validation exist; fuzz/property tests remain |
 | 44 | Role-based authorization | IMPLEMENTED | Engineering | Passenger/driver/admin checks and authorization matrix tests exist; exact-head execution pending |
 | 45 | Object-level authorization | IMPLEMENTED | Engineering | SQL queries scope by authenticated subject; cross-account tests exist; exact-head execution pending |
-| 46 | Rate limiting | PARTIAL | Engineering | Auth and quote have per-IP limits and support has a per-account limit; booking/cancellation lack dedicated limits. PR #71 bounds per-IP keys, but all limits remain process-local and need exact-head tests/distributed enforcement |
+| 46 | Rate limiting | PARTIAL | Engineering | Auth and quote have per-IP limits and support has a per-account limit; booking/cancellation lack dedicated limits. PR #71 merged bounded per-IP keys and concurrency tests; PR #73 adds counter saturation and invalid-configuration tests. Distributed enforcement remains outstanding |
 | 47 | Idempotency and safe retries | PARTIAL | Engineering | Booking idempotency and durable outbox retry exist; provider/payment retries and all mutation boundaries need review |
 | 48 | External-service timeouts and failure handling | IMPLEMENTED | Engineering | Curl connect/total timeouts, bounded response and provider circuit breaker exist; provider SLA not guaranteed |
 | 49 | API versioning and compatibility | PARTIAL | Engineering | `/api/v1` exists; automated backwards-compatibility contract tests need expansion |
@@ -119,15 +121,15 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
 | 51 | Audit tables, relationships and constraints | VERIFIED | Engineering | Read-only SQL inspected all 12 tables, PK/FK/UNIQUE/CHECK constraints, indexes, ride-status/account-role enums and the ride-event outbox trigger; all FK delete actions are RESTRICT |
-| 52 | Verify migration history | VERIFIED | Engineering | Both application and Supabase migration ledgers record 001–012 |
+| 52 | Verify migration history | VERIFIED | Engineering | RideForge application ledger `public.schema_migrations` records 001–015; Supabase platform migration history is a separate audit ledger with additional operator-applied DDL records |
 | 53 | Clean-database migration reproducibility | IMPLEMENTED | Engineering | PostgreSQL CI migration smoke exists; main failed before full API integration; PR #64 exact-head run pending |
 | 54 | Database role separation | VERIFIED | Engineering | `rideforge_app` is LOGIN/BYPASSRLS, non-superuser, cannot create DB/roles |
 | 55 | Runtime database connection configuration | BLOCKED | User / Engineering | Exact runtime host/credential authentication from an application process is not proven; deployment later |
 | 56 | Synchronize and prove runtime-role credentials | BLOCKED | User / Engineering | Password verifier exists but secret is not retrievable; never paste credentials into chat |
 | 57 | RLS and browser-role exposure | VERIFIED | Engineering | RLS enabled on all 12 tables; zero policies intentionally; anon/authenticated have no table CRUD grants |
-| 58 | Database least privilege | PARTIAL | Engineering | Runtime has no DELETE/TRUNCATE and append-only records are protected, but it still has unnecessary UPDATE on five sequences; PR #69 removes this and awaits CI/production migration sequencing |
+| 58 | Database least privilege | PARTIAL | Engineering | Live DB verified: no runtime DELETE/TRUNCATE, no UPDATE on five sequences, append-only tables protected, public function EXECUTE removed from browser/service roles and defaults, and a NOLOGIN read-only backup role exists. Migration sources/CI are pending PR #75 checks; live runtime-credential authentication and independent security review remain. |
 | 59 | Query/index performance | PARTIAL | Engineering | 21 unused-index notices retained because workload is negligible; EXPLAIN and load evidence remain |
-| 60 | Production backup and restore | BLOCKED | User / Engineering | Supabase Free has no automatic daily backups/PITR; PR #70 hardens local backup/restore URI handling, but no encrypted scheduled export or production restore drill exists |
+| 60 | Production backup and restore | BLOCKED | User / Engineering | Supabase Free has no automatic daily backups/PITR. PR #75 adds a daily encrypted GitHub Actions export workflow and disabled read-only backup role, but repository secrets, a successful backup run, off-site retention and a production restore drill remain. |
 
 ## 7. Payments, pricing and financial correctness
 
@@ -140,7 +142,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 65 | Payment idempotency | NOT STARTED | Engineering / Provider | Booking idempotency exists; payment-event idempotency does not |
 | 66 | Payment reconciliation | NOT STARTED | Engineering / Provider | No provider transaction reconciliation |
 | 67 | Refund workflows | NOT STARTED | Engineering / Provider | No real payment/refund provider |
-| 68 | Fare calculation boundary tests | PARTIAL | Engineering | Fare is calculated in integer paise and API smoke checks positive totals; exact base/distance rounding and boundary unit tests are not yet present |
+| 68 | Fare calculation boundary tests | PARTIAL | Engineering | Existing fare uses integer paise; open PR #74 adds pure C++ rounding/boundary/overflow tests and API smoke checks for component totals; exact-head CI pending |
 | 69 | Driver settlement accounting | NOT STARTED | Engineering / Finance | No net payout, commission or settlement ledger |
 | 70 | Financial audit reports | NOT STARTED | Engineering / Finance | No real transactions to reconcile; finance reporting is not implemented |
 
@@ -178,7 +180,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
-| 91 | Reliable CI pipeline | BLOCKED | GitHub / Engineering | Exact-head workflows for active PRs #64, #65 and #67–71 are queued; main SHA b4f91bc failed API smoke and web tests; PR #64 carries the CI-only repairs but has not executed |
+| 91 | Reliable CI pipeline | BLOCKED | GitHub / Engineering | Current-main workflows for SHA e07cff3 and PR #73 workflows were observed queued; no fresh full-suite pass is established. PR #64/#65 CI repairs and PR #71 bounded limiter are merged; PR #73 still requires exact-head checks |
 | 92 | Meaningful required checks | IMPLEMENTED | Engineering | C++, sanitizer, PostgreSQL, API, web, CodeQL, dependency and container scan jobs exist; exact-head pass pending |
 | 93 | Unit/component tests | IMPLEMENTED | Engineering | Fare, provider, security and frontend tests exist; exact-head CI pending |
 | 94 | Integration tests | IMPLEMENTED | Engineering | PostgreSQL, API, outbox and authz integration suites exist; exact-head CI pending |

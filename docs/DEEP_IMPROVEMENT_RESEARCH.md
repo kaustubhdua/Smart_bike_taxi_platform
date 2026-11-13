@@ -252,3 +252,81 @@ The most important remaining engineering gates are successful exact-head executi
 ## Routing/geocoding policy correction — 2026-11-13
 
 The passenger browser now requests road routing only when the user explicitly asks for a server fare quote. Editing pickup/drop-off fields does not trigger geocoding. The backend appends the configured Noida service-area context, validates bounded GeoJSON coordinates and returns the route geometry with the quote. This avoids using the public Nominatim service as a client-side autocomplete provider. The API applies shared one-request-per-second pacing to the public Nominatim and OSRM demo hosts, in line with their published policies; this limiter is per process, not distributed across replicas. Successful geocodes are cached in bounded process memory for 10 minutes and road geometries for 2 minutes to reduce repeat upstream traffic. Nominatim also prohibits sending personal or confidential data, so the public demo must use public landmarks/test locations only; production pickup/drop-off addresses require a contracted provider with suitable privacy terms or a self-hosted geocoder. The public Nominatim and OSRM endpoints remain evaluation defaults only; production requires a contracted or self-hosted geocoder/router with capacity, attribution, monitoring and distributed rate limiting. See `docs/UP_AGGREGATOR_COMPLIANCE.md` for the policy and India/UP launch gates. For a self-hosted open-source routing candidate, evaluate [Valhalla](https://github.com/valhalla/valhalla): its MIT-licensed C++ engine supports routes, time/distance matrices, isochrones and map matching. It is not an OSRM drop-in—the provider adapter and request/response mapping must be implemented and tested—and the public Valhalla demo is also fair-use, not production capacity.
+
+
+## Live deployment and standards refresh — 2026-11-14
+
+This section supersedes any earlier statement in this document that no RideForge Render service was found. A later read-only inspection identified the existing Render resources and the current startup failure.
+
+### Verified hosting state
+
+- Existing Render API web service: `rideforge-api-final` (service ID `srv-dbloqnom7kps73br5ojg`), health check `/api/v1/ready`.
+- Existing static site: `https://rideforge-web.onrender.com`.
+- The API's latest inspected container build succeeded, but the process exited during startup with `DATABASE_URL_TEMPLATE must be a PostgreSQL URI containing __RIDEFORGE_PASSWORD__`. The immediately preceding environment-updated deploy failed earlier with `DATABASE_URL_TEMPLATE is required`; the latest failure therefore indicates that the variable was subsequently supplied but its value did not satisfy the required placeholder format.
+- The Blueprint declares `DATABASE_URL_TEMPLATE` and `MIGRATION_DATABASE_URL` as manual protected values. The latest log does not prove the template's secret value, and it does not prove whether `MIGRATION_DATABASE_URL` is correct: startup validates the runtime template before validating the migration-owner URI. Do not infer or publish either secret. The latest observed failed deployment is `dep-dbrm1qjl550s73cs5r10` (2026-11-13 19:11:38–19:11:54 UTC).
+- Render is configured with `autoDeployTrigger=checksPass`. A merge to `main` after checks pass can initiate a deployment. Do not merge the open code/documentation PRs until exact-head CI passes and the operator confirms that the Render deployment is intended.
+- The connected GitHub branch metadata reports `main` unprotected. The current GitHub integration can inspect this state but cannot configure repository rulesets/branch protection.
+
+**Operator sequence:** correct the protected `DATABASE_URL_TEMPLATE` directly in Render so it is a PostgreSQL URI with username `rideforge_app.PROJECT_REF` and the literal password component `__RIDEFORGE_PASSWORD__`; copy the exact shared Session-pooler hostname/port from Supabase Connect. Then verify the protected `MIGRATION_DATABASE_URL` uses the matching pooler host/project and owner username `postgres.PROJECT_REF`, with the owner password URI-encoded and TLS enabled. Do not paste credentials into chat or source control. After a controlled deployment, verify both `/api/v1/health` and `/api/v1/ready`, the deployed Git SHA, migration ledger and worker startup logs. A green image build alone is insufficient.
+
+### API security review priorities
+
+Use the OWASP API Security Top 10 (2023) as the route-by-route threat model, not just a generic checklist. The most relevant areas for RideForge are object-level authorization for ride/offer/support IDs, property-level authorization and mass-assignment resistance, resource-consumption controls for login/quote/booking/cancellation/support, sensitive business-flow abuse (repeated booking, dispatch and cancellation), SSRF boundaries around routing/geocoding providers, and third-party response validation. Existing authorization and abuse-control suites provide a foundation; add coverage whenever a new route or field is introduced. Source: https://owasp.org/API-Security/editions/2023/en/0x11-t10/
+
+### Routing and dispatch research
+
+Google Maps Routes API documentation explicitly includes a two-wheeled motorized travel mode, distinct from human-powered bicycle routing. Its Route Matrix can calculate distance and duration for multiple origin/destination combinations (up to 625 non-transit route elements), which is a better architectural fit for comparing eligible nearby drivers than repeatedly routing one candidate at a time. This is a candidate provider capability, not a recommendation to switch without reviewing billing, data-processing terms, geographic coverage, motorcycle routing behavior in Noida, quotas and attribution requirements. A provider adapter should normalize route distance, duration, status, provider attribution and freshness; dispatch should retain a bounded candidate set and fall back safely when a matrix element is unavailable. Sources:
+- https://developers.google.com/maps/documentation/routes
+- https://developers.google.com/maps/documentation/routes/compute_route_matrix
+
+The current OSRM URL in the Render Blueprint uses `/driving`; it is an evaluation default and should not be represented as motorcycle-aware routing. For commercial service, select a contracted or self-hosted routing engine with a documented motorcycle profile and validate representative Noida routes against observed travel times. Never treat a driving route distance as a guaranteed motorcycle ETA.
+
+### Payment integration design gate
+
+No payment provider should be wired into the live service until the business entity, merchant account, settlement model, fees, refund policy and operating jurisdiction are approved. When a provider is selected, implement a durable webhook inbox before any booking/ride state is driven by payment notifications:
+
+1. Verify the provider signature against the exact raw request bytes before parsing or mutating state.
+2. Persist the provider event ID, provider account/environment, payload hash, received time and verification result under a unique constraint.
+3. Acknowledge only after durable receipt; process asynchronously with bounded retries and a dead-letter/reconciliation path.
+4. Treat delivery as at-least-once and potentially out-of-order. Deduplicate provider event IDs and enforce a monotonic, provider-aware payment state machine so an old authorization cannot overwrite a capture or refund.
+5. Keep separate idempotency identities for booking, payment creation/capture, refund and driver payout. Use only the provider's documented endpoint-specific contracts; do not assume one universal idempotency header.
+6. Reconcile provider transactions against the internal ledger and bank/settlement reports. A successful webhook is not itself a settlement proof.
+
+Razorpay's documentation describes duplicate webhook delivery, unique `x-razorpay-event-id` values and out-of-order events; its security guidance requires HMAC validation. Its endpoint-specific payout/refund/transfer idempotency contracts must not be generalized to every payment endpoint. Sources:
+- https://razorpay.com/security/checklist/
+- https://hdfcbank-collectnow-docs.razorpay.com/webhooks/validate-test/
+- https://hdfcbank-collectnow-docs.razorpay.com/webhooks/best-practices/
+
+### India privacy commencement calendar
+
+The DPDP Act and Rules were notified with phased commencement, so compliance must be assessed against the actual processing date rather than a blanket statement that every provision is already in force. The 13 November 2025 Gazette notification schedules specified provisions immediately, section 6(9) and section 27(1)(d) after one year, and sections 3–5, sections 6(1)–(8) and (10), sections 7–17 and other listed provisions after eighteen months. The 14 November 2025 Rules notification similarly phases Rule 4 after one year and Rules 3, 5–16, 22 and 23 after eighteen months. On this research date (14 November 2026), the one-year milestones have arrived; the eighteen-month milestones have not yet arrived. Counsel must check the Gazette text, corrigenda, commencement notices and the actual processing/launch date before deciding which duties apply. Irrespective of phased commencement, RideForge should implement privacy-by-design now: data minimisation, purpose limitation, clear notices, consent/withdrawal flows where applicable, retention/deletion, access controls, incident handling and processor/vendor agreements. Sources:
+- https://www.meity.gov.in/static/uploads/2025/11/c56ceae6c383460ca69577428d36828b.pdf
+- https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf?v=20261027115856
+
+### Supabase production database verification — 2026-11-14
+
+A live check against the existing `rideforge-production` project confirms it is ACTIVE_HEALTHY on PostgreSQL 17.11 in `ap-south-1`. The authoritative RideForge application ledger, `public.schema_migrations`, now records migrations 001–015. The Supabase platform migration history is a separate audit ledger: it retains timestamped migration records and four explicit `apply_migration` operations performed during this work. Do not treat that platform history as the backend runner's source-of-truth ledger or manually delete its audit records.
+
+The sequence least-privilege change is applied and verified. `rideforge_app` retains USAGE and SELECT on all five public sequences but has no UPDATE privilege; default sequence UPDATE is also revoked. The function-execution hardening is applied and verified: the existing public trigger function and future public functions created by the migration owner are not executable by PUBLIC, `anon`, `authenticated` or `service_role`. The existing trigger remains attached to `public.ride_events`; its SECURITY DEFINER function retains a fixed `pg_catalog, public` search path. Migration 015 also created `rideforge_backup`, a NOLOGIN/BYPASSRLS identity with SELECT-only access to current/future public tables and USAGE/SELECT on sequences. Its password is unset, it has no write privileges, and only the project administrator can assume it; it must remain disabled until a backup workflow is configured.
+
+All 12 public application tables have RLS enabled, and `anon`/`authenticated` have zero application-table grants. No permissive policies were added: the project deliberately uses a server-only database model. The `rideforge_app` role is a non-superuser LOGIN/BYPASSRLS identity with no CREATE DATABASE/ROLE, DELETE, TRUNCATE, REFERENCES or TRIGGER rights; it has only the DML needed by the trusted backend, with UPDATE removed from append-only audit/event/decline tables and SELECT-only access to the application migration ledger. BYPASSRLS is intentional for this model, so application-layer ownership and role checks remain security-critical and must continue to be tested.
+
+Exact counts confirm the 11 business tables are empty, `auth.users` has zero users, Storage has zero buckets, and no public application table is in a Realtime publication. The live SQL inspection connection negotiated TLS 1.3. The 12 `rls_enabled_no_policy` INFO findings are expected under the server-only access model; do not add public policies just to silence them. The health advisor has no findings. The performance advisor reports 21 unused-index notices; with no representative production workload, do not remove indexes solely on that basis.
+
+The runtime role's password verifier exists, but an actual login using the protected application connection string from the running API has not been proven. The matching runtime URL and owner migration connection are still an external deployment configuration gate. No real passenger, driver, ride, support or payment records were present during this check.
+
+The organization is on the Free plan. Automatic daily backups and PITR are not included. PR #75 adds a daily encrypted GitHub Actions logical-export workflow (30-day artifact retention) that uses the disabled read-only backup identity, but it is not active until the operator configures `RIDEFORGE_BACKUP_DATABASE_URL` and `RIDEFORGE_BACKUP_PASSPHRASE` repository secrets and observes a successful run. There is still no verified encrypted backup artifact, independent off-site retention or successful production restore drill. Do not accept real personal data until those steps are complete. See the Supabase backup documentation below.
+
+### Backup and restore decision
+
+Supabase's current documentation says Free projects do not receive automatic daily backups; it recommends regular exports with the Supabase CLI `db dump` command and off-site storage. Therefore the existing local/CI backup-restore tests do not satisfy the operational recovery gate. Before real personal data is accepted, schedule encrypted off-site exports, verify integrity and access controls, define retention and deletion, and perform a timed restore to an isolated project. Record recovery point and recovery time actually achieved; do not invent an RPO/RTO. Source: https://supabase.com/docs/guides/platform/backups
+
+### Current code-review queue
+
+- PR #72: documentation refresh; merge only after exact-head checks pass and the deployment consequence is approved.
+- PR #73: rate-limiter positive configuration validation and saturating counters; exact-head CI has been observed queued, not passed.
+- PR #74: integer-paise demo fare breakdown and UI validation; exact-head CI has been observed queued, not passed.
+- PR #75: migration 014 and CI regression coverage for public function execution defaults; exact-head CI has been observed queued, not passed.
+- Main SHA `e07cff31886e5bf32eaa4b052480221e55c6e44a` is still the assessed base. No fresh full-suite pass is established for it.
+
+**Release conclusion:** RideForge remains a full-stack academic/evaluation MVP, not a commercially authorised taxi service. A real staging journey, live API readiness, exact-head CI, backup/restore proof, driver/vehicle verification, emergency/support operations and written transport/privacy/legal approval remain separate gates.
