@@ -2,8 +2,9 @@ BEGIN;
 -- Migration 009 originally granted CONNECT on the database named postgres.
 -- Compose and CI use other database names, and managed Postgres may revoke
 -- CONNECT from PUBLIC. Grant the runtime role access to this actual database.
-ALTER ROLE rideforge_app
-  WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION BYPASSRLS;
+-- Migration 009 created this role as LOGIN BYPASSRLS; PostgreSQL-managed
+-- environments may forbid changing role attributes, so preserve its existing
+-- non-superuser attributes and only grant database/schema/object privileges.
 DO $block$
 BEGIN
   EXECUTE format('GRANT CONNECT ON DATABASE %I TO rideforge_app', current_database());
