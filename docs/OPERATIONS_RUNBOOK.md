@@ -91,7 +91,7 @@ Before any public launch, provide HTTPS, managed secrets, least-privilege databa
 
 ## Deployment probes
 
-Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 014 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
+Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 015 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
 
 
 ## Backup and restore
@@ -114,6 +114,32 @@ mv "$temporary" "$backup"
 ~~~
 
 For the production overlay, use the same command with the additional flags: docker compose -f compose.yaml -f compose.production.yaml. Keep backup files encrypted at rest, outside the repository and outside the production host where possible.
+
+### Enable the dedicated read-only backup identity
+
+Migration 015 creates `rideforge_backup` with SELECT on current/future `public` tables and USAGE/SELECT on current/future public sequences. It has BYPASSRLS only so a dump can include every backend-owned row, but it is **NOLOGIN**, has no password, no write privileges and no membership grants by default. Do not enable it unless the scheduled encrypted-backup workflow is being configured.
+
+To provision it, connect to the project with the owner connection in a private terminal, then run:
+
+~~~sh
+psql "$MIGRATION_DATABASE_URL"
+~~~
+
+At the `psql` prompt:
+
+~~~sql
+ALTER ROLE rideforge_backup LOGIN;
+\password rideforge_backup
+~~~
+
+The `\\password` command prompts interactively and avoids placing the password in shell history or SQL text. Exit psql. Add these repository Actions secrets under **Settings → Secrets and variables → Actions**:
+
+- `RIDEFORGE_BACKUP_DATABASE_URL`: the Supabase **Session pooler** URI (port 5432), username `rideforge_backup.<PROJECT_REF>`, the new password URL-encoded, and `sslmode=require`.
+- `RIDEFORGE_BACKUP_PASSPHRASE`: a separate strong passphrase used only for AES-256 GPG encryption.
+
+The `Supabase encrypted backup` workflow runs daily at 02:30 UTC and can also be started manually. It exports only the RideForge `public` schema, encrypts the dump before upload, decrypts it in the runner to verify archive readability, and stores the encrypted artifact for 30 days. It never uploads the plaintext dump. The role does not include Supabase Auth or Storage schemas; those are currently unused by RideForge (zero Auth users and zero Storage buckets in the audit), and must be added to a separately reviewed backup plan if adopted later.
+
+**This workflow is not active until the operator configures both secrets and a successful scheduled/manual run is observed.** A readable archive is not a restore drill. Before launch, restore a downloaded encrypted artifact into an isolated PostgreSQL 17 database, verify schema/migration and representative row counts, and record measured recovery time. For stronger disaster recovery, copy encrypted artifacts to a separately administered object-storage account; GitHub artifact retention is only the initial 30-day safety net.
 
 ### Supabase Free manual logical backup (operator-run)
 
