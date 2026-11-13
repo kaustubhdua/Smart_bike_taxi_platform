@@ -105,7 +105,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
-| 51 | Audit tables, relationships and constraints | PARTIAL | Engineering | Read-only inspection confirmed 12 public application tables; a complete foreign-key/check/unique/index relationship matrix is still required |
+| 51 | Audit tables, relationships and constraints | VERIFIED | Engineering | Read-only SQL inspected all 12 tables, PK/FK/UNIQUE/CHECK constraints, indexes, ride-status/account-role enums and the ride-event outbox trigger; all FK delete actions are RESTRICT |
 | 52 | Verify migration history | VERIFIED | Engineering | Both application and Supabase migration ledgers record 001–012 |
 | 53 | Clean-database migration reproducibility | IMPLEMENTED | Engineering | PostgreSQL CI migration smoke exists; main failed before full API integration; PR #64 exact-head run pending |
 | 54 | Database role separation | VERIFIED | Engineering | `rideforge_app` is LOGIN/BYPASSRLS, non-superuser, cannot create DB/roles |
