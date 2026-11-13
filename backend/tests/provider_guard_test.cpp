@@ -247,6 +247,7 @@ void pacing_configuration() {
     using ms = std::chrono::milliseconds;
     assert(is_public_nominatim_url("https://nominatim.openstreetmap.org/search"));
     assert(is_public_nominatim_url("http://nominatim.openstreetmap.org/search"));
+    assert(is_public_nominatim_url("HTTPS://NOMINATIM.OPENSTREETMAP.ORG/search"));
     assert(!is_public_nominatim_url("https://nominatim.openstreetmap.org.attacker.example/search"));
     assert(!is_public_nominatim_url("https://geocoder.example/search"));
     assert(is_public_demo_landmark("JIIT Sector 128"));
