@@ -45,7 +45,7 @@ export default function App() {
   const [route, setRoute] = useState<{ km: number; mins: number; path: string; geometry: Array<[number, number]>; provider: string } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
-  const [quote, setQuote] = useState<{ quoteId: string; farePaise: number; distanceKm: number; durationMinutes: number; expiresAt?: string } | null>(null);
+  const [quote, setQuote] = useState<{ quoteId: string; farePaise: number; baseFarePaise: number; distanceFarePaise: number; distanceKm: number; durationMinutes: number; expiresAt?: string } | null>(null);
   const [authMode, setAuthMode] = useState<"register" | "login">("register");
   const [authEmail, setAuthEmail] = useState("");
   const [authName, setAuthName] = useState("");
@@ -362,12 +362,17 @@ export default function App() {
       }
       const data = await response.json() as {
         quoteId?: string; farePaise?: number; distanceKm?: number; durationMinutes?: number;
+        fareBreakdown?: { baseFarePaise?: number; distanceFarePaise?: number; pricingModel?: string };
         currency?: string; expiresAt?: string; geometry?: unknown;
       };
       const expiry = data.expiresAt ? Date.parse(data.expiresAt) : Number.NaN;
       if (
         typeof data.quoteId !== "string" || data.quoteId.trim().length < 8 ||
         !Number.isSafeInteger(data.farePaise) || (data.farePaise as number) < 0 ||
+        !Number.isSafeInteger(data.fareBreakdown?.baseFarePaise) || (data.fareBreakdown?.baseFarePaise as number) < 0 ||
+        !Number.isSafeInteger(data.fareBreakdown?.distanceFarePaise) || (data.fareBreakdown?.distanceFarePaise as number) < 0 ||
+        data.fareBreakdown?.pricingModel !== "demo_base_plus_distance" ||
+        (data.fareBreakdown.baseFarePaise as number) + (data.fareBreakdown.distanceFarePaise as number) !== data.farePaise ||
         typeof data.distanceKm !== "number" || !Number.isFinite(data.distanceKm) || data.distanceKm <= 0 ||
         !Number.isSafeInteger(data.durationMinutes) || (data.durationMinutes as number) <= 0 ||
         data.currency !== "INR" || !Number.isFinite(expiry) || expiry <= Date.now() ||
@@ -385,6 +390,8 @@ export default function App() {
       setRouteError("");
       setQuote({
         quoteId: data.quoteId, farePaise: data.farePaise as number,
+        baseFarePaise: data.fareBreakdown!.baseFarePaise as number,
+        distanceFarePaise: data.fareBreakdown!.distanceFarePaise as number,
         distanceKm: data.distanceKm, durationMinutes: data.durationMinutes as number,
         expiresAt: new Date(expiry).toISOString(),
       });
@@ -800,6 +807,11 @@ export default function App() {
               </div>
               <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Calculating route and fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Choose two locations and request a server quote to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
               <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? " awaiting server quote" : " server quote"}</span></div></div><div className="fare-note"><Check size={14} /> {quote ? "Quote from API" : "No invented price"}<br /><small>{quote ? (quote.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Check quote expiry before booking") : "A fare appears only after the server responds."}</small></div></div>
+              {quote && <div className="fare-breakdown" aria-label="Fare breakdown">
+                <div><span>Base fare</span><strong>₹{(quote.baseFarePaise / 100).toFixed(2)}</strong></div>
+                <div><span>Distance charge · {quote.distanceKm.toFixed(2)} km</span><strong>₹{(quote.distanceFarePaise / 100).toFixed(2)}</strong></div>
+                <p>Demo tariff: ₹20 base + ₹11/km, rounded up to the next paise. This is not a commercial fare commitment.</p>
+              </div>}
               <button className="book-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>{apiState === "checking" ? "Checking quote…" : "Get server fare quote"} <ArrowRight size={18} /></button>
               {((quote && !ride) || mode !== "ride") && account?.role !== "driver" && account?.role !== "admin" && (
                 <div className="auth-panel">
