@@ -49,6 +49,8 @@ export default function App() {
   const [authMode, setAuthMode] = useState<"register" | "login">("register");
   const [authEmail, setAuthEmail] = useState("");
   const [authName, setAuthName] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profileBusy, setProfileBusy] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
@@ -430,10 +432,51 @@ export default function App() {
           : data.error || `Authentication failed (HTTP ${response.status}).`);
       }
       setAccount({ token: data.accessToken, email: data.account.email, displayName: data.account.displayName, role: data.account.role ?? "passenger" });
+      setProfileName(data.account.displayName ?? "");
       setAuthPassword("");
       setNotice(`Signed in as ${data.account.email}. Your access token stays in memory for this session.`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not connect to the authentication service.");
+    }
+  }
+
+  async function saveProfile() {
+    if (!account || profileBusy) return;
+    const displayName = profileName.trim();
+    if (displayName.length < 1 || displayName.length > 120) {
+      setNotice("Display name must contain between 1 and 120 characters.");
+      return;
+    }
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (base === undefined) {
+      setNotice("Configure VITE_API_BASE_URL to update your profile.");
+      return;
+    }
+    setProfileBusy(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(apiUrl(base, "/api/v1/me"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Accept": "application/json",
+          "Authorization": "Bearer " + account.token },
+        body: JSON.stringify({ displayName }),
+        signal: controller.signal,
+      });
+      const data = await response.json() as { displayName?: string; error?: string };
+      if (!response.ok || typeof data.displayName !== "string") {
+        throw new Error(data.error || `Profile update failed (HTTP ${response.status}).`);
+      }
+      setProfileName(data.displayName);
+      setAccount(current => current ? { ...current, displayName: data.displayName } : current);
+      setNotice("Your profile was updated.");
+    } catch (error) {
+      setNotice(error instanceof Error && error.name === "AbortError"
+        ? "The profile service took too long to respond. Try again."
+        : error instanceof Error ? error.message : "Could not update your profile.");
+    } finally {
+      window.clearTimeout(timeout);
+      setProfileBusy(false);
     }
   }
 
@@ -763,7 +806,7 @@ export default function App() {
                   {account ? (
                     <div className="auth-session">
                       <span><Check size={15} /> Signed in as <strong>{account.email}</strong></span>
-                      <button className="text-action" onClick={() => { setAccount(null); setSupportReports([]); setPassengerHistory([]); setReceiptRideId(null); }}>Sign out</button>
+                      <button className="text-action" onClick={() => { setAccount(null); setProfileName(""); setSupportReports([]); setPassengerHistory([]); setReceiptRideId(null); }}>Sign out</button>
                       <button className="book-button" onClick={createBooking}>Confirm ride request <ArrowRight size={18} /></button>
                     </div>
                   ) : (
@@ -835,6 +878,18 @@ export default function App() {
                     <strong>Online drivers: {adminMetrics.onlineDrivers}</strong>
                     {Object.entries(adminMetrics.ridesByStatus).map(([status, count]) => <span key={status}>{status.replaceAll("_", " ")} <b>{count}</b></span>)}
                   </div>}
+                </section>
+              )}
+              {account?.role === "passenger" && (
+                <section className="driver-panel" aria-labelledby="passenger-profile-title">
+                  <div className="driver-panel-head">
+                    <div><h3 id="passenger-profile-title">Your profile</h3><p>Update the display name shown on your account.</p></div>
+                  </div>
+                  <label className="auth-field"><span>Display name</span><input value={profileName} onChange={event => setProfileName(event.target.value)} maxLength={120} autoComplete="name" /></label>
+                  <button className="outline-button" onClick={saveProfile} disabled={profileBusy || profileName.trim().length === 0}>
+                    {profileBusy ? "Saving profile…" : "Save profile"}
+                  </button>
+                  <p className="auth-caption">Phone verification, verified contact details and notification preferences are not configured in this demo.</p>
                 </section>
               )}
               {account?.role === "passenger" && (
