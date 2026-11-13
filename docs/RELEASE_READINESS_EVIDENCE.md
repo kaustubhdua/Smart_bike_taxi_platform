@@ -27,7 +27,7 @@ The latest main-branch full release-readiness run for assessment SHA `2c6ba63181
 - Deployment still requires the Supabase Session Pooler runtime and migration-owner connection strings, a generated `RIDEFORGE_APP_PASSWORD`, and entry of those values in Render's protected environment settings. No credentials are committed to the repository.
 
 
-## Latest verified engineering milestone — PR #44
+## Earlier verified engineering milestone — PR #44 (historical)
 
 [PR #44](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/44), “Harden auth, provider calls and SSE; add adversarial test suites”, was merged on 2026-11-13 as `d7a90e24977119618f079ae7f8c1623aae97899d`.
 
@@ -44,7 +44,9 @@ The PR added:
 
 **Important distinction:** the 13/13 result belongs to the exact PR candidate SHA above. The post-merge workflows on main SHA `d7a90e24977119618f079ae7f8c1623aae97899d` were still running at the time of this assessment. Do not call post-merge main CI green until those exact-SHA workflows finish successfully.
 
-## Current release gates
+## Historical release-gate snapshot before PR #53/#54
+
+The table below is retained for history and is superseded by the current evidence summary at the top of this report.
 
 | Area | Evidence/status | Remaining work |
 |---|---|---|
@@ -65,7 +67,7 @@ A Render workspace is connected, but its existing API services are not healthy a
 
 The repository also reports `main` as unprotected. The GitHub integration available for this review cannot change repository branch-protection settings; a repository administrator must configure a ruleset requiring pull requests and the relevant release checks, while preventing force pushes and branch deletion.
 
-## Recent engineering changes and exact-candidate evidence
+## Selected historical engineering changes and exact-candidate evidence
 
 | Change | Merge SHA | Exact candidate CI evidence | Result |
 |---|---|---|---|
