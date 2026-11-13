@@ -100,6 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           password="$(openssl rand -base64 32 | tr -d '\n')"
+          echo "::add-mask::$password"
           printf 'RIDEFORGE_APP_PASSWORD=%s\n' "$password" >> "$GITHUB_ENV"
       - name: Apply versioned database migration
         env:
