@@ -1454,36 +1454,8 @@ private:
     PGconn* connection_{};
 };
 
-class RateLimiter {
-public:
-    explicit RateLimiter(unsigned limit = 30) : limit_(limit) {}
-    bool allow(const std::string& key) {
-        using clock = std::chrono::steady_clock;
-        std::lock_guard<std::mutex> lock(mutex_);
-        const auto now = clock::now();
-        auto& bucket = buckets_[key];
-        if (now - bucket.window >= std::chrono::minutes(1)) {
-            bucket.window = now;
-            bucket.count = 0;
-        }
-        if (++bucket.count > limit_) return false;
-        if (buckets_.size() > 10000) {
-            for (auto it = buckets_.begin(); it != buckets_.end();) {
-                if (now - it->second.window >= std::chrono::minutes(2)) it = buckets_.erase(it);
-                else ++it;
-            }
-        }
-        return true;
-    }
-private:
-    struct Bucket { std::chrono::steady_clock::time_point window = std::chrono::steady_clock::now(); unsigned count{}; };
-    std::mutex mutex_;
-    std::map<std::string, Bucket> buckets_;
-    unsigned limit_{30};
-};
-
-RateLimiter quote_limiter{30};
-RateLimiter auth_limiter{10};
+rideforge_guard::RateLimiter quote_limiter{30};
+rideforge_guard::RateLimiter auth_limiter{10};
 // Per-account sign-in throttle. The per-address limiter above does nothing against a
 // distributed guess at one account, so failures are also counted per normalised
 // email: 8 failures in 5 minutes blocks further attempts for the rest of the window.
