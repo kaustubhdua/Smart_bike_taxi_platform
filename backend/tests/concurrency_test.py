@@ -257,14 +257,15 @@ def test_accept_racing_offer_expiry_never_leaves_a_partial_assignment():
             # Whichever wins must commit a complete, internally consistent state.
             return psql(
                 "BEGIN; "
-                "SELECT id FROM rides WHERE id='%s' FOR UPDATE; "
+                "SELECT id FROM ride_offers WHERE ride_id='%s' AND driver_id='%s' "
+                "AND status='offered' FOR UPDATE; "
                 "SELECT pg_sleep(0.05); "
                 "UPDATE ride_offers SET status='expired',"
                 "offered_at=now()-interval '2 minutes',"
                 "expires_at=now()-interval '1 minute',responded_at=now() "
                 "WHERE ride_id='%s' AND driver_id='%s' AND status='offered'; "
                 "COMMIT;"
-                % (ride_id, ride_id, driver_id)
+                % (ride_id, driver_id, ride_id, driver_id)
             )
 
         response, _ = race([accept(ride_id, token), expire_offer])
