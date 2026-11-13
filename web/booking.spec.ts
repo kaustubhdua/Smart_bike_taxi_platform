@@ -5,10 +5,16 @@ import { expect, test } from "@playwright/test";
 
 
 async function blockMapTiles(page: import("@playwright/test").Page) {
+  const tileHosts: string[] = [];
+  page.on("request", request => {
+    const host = new URL(request.url()).hostname;
+    if (host.includes("tile.openstreetmap.org")) tileHosts.push(host);
+  });
   await page.route("https://tile.openstreetmap.org/**", route => route.abort());
+  return tileHosts;
 }
 test("calculates road route and shows a fare only after a valid server quote", async ({ page }) => {
-  await blockMapTiles(page);
+  const tileHosts = await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({
       status: 200, contentType: "application/json",
@@ -31,7 +37,8 @@ test("calculates road route and shows a fare only after a valid server quote", a
   await expect(page.getByRole("application", { name: /Interactive road map from/ })).toBeVisible();
   await expect(page.locator("#route-map-description")).toContainText("route distance, estimated duration and fare");
   await expect(page.locator(".leaflet-control-attribution a[href*='openstreetmap.org/copyright']")).toBeVisible();
-  expect(page.url()).not.toContain("tile.openstreetmap.org");
+  expect(tileHosts).toContain("tile.openstreetmap.org");
+  expect(tileHosts.every(host => host === "tile.openstreetmap.org")).toBe(true);
   await expect(page.locator(".fare-amount")).toContainText("₹47.50");
   await expect(page.locator(".inline-notice")).toContainText("This checks the quote only");
 });
