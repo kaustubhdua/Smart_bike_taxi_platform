@@ -127,7 +127,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 | 65 | Payment idempotency | NOT STARTED | Engineering / Provider | Booking idempotency exists; payment-event idempotency does not |
 | 66 | Payment reconciliation | NOT STARTED | Engineering / Provider | No provider transaction reconciliation |
 | 67 | Refund workflows | NOT STARTED | Engineering / Provider | No real payment/refund provider |
-| 68 | Fare calculation boundary tests | IMPLEMENTED | Engineering | Demo fare formula and validation tests exist; commercial tariffs/taxes/surcharges absent |
+| 68 | Fare calculation boundary tests | PARTIAL | Engineering | Fare is calculated in integer paise and API smoke checks positive totals; exact base/distance rounding and boundary unit tests are not yet present |
 | 69 | Driver settlement accounting | NOT STARTED | Engineering / Finance | No net payout, commission or settlement ledger |
 | 70 | Financial audit reports | NOT STARTED | Engineering / Finance | No real transactions to reconcile; finance reporting is not implemented |
 
