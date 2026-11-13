@@ -65,6 +65,41 @@ paths:
         "200": { description: Authenticated }
         "401": { description: Invalid credentials }
         "429": { description: Rate limited }
+  /me:
+    get:
+      summary: Read the authenticated account's own profile
+      responses:
+        "200":
+          description: Current account profile; no contact verification is implied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountProfile"
+        "401": { description: Unauthenticated }
+        "404": { description: Account is no longer active }
+    patch:
+      summary: Update the authenticated account's display name
+      description: Only displayName is accepted. Phone/contact verification and account preferences are not implemented.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [displayName]
+              properties:
+                displayName: { type: string, minLength: 1, maxLength: 120 }
+      responses:
+        "200":
+          description: Updated account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountProfile"
+        "401": { description: Unauthenticated }
+        "404": { description: Account is no longer active }
+        "422": { description: Invalid profile update }
   /routes/quote:
     post:
       security: []
@@ -514,6 +549,15 @@ components:
         offerExpiresAt: { type: string, format: date-time, description: Offer expiry; expired offers are removed from the queue and redispatched. }
         distanceMeters: { type: integer, minimum: 1 }
         pickupDistanceMeters: { type: integer, minimum: 0, maximum: 100000 }
+    AccountProfile:
+      type: object
+      additionalProperties: false
+      required: [id, email, displayName, role]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        role: { type: string, enum: [passenger, driver, admin] }
     RegisterRequest:
       type: object
       additionalProperties: false
