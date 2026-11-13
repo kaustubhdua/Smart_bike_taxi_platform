@@ -226,3 +226,25 @@ The migration was applied to the connected Supabase project. The migration ledge
 7. Configure and test main-branch protection/rulesets (issue #17): require PRs and release checks, block force-push/deletion, and verify that missing checks block merging. This could not be changed through the connected GitHub integration in this session.
 
 The static frontend being live is not a full-stack deployment. No commercial rides, payment processing, verified driver onboarding, staffed emergency dispatch or transport authorization are claimed.
+
+## Live Supabase production recheck — 13 November 2026, 15:50 UTC
+
+This read-only database inspection supersedes earlier snapshots in this document that described migration 012 as merely a candidate or stated that the role still had DELETE grants.
+
+- Supabase project `rideforge-production` is `ACTIVE_HEALTHY`, PostgreSQL 17.11, region `ap-south-1`.
+- The live `public.schema_migrations` ledger records migrations 001 through 012, including `012_runtime_role_least_privilege` at 2026-11-13 15:42:34 UTC. The migration is already applied in production; it must not be applied a second time manually.
+- `rideforge_app` is LOGIN+BYPASSRLS, non-superuser, without CREATEDB/CREATEROLE, and has a password verifier. The secret itself is not retrievable. A Render-side login using the generated runtime password has not yet been proven.
+- A direct read-only privilege check found **zero DELETE table grants** for `rideforge_app`. UPDATE/DELETE on `admin_audit_events`, `ride_events`, and `driver_ride_declines` are all false; INSERT/UPDATE/DELETE on `schema_migrations` are false. This confirms the append-only/least-privilege migration is live.
+- The 12 public tables remain RLS-enabled. `anon` and `authenticated` have no public-table grants. The trusted server-side `rideforge_app` role remains the only application role with direct table DML (excluding DELETE). This role has BYPASSRLS and must never be exposed to browser clients.
+- Supabase security advisor: 12 INFO findings named `rls_enabled_no_policy`, expected because the Data API roles have no table grants; no health findings. Performance advisor: 21 unused-index INFO findings on an essentially empty database. Do not drop indexes until representative workload and query-plan evidence exists.
+- The project metadata exposes the direct endpoint `db.ghcufcegfvvjhsnqnrzr.supabase.co`, but not the exact shared Session-pooler cluster index/hostname or the database-owner password. Do not derive or guess the pooler host from the Mumbai region; copy it from Supabase Connect.
+
+The remaining database/Render blocker is therefore not the schema migration or the existence of the runtime role. It is the protected connection configuration and proof that the Render-generated runtime secret is provisioned through the owner connection and successfully used by the API.
+
+The Render service still needs:
+1. `DATABASE_URL_TEMPLATE` using the exact shared Session-pooler hostname from Supabase Connect, port 5432, username `rideforge_app.ghcufcegfvvjhsnqnrzr`, and the literal `__RIDEFORGE_PASSWORD__` placeholder.
+2. `MIGRATION_DATABASE_URL` using the same exact Session-pooler host/port, owner username `postgres.ghcufcegfvvjhsnqnrzr`, and the actual database-owner password.
+
+Set these only in the existing Render service's protected Environment page. Never send passwords through chat. The generated Render runtime password is applied by the migration runner's `ALTER ROLE rideforge_app PASSWORD ...` step, even when migration 012 is already recorded.
+
+No schema change, service creation, paid resource or Render environment-variable update was performed during this inspection.
