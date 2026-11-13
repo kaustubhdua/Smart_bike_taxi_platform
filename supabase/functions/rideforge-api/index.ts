@@ -8,8 +8,8 @@ const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: fal
 const publicAuth = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const corsHeaders = (origin: string | null) => {
-  const allowed = (Deno.env.get("RIDEFORGE_ALLOWED_ORIGINS") ?? "").split(",").map(v => v.trim()).filter(Boolean);
-  const allowOrigin = origin && (allowed.length === 0 || allowed.includes(origin)) ? origin : (allowed.length === 0 ? "*" : allowed[0]);
+  const allowed = (Deno.env.get("RIDEFORGE_ALLOWED_ORIGINS") ?? "https://rideforge-web.onrender.com,http://localhost:5173,http://127.0.0.1:5173").split(",").map(v => v.trim()).filter(Boolean);
+  const allowOrigin = origin ? (allowed.includes(origin) ? origin : allowed[0]) : "*";
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers": "authorization, apikey, content-type, idempotency-key, last-event-id, x-client-info",
