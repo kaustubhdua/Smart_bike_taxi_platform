@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-11-13. PR #44 and PR #46 are merged; PR #46 added expired-offer acceptance regression coverage and passed all 13 release-readiness jobs on exact candidate `71f25e9053eb3349bd3daff35ee51a0bad409b47`. Main SHA `cd0361f9d491a7423f61338a2210cc75ce1a3508` is undergoing its post-merge full release-readiness run. PR #48 contains the runtime database credential separation work and remains unmerged pending exact-head CI. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live deployment or commercial readiness is claimed.
+Last reconciled: 2026-11-13. PR #44 and PR #46 are merged; PR #46 added expired-offer acceptance regression coverage and passed all 13 release-readiness jobs on exact candidate `71f25e9053eb3349bd3daff35ee51a0bad409b47`. Main SHA `cd0361f9d491a7423f61338a2210cc75ce1a3508` is undergoing its post-merge full release-readiness run. PR #49 contains the runtime database credential separation work and remains unmerged pending exact-head CI. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live deployment or commercial readiness is claimed.
 
 ## Product goal
 
