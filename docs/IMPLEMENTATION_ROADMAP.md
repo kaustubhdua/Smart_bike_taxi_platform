@@ -1,6 +1,6 @@
 # RideForge — implementation and release roadmap
 
-Last reconciled: 2026-11-13. PR #53 (dispatch uniqueness) and PR #54 (driver offer polling and portal routes) are merged. Main assessment SHA: `2c6ba631815b13feb6d3064de47765967e8db0ec`. Their exact PR candidates each passed all 13 release-readiness jobs: PR #53 run `43433243879`; PR #54 run `43432850270`. The exact-main post-merge run `43434905271` passed all 13 release-readiness jobs. Migration 011 is applied to Supabase; its runtime-role password and Render deployment credentials remain pending. Root `render.yaml` now defines adoption of the existing free-tier API and static-site services, but the Blueprint has not yet been synced. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live API deployment or commercial readiness is claimed.
+Last reconciled: 2026-11-13. PR #53 (dispatch uniqueness) and PR #54 (driver offer polling and portal routes) are merged. Main assessment SHA: `2c6ba631815b13feb6d3064de47765967e8db0ec`. Their exact PR candidates each passed all 13 release-readiness jobs: PR #53 run `43433243879`; PR #54 run `43432850270`. The exact-main post-merge run `43434905271` passed all 13 release-readiness jobs. Migration 011 is applied to Supabase; its runtime-role password and Render deployment credentials remain pending. Root `render.yaml` defines adoption of the existing free-tier API and static-site services. Render Blueprint `exs-dbrhb55g1s2s738gi39g` has an initial adoption plan awaiting approval; no infrastructure changes have been applied. See `docs/RELEASE_READINESS_EVIDENCE.md` for evidence. No live API deployment or commercial readiness is claimed.
 
 ## Product goal
 
@@ -101,7 +101,7 @@ Acceptance: a passenger can register, quote, book, refresh, track, cancel when p
 ## Phase 5 — reliability, privacy and deployment
 
 - [x] Add a schema-aware `/api/v1/ready` probe and use it for the Compose API healthcheck.
-- [x] Add `render.yaml` to adopt the existing free-tier `rideforge-api-final` and `rideforge-web` services, deploy from `main` only after checks pass, and rewrite SPA paths to `/index.html`. [ ] Create/review/approve the Render Blueprint sync and enter the Supabase runtime/migration secrets.
+- [x] Add `render.yaml` to adopt the existing free-tier `rideforge-api-final` and `rideforge-web` services, deploy from `main` only after checks pass, and rewrite SPA paths to `/index.html`. [x] Create the Render Blueprint and plan its initial adoption sync. [ ] Review/approve the planned sync, provision the `rideforge_app` password, and enter/test the Supabase runtime/migration secrets.
 - [x] Add generated request IDs to API/SSE responses and redact raw quote-provider/database exception text.
 - [x] Add backup/restore scripts, a CI recovery smoke test, and schema-readiness failure-path coverage.
 - [x] Add structured redacted request-completion logs, correlation IDs, SIGTERM/SIGINT handling, and bounded graceful draining.
