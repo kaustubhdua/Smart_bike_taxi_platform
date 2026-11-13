@@ -164,14 +164,18 @@ struct ProviderGuard {
     PacingGate pacing;
 };
 
-// The public OpenStreetMap geocoder is paced by default; any other URL (a contracted
-// or self-hosted provider, a test double) is not, unless configured explicitly.
-inline std::chrono::milliseconds default_pacing_for(std::string_view geocoding_url) {
-    return geocoding_url.find("nominatim.openstreetmap.org") != std::string_view::npos
-        ? std::chrono::milliseconds(1000) : std::chrono::milliseconds(0);
+// Public Nominatim and OSRM demo hosts are paced at one request per second by default.
+// Contracted/self-hosted providers and test doubles are not paced unless configured.
+inline std::chrono::milliseconds default_pacing_for(std::string_view provider_url) {
+    if (provider_url.find("nominatim.openstreetmap.org") != std::string_view::npos ||
+        provider_url.find("router.project-osrm.org") != std::string_view::npos ||
+        provider_url.find("routing.openstreetmap.de") != std::string_view::npos) {
+        return std::chrono::milliseconds(1000);
+    }
+    return std::chrono::milliseconds(0);
 }
 
-// Parses RIDEFORGE_GEOCODING_MIN_INTERVAL_MS: an empty value keeps `fallback`, anything
+// Parses a provider MIN_INTERVAL_MS setting: an empty value keeps `fallback`, anything
 // else must be plain digits no larger than 60000. Throws so a typo stops start-up
 // instead of silently disabling the limit.
 inline std::chrono::milliseconds parse_pacing_interval(const std::string& value,
