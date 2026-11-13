@@ -46,7 +46,9 @@ BEGIN
   IF has_table_privilege('rideforge_app','public.admin_audit_events','UPDATE')
      OR has_table_privilege('rideforge_app','public.admin_audit_events','DELETE')
      OR has_table_privilege('rideforge_app','public.ride_events','UPDATE')
-     OR has_table_privilege('rideforge_app','public.ride_events','DELETE') THEN
+     OR has_table_privilege('rideforge_app','public.ride_events','DELETE')
+     OR has_table_privilege('rideforge_app','public.driver_ride_declines','UPDATE')
+     OR has_table_privilege('rideforge_app','public.driver_ride_declines','DELETE') THEN
     RAISE EXCEPTION 'audit and ride event history must be append-only for the runtime role';
   END IF;
   IF has_table_privilege('rideforge_app','public.schema_migrations','INSERT')
