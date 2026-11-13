@@ -248,3 +248,14 @@ The Render service still needs:
 Set these only in the existing Render service's protected Environment page. Never send passwords through chat. The generated Render runtime password is applied by the migration runner's `ALTER ROLE rideforge_app PASSWORD ...` step, even when migration 012 is already recorded.
 
 No schema change, service creation, paid resource or Render environment-variable update was performed during this inspection.
+
+## Final exact-head and hosting snapshot — 13 November 2026, 15:55 UTC
+
+- PR #59 latest reviewed head: `5aef954fec46ecff1b7f66965351b09979662f5b` (25 check runs queued/pending at snapshot). It now accepts both PostgreSQL URI aliases, rejects direct/transaction-pooler endpoints for Render, and requires migration 012 in `/api/v1/ready`.
+- PR #60 latest reviewed head: `ebd2bdf1f90a5057c739a9d28cb45300b16e3129` (25 check runs queued/pending).
+- PR #62 latest documentation head at this snapshot: `3fe91098da522c0017fa683721161e4f84a9504a` (25 check runs queued/pending). It distinguishes the UP March draft from the final May rules analysis, cites the signed CAQM Direction 94 amendment, and records DPDP phased commencement dates.
+- PR #63 latest reviewed head: `91ca5bf1bd8204cb18a9883f18effe228b55a2e3` (24 check runs queued/pending).
+- All four PRs were mergeable in GitHub's metadata, but no exact-head required check had completed at this snapshot. Do not merge based on mergeability alone.
+- Render workspace `kaustubh dua`: the existing API `rideforge-api-final` remains on `main`, free plan, and unhealthy. Its latest build from `0f69d9f` succeeded but runtime startup failed because the old mainline entrypoint requires `DATABASE_URL` and the protected value is not configured. The static `rideforge-web` service remains the existing live free static site.
+- Render Blueprint remains paused with `autoSync=false`. A fresh plan against current mainline proposes only one change to the existing static site's publish path (`web/dist` → `./web/dist`); it creates no resource and changes no service plan. The plan was not approved/applied. It does not yet include PR #59's generated runtime secret/template because that branch has not merged.
+- The remaining manual values are still the exact Supabase shared Session-pooler hostname from Connect and the owner database password. Supabase's current documentation confirms shared Session mode is the IPv4-compatible option for persistent services and uses port 5432; transaction mode on 6543 is for transient workloads. The project metadata does not reveal the assigned pooler hostname.
