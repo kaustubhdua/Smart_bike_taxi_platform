@@ -30,7 +30,7 @@ Set these as protected Render environment variables; never commit them:
 | `RIDEFORGE_USER_AGENT` | Contact-bearing identifier for the geocoding provider. |
 | `RIDEFORGE_ALLOWED_ORIGINS` | Exact HTTPS origins for passenger and driver frontends; comma-separated, no wildcard. |
 | `RIDEFORGE_GEOCODING_URL`, `RIDEFORGE_ROUTING_URL` | Contracted or self-hosted providers for public use. Public demo endpoints are evaluation-only. |
-| `RIDEFORGE_GEOCODING_CONTEXT` | Defaults to `Noida, Uttar Pradesh, India`; applied server-side to both route previews and fare quotes. |
+| `RIDEFORGE_GEOCODING_CONTEXT` | Defaults to `Noida, Uttar Pradesh, India`; applied server-side to route/fare quote requests. |
 | `RIDEFORGE_DISPATCH_RADIUS_KM` | Integer 1–100; default 20. |
 
 For Supabase, open the project's **Connect** dialog and copy the actual **Session pooler** host and port. Do not construct the hostname from the region: Supabase can assign different pooler cluster indexes. Session mode uses port 5432 and supports long-lived connection features such as PostgreSQL LISTEN/NOTIFY; transaction mode (6543) does not. For `DATABASE_URL_TEMPLATE`, copy the Session-pooler connection string, replace the username with `rideforge_app.PROJECT_REF`, and replace the password with the literal `__RIDEFORGE_PASSWORD__`. For `MIGRATION_DATABASE_URL`, use the owner Session-pooler string with username `postgres.PROJECT_REF` and the actual database password. Copy the exact pooler host/port from Connect—Supabase says the pooler cluster index cannot be derived from the region. Use SSL mode `require`.
