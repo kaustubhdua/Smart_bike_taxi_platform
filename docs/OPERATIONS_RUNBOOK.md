@@ -8,7 +8,7 @@ The default Compose setup is a local evaluation environment. The compose.product
 
 1. Install Docker Compose.
 2. Copy `.env.example` to `.env`.
-3. Set a strong local POSTGRES_PASSWORD; keep DATABASE_URL's password identical.
+3. Set independent strong `POSTGRES_PASSWORD` (database owner) and `RIDEFORGE_APP_PASSWORD` (runtime role) values, each at least 32 characters. Set `DATABASE_URL` to `postgresql://rideforge_app:<RIDEFORGE_APP_PASSWORD>@db:5432/rideforge`; do not reuse the owner password for the API or workers.
 4. Set RIDEFORGE_JWT_SECRET to at least 32 random characters and set RIDEFORGE_USER_AGENT to a contact-bearing value.
 5. Start the stack:
 
@@ -88,7 +88,7 @@ Before any public launch, provide HTTPS, managed secrets, least-privilege databa
 
 ## Deployment probes
 
-Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or either required migration version is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
+Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 011 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
 
 
 ## Backup and restore
