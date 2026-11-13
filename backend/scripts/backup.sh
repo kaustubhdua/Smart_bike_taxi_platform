@@ -14,7 +14,7 @@ esac
 umask 077
 parent=$(dirname "$output")
 mkdir -p "$parent"
-temporary="$output.tmp.$"
+temporary="${output}.tmp.$"
 trap 'rm -f "$temporary"' EXIT HUP INT TERM
 pg_dump --format=custom --no-owner --no-acl --file="$temporary" "$DATABASE_URL"
 test -s "$temporary"
