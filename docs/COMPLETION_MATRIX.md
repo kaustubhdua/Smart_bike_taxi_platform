@@ -95,7 +95,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 | 43 | Strict request validation and size limits | IMPLEMENTED | Engineering | Body limits and route-specific validation exist; fuzz/property tests remain |
 | 44 | Role-based authorization | IMPLEMENTED | Engineering | Passenger/driver/admin checks and authorization matrix tests exist; exact-head execution pending |
 | 45 | Object-level authorization | IMPLEMENTED | Engineering | SQL queries scope by authenticated subject; cross-account tests exist; exact-head execution pending |
-| 46 | Rate limiting | PARTIAL | Engineering | Authentication, quote and support limits are process-local; PR #71 adds a bounded per-IP key table, but exact-head tests and distributed limits remain |
+| 46 | Rate limiting | PARTIAL | Engineering | Auth and quote have per-IP limits and support has a per-account limit; booking/cancellation lack dedicated limits. PR #71 bounds per-IP keys, but all limits remain process-local and need exact-head tests/distributed enforcement |
 | 47 | Idempotency and safe retries | PARTIAL | Engineering | Booking idempotency and durable outbox retry exist; provider/payment retries and all mutation boundaries need review |
 | 48 | External-service timeouts and failure handling | IMPLEMENTED | Engineering | Curl connect/total timeouts, bounded response and provider circuit breaker exist; provider SLA not guaranteed |
 | 49 | API versioning and compatibility | PARTIAL | Engineering | `/api/v1` exists; automated backwards-compatibility contract tests need expansion |
