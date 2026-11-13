@@ -59,6 +59,12 @@ struct Location {
     double longitude{};
 };
 
+struct ProviderRoute {
+    int meters{};
+    int seconds{};
+    json geometry;
+};
+
 struct HttpResult {
     long status{};
     std::string body;
@@ -175,9 +181,13 @@ std::string url_encode(const std::string& value) {
 }
 
 Location geocode(const std::string& label) {
+    // RideForge's current service area is Noida. Keep the city context on the
+    // server so preview and fare-quote geocoding resolve the same local places.
+    const std::string context = env_or("RIDEFORGE_GEOCODING_CONTEXT", "Noida, Uttar Pradesh, India");
+    const std::string query = context.empty() ? label : label + ", " + context;
     const auto response = get_json(
         env_or("RIDEFORGE_GEOCODING_URL", "https://nominatim.openstreetmap.org/search") +
-        "?format=jsonv2&limit=1&q=" + url_encode(label), geocoding_guard);
+        "?format=jsonv2&limit=1&q=" + url_encode(query), geocoding_guard);
     const auto parsed = json::parse(response.body);
     if (!parsed.is_array() || parsed.empty() || !parsed.at(0).is_object()) {
         throw std::invalid_argument("Location could not be found");
@@ -205,12 +215,12 @@ Location geocode(const std::string& label) {
     return {std::move(display), latitude, longitude};
 }
 
-std::pair<int, int> route(const Location& pickup, const Location& destination) {
+ProviderRoute route(const Location& pickup, const Location& destination) {
     const std::string url =
         env_or("RIDEFORGE_ROUTING_URL", "https://router.project-osrm.org/route/v1/driving") + "/" +
         std::to_string(pickup.longitude) + "," + std::to_string(pickup.latitude) + ";" +
         std::to_string(destination.longitude) + "," + std::to_string(destination.latitude) +
-        "?overview=false&alternatives=false&steps=false";
+        "?overview=full&geometries=geojson&alternatives=false&steps=false";
     const auto response = get_json(url, routing_guard);
     const auto parsed = json::parse(response.body);
     if (!parsed.is_object() || parsed.value("code", std::string()) != "Ok" ||
@@ -221,13 +231,31 @@ std::pair<int, int> route(const Location& pickup, const Location& destination) {
     const auto& result = parsed["routes"][0];
     const double meters = result.at("distance").get<double>();
     const double seconds = result.at("duration").get<double>();
-    // Bounded well below INT_MAX: a route past the cap is a provider error or a wrong
-    // geocode, and must not turn into an absurd persisted fare.
     const auto metrics = rideforge_provider::validate_route_metrics(meters, seconds);
-    if (!metrics) {
-        throw std::invalid_argument("Routing provider returned invalid route metrics");
+    if (!metrics) throw std::invalid_argument("Routing provider returned invalid route metrics");
+    if (!result.contains("geometry") || !result["geometry"].is_object() ||
+        result["geometry"].value("type", std::string()) != "LineString" ||
+        !result["geometry"].contains("coordinates") ||
+        !result["geometry"]["coordinates"].is_array()) {
+        throw std::invalid_argument("Routing provider returned invalid route geometry");
     }
-    return {metrics->meters, metrics->seconds};
+    const auto& coordinates = result["geometry"]["coordinates"];
+    if (coordinates.size() < 2 || coordinates.size() > 10000) {
+        throw std::invalid_argument("Routing provider returned invalid route geometry");
+    }
+    for (const auto& point : coordinates) {
+        if (!point.is_array() || point.size() != 2 ||
+            !point[0].is_number() || !point[1].is_number()) {
+            throw std::invalid_argument("Routing provider returned invalid route geometry");
+        }
+        const double longitude = point[0].get<double>();
+        const double latitude = point[1].get<double>();
+        if (!std::isfinite(longitude) || !std::isfinite(latitude) ||
+            longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) {
+            throw std::invalid_argument("Routing provider returned invalid route geometry");
+        }
+    }
+    return {metrics->meters, metrics->seconds, coordinates};
 }
 
 class DatabasePool {
@@ -2114,7 +2142,9 @@ void handle_request(tcp::socket socket) {
                     std::abs(pickup.longitude - destination.longitude) < 1e-7) {
                     throw std::invalid_argument("Pickup and destination resolve to the same place");
                 }
-                const auto [distance_m, duration_seconds] = route(pickup, destination);
+                const auto routed = route(pickup, destination);
+                const int distance_m = routed.meters;
+                const int duration_seconds = routed.seconds;
                 // Demo tariff: ₹20 base + ₹11/km, rounded up to the next paise.
                 const long long fare = 2000LL +
                     (static_cast<long long>(distance_m) * 1100LL + 999LL) / 1000LL;
@@ -2130,7 +2160,8 @@ void handle_request(tcp::socket socket) {
                     {"durationMinutes", std::max(1, static_cast<int>(std::ceil(duration_seconds / 60.0)))},
                     {"farePaise", fare},
                     {"currency", "INR"},
-                    {"expiresAt", saved.at("expiresAt")}
+                    {"expiresAt", saved.at("expiresAt")},
+                    {"geometry", routed.geometry}
                 }, request);
             } catch (const std::invalid_argument& error) {
                 result = response(http::status::unprocessable_entity, {{"error", error.what()}}, request);

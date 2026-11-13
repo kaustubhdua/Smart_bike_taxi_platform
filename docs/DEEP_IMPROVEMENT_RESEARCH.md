@@ -247,3 +247,8 @@ PR #44 was merged as `d7a90e24977119618f079ae7f8c1623aae97899d` after all 13 job
 The post-merge main SHA was `d7a90e24977119618f079ae7f8c1623aae97899d`; its exact-SHA workflows were still running at the time of this update. PR-candidate success is not post-merge verification.
 
 The most important remaining engineering gates are deterministic accept-vs-expiry and duplicate-worker tests, dispatch/outbox multi-process load testing, database least-privilege runtime roles, aggregate connection budgeting, distributed rate limits, manual mobile/accessibility acceptance, a real staging deployment with production-grade routing, monitoring and restore rehearsal, and privacy/legal/driver operations approval. No commercial ride authorization or live deployment is claimed.
+
+
+## Routing/geocoding policy correction — 2026-11-13
+
+The passenger browser now requests road routing only when the user explicitly asks for a server fare quote. Editing pickup/drop-off fields does not trigger geocoding. The backend appends the configured Noida service-area context, validates bounded GeoJSON coordinates and returns the route geometry with the quote. This avoids using the public Nominatim service as a client-side autocomplete provider. The public Nominatim and OSRM endpoints remain evaluation defaults only; production requires a contracted or self-hosted geocoder/router with capacity, attribution, monitoring and distributed rate limiting. See `docs/UP_AGGREGATOR_COMPLIANCE.md` for the policy and India/UP launch gates.

@@ -1,60 +1,48 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-const routeFixture = {
-  code: "Ok",
-  routes: [{
-    distance: 5200,
-    duration: 840,
-    geometry: { type: "LineString", coordinates: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]] },
-  }],
-};
 
-async function mockRouting(page: import("@playwright/test").Page) {
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
-    const lat = query.includes("JIIT") ? "28.535" : query.includes("Botanical") ? "28.564" : "28.55";
-    const lon = query.includes("JIIT") ? "77.35" : query.includes("Botanical") ? "77.334" : "77.34";
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ lat, lon, display_name: query }]) });
-  });
-  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(routeFixture) });
-  });
+
+
+async function blockMapTiles(page: import("@playwright/test").Page) {
   await page.route("**://*.tile.openstreetmap.org/**", route => route.abort());
 }
-
 test("calculates road route and shows a fare only after a valid server quote", async ({ page }) => {
-  await mockRouting(page);
+  await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({
-      status: 200,
-      contentType: "application/json",
+      status: 200, contentType: "application/json",
       body: JSON.stringify({
         quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
         distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, currency: "INR",
         expiresAt: new Date(Date.now() + 120_000).toISOString(),
+        geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
       }),
     });
   });
   await page.goto("/");
+  await expect(page.getByText(/DEMO ONLY/)).toBeVisible();
+  await expect(page.locator(".quote-details")).toContainText(/request a server quote/i);
+  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeEnabled();
+  await expect(page.getByText("No invented price")).toBeVisible();
+  await expect(page.locator(".fare-amount")).toContainText("—");
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("application", { name: /Interactive road map from/ })).toBeVisible();
   await expect(page.locator("#route-map-description")).toContainText("route distance, estimated duration and fare");
   await expect(page.locator(".leaflet-control-attribution a[href*='openstreetmap.org/copyright']")).toBeVisible();
-  await expect(page.getByText("No invented price")).toBeVisible();
-  await expect(page.locator(".fare-amount")).toContainText("—");
-  await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".fare-amount")).toContainText("₹47.50");
   await expect(page.locator(".inline-notice")).toContainText("This checks the quote only");
 });
 
 test("registers a passenger, creates a persisted ride request, and cancels it", async ({ page }) => {
-  await mockRouting(page);
+  await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
       durationMinutes: 14, farePaise: 4750, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
   });
   await page.route("http://api.test/api/v1/auth/register", async route => {
@@ -110,7 +98,6 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   });
 
   await page.goto("/");
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.getByRole("heading", { name: "Where to?" })).toBeVisible();
   await page.getByLabel("Your name").fill("Test Rider");
@@ -139,12 +126,13 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
 
 test("passenger ride status refreshes from persisted API state", async ({ page }) => {
   await page.clock.install();
-  await mockRouting(page);
+  await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
       durationMinutes: 14, farePaise: 4750, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
   });
   await page.route("http://api.test/api/v1/auth/register", async route => {
@@ -172,7 +160,6 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   });
 
   await page.goto("/");
-  await expect(page.getByText("5.2 km · 14 min · Road route")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await page.getByLabel("Your name").fill("Polling Rider");
   await page.locator('.auth-panel input[type="email"]').first().fill("polling@example.test");
@@ -190,36 +177,38 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
 });
 
 test("rejects expired or invalid quotes without showing a fare", async ({ page }) => {
-  await mockRouting(page);
+  await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({
       status: 200, contentType: "application/json",
       body: JSON.stringify({
         quoteId: "old-quote-id", distanceKm: 5.2, durationMinutes: 14,
         farePaise: -1, currency: "INR", expiresAt: new Date(Date.now() - 60_000).toISOString(),
+        geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
       }),
     });
   });
   await page.goto("/");
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
-  await expect(page.locator(".inline-notice")).toContainText(/invalid or expired quote/i);
+  await expect(page.locator(".inline-notice")).toContainText(/invalid quote or route/i);
   await expect(page.locator(".fare-amount")).toContainText("—");
 });
 
-test("route failures are honest and do not enable quote requests", async ({ page }) => {
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+test("route failures are honest and do not show a route or fare", async ({ page }) => {
+  await blockMapTiles(page);
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    await route.fulfill({ status: 422, contentType: "application/json", body: JSON.stringify({ error: "Location could not be found" }) });
   });
   await page.goto("/");
-  await expect(page.locator('.quote-details').getByText(/couldn't find/i)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.locator(".quote-details").getByText(/could not be routed/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeEnabled();
   await expect(page.locator(".fare-amount")).toContainText("—");
 });
 
 test("booking page has no automated WCAG 2.2 AA violations", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await mockRouting(page);
+  await blockMapTiles(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /your next stop/i })).toBeVisible();
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
@@ -227,12 +216,11 @@ test("booking page has no automated WCAG 2.2 AA violations", async ({ page }) =>
 });
 
 test("quote rate limits are surfaced without pretending a booking succeeded", async ({ page }) => {
-  await mockRouting(page);
+  await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ error: "rate_limited" }) });
   });
   await page.goto("/");
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".inline-notice")).toContainText(/too many quote requests/i);
   await expect(page.locator(".fare-amount")).toContainText("—");
@@ -240,7 +228,7 @@ test("quote rate limits are surfaced without pretending a booking succeeded", as
 
 test("mobile booking layout has no horizontal page overflow", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-chromium", "Mobile-only viewport assertion");
-  await mockRouting(page);
+  await blockMapTiles(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /your next stop/i })).toBeVisible();
   const dimensions = await page.evaluate(() => ({
@@ -347,7 +335,7 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
 
 
 test("admin provisions a driver and explicitly approves or suspends dispatch eligibility", async ({ page }) => {
-  await mockRouting(page);
+  await blockMapTiles(page);
   const drivers: Array<{
     driverId: string; email: string; displayName: string; vehicleRegistration: string;
     approved: boolean; online: boolean; createdAt: string;
@@ -532,12 +520,13 @@ test("driver refreshes a controlled browser location and goes offline on sign-ou
 
 test("passenger applies authenticated server-sent ride events without waiting for polling", async ({ page }) => {
   await page.clock.install();
-  await mockRouting(page);
+  await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
       durationMinutes: 14, farePaise: 4750, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
   });
   await page.route("http://api.test/api/v1/auth/register", async route => {
@@ -571,7 +560,6 @@ test("passenger applies authenticated server-sent ride events without waiting fo
   });
 
   await page.goto("/");
-  await expect(page.getByText("5.2 km · 14 min · Road route")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await page.getByLabel("Your name").fill("SSE Rider");
   await page.locator('.auth-panel input[type="email"]').first().fill("sse@example.test");
@@ -585,172 +573,89 @@ test("passenger applies authenticated server-sent ride events without waiting fo
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
 });
 
-test("reuses a recent route for the same pickup and destination", async ({ page }) => {
-  let geocodingRequests = 0;
-  let routeRequests = 0;
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    geocodingRequests += 1;
-    const url = new URL(route.request().url());
-    const query = url.searchParams.get("q") ?? "";
-    const isJiIT = query.includes("JIIT");
-    const isSector62 = query.includes("Sector 62");
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([{
-        lat: isJiIT ? "28.535" : isSector62 ? "28.628" : "28.55",
-        lon: isJiIT ? "77.35" : isSector62 ? "77.37" : "77.34",
-        display_name: query,
-      }]),
-    });
+test("does not geocode while typing; calculates a route only after an explicit quote request", async ({ page }) => {
+  let quoteRequests = 0;
+  let browserGeocodingRequests = 0;
+  await page.route("https://nominatim.openstreetmap.org/**", async route => {
+    browserGeocodingRequests += 1;
+    await route.abort();
   });
-  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
-    routeRequests += 1;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(routeFixture) });
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    quoteRequests += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
+      distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, currency: "INR",
+      expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
+    }) });
   });
-  await page.route("https://{s}.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://a.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://b.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
-
+  await blockMapTiles(page);
   await page.goto("/");
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => routeRequests).toBe(1);
-  await expect.poll(() => geocodingRequests).toBe(2);
-
-  const destination = page.getByRole("combobox", { name: "Drop-off point" });
-  await destination.fill("Sector 62");
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => routeRequests).toBe(2);
-  // The pickup stayed the same, so its geocode should have been reused.
-  await expect.poll(() => geocodingRequests).toBe(3);
-
-  // Returning to the original pair must use the recent cached route result.
+  const pickup = page.getByRole("textbox", { name: "Pickup point" });
+  const destination = page.getByRole("textbox", { name: "Drop-off point" });
+  await pickup.fill("Sector 62");
   await destination.fill("Sector 18 Market");
+  await page.waitForTimeout(1500);
+  expect(quoteRequests).toBe(0);
+  expect(browserGeocodingRequests).toBe(0);
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => routeRequests).toBe(2);
-  await expect.poll(() => geocodingRequests).toBe(3);
+  expect(quoteRequests).toBe(1);
+  expect(browserGeocodingRequests).toBe(0);
 });
 
 
 test("rejects malformed road-route coordinates instead of drawing them", async ({ page }) => {
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([{ lat: "28.54", lon: "77.34", display_name: query }]),
-    });
+  await blockMapTiles(page);
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
+      distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, currency: "INR",
+      expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      geometry: [[999, 28.53], [77.34, 28.54]],
+    }) });
   });
-  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        code: "Ok",
-        routes: [{
-          distance: 5200,
-          duration: 840,
-          geometry: { type: "LineString", coordinates: [[999, 28.53], [77.34, 28.54]] },
-        }],
-      }),
-    });
-  });
-  await page.route("https://{s}.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://a.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://b.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
-
   await page.goto("/");
-  await expect(page.locator(".quote-details").getByText(/invalid route data/i)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.locator(".quote-details").getByText(/invalid quote or route/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("application", { name: /Interactive road map from/ })).toHaveCount(0);
   await expect(page.locator(".fare-amount")).toContainText("—");
 });
 
 test("production driver and admin entry points open the correct role workspace", async ({ page }) => {
-  let geocodingRequests = 0;
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    geocodingRequests += 1;
+  let quoteRequests = 0;
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    quoteRequests += 1;
     await route.abort();
   });
-
   await page.goto("http://driver.localhost:4173");
   await expect(page.getByRole("heading", { name: "Your next ride starts here." })).toBeVisible();
   await expect(page.getByText("Driver sign in")).toBeVisible();
   await expect(page.locator("#booking")).toBeHidden();
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toHaveCount(0);
-
   await page.goto("http://127.0.0.1:4173/admin");
   await expect(page.getByRole("heading", { name: "Operations, backed by data." })).toBeVisible();
   await expect(page.getByText("Admin sign in")).toBeVisible();
   await expect(page.locator("#booking")).toBeHidden();
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toHaveCount(0);
-  expect(geocodingRequests).toBe(0);
+  expect(quoteRequests).toBe(0);
 });
 
-test("debounces location edits instead of geocoding every keystroke", async ({ page }) => {
-  let geocodingRequests = 0;
-  let routeRequests = 0;
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    geocodingRequests += 1;
-    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([{ lat: "28.55", lon: "77.34", display_name: query }]),
-    });
+test("route calculations are not triggered by typing", async ({ page }) => {
+  let quoteRequests = 0;
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    quoteRequests += 1;
+    await route.abort();
   });
-  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
-    routeRequests += 1;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(routeFixture) });
-  });
-  await page.route("https://{s}.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://a.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://b.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
-
+  await blockMapTiles(page);
   await page.goto("/");
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => geocodingRequests).toBe(2);
-  await expect.poll(() => routeRequests).toBe(1);
-
-  const pickup = page.getByRole("combobox", { name: "Pickup point" });
-  await pickup.fill("Sec");
-  await page.waitForTimeout(400);
-  await expect.poll(() => geocodingRequests).toBe(2);
-  await expect.poll(() => routeRequests).toBe(1);
-
-  await pickup.fill("Sector 62");
-  await page.waitForTimeout(500);
-  await expect.poll(() => geocodingRequests).toBe(2);
-  await expect.poll(() => routeRequests).toBe(1);
-
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => geocodingRequests).toBe(3);
-  await expect.poll(() => routeRequests).toBe(2);
+  await page.getByRole("textbox", { name: "Pickup point" }).fill("Sector 62");
+  await page.getByRole("textbox", { name: "Drop-off point" }).fill("Sector 18 Market");
+  await page.waitForTimeout(1500);
+  expect(quoteRequests).toBe(0);
 });
 
-test("rejects an oversized routing-provider response before parsing or rendering it", async ({ page }) => {
-  let routeRequests = 0;
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([{ lat: "28.55", lon: "77.34", display_name: query }]),
-    });
-  });
-  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
-    routeRequests += 1;
-    await route.fulfill({ status: 200, contentType: "application/json", body: "x".repeat(1024 * 1024 + 1) });
-  });
-  await page.route("**://*.tile.openstreetmap.org/**", route => route.abort());
 
-  await page.goto("/");
-  await expect(page.locator(".quote-row").filter({ hasText: "Estimated route" })).toContainText(/The routing service returned an oversized response/, { timeout: 15_000 });
-  expect(routeRequests).toBe(1);
-  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
-});
 
 
 test("driver and admin portals have same-origin routes and driver polls offers before expiry", async ({ page }) => {

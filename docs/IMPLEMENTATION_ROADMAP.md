@@ -87,7 +87,7 @@ Acceptance: passenger and driver converge on the same persisted ride state after
 
 ## Phase 4 — passenger product completeness
 
-- [ ] Finish pickup/destination autocomplete, map selection, accessible map alternatives and quote expiry handling.
+- [x] Calculate the road route and fare only after an explicit server-quote action; keep public geocoding off browser keystrokes and enforce provider pacing server-side. [ ] Add optional place suggestions only after selecting a contracted/self-hosted geocoder, plus accessible map selection and keyboard alternatives.
 - [ ] Verify fare breakdown, cancellation policy and confirmed state across API failures.
 - [x] Add passenger trip history with final fare/completion timestamps and a printable demo receipt, plus driver trip history and gross completed-fare summary (not a payout ledger).
 - [x] Add passenger/driver support reporting and admin triage UI.

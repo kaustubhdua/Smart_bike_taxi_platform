@@ -564,7 +564,7 @@ components:
     QuoteResponse:
       type: object
       additionalProperties: false
-      required: [quoteId, distanceKm, durationMinutes, farePaise, currency, expiresAt]
+      required: [quoteId, distanceKm, durationMinutes, farePaise, currency, expiresAt, geometry]
       properties:
         quoteId:
           type: string
@@ -585,6 +585,19 @@ components:
         expiresAt:
           type: string
           format: date-time
+        geometry:
+          description: Road-route coordinates in GeoJSON [longitude, latitude] order.
+          $ref: "#/components/schemas/RouteGeometry"
+    RouteGeometry:
+      description: Bounded LineString coordinate sequence in GeoJSON [longitude, latitude] order.
+      type: array
+      minItems: 2
+      maxItems: 10000
+      items:
+        type: array
+        minItems: 2
+        maxItems: 2
+        items: { type: number }
   securitySchemes:
     bearerAuth:
       type: http

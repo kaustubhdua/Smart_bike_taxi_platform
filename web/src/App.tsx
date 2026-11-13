@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { calculateRoute } from "./lib/routing";
 const RouteMap = lazy(() => import("./components/RouteMap"));
 import OperationsWorkspace from "./components/OperationsWorkspace";
 import {
@@ -19,6 +18,14 @@ const locations = [
 
 function apiUrl(base: string, path: string): string {
   return (base.endsWith("/") ? base.slice(0, -1) : base) + path;
+}
+
+function isRouteGeometry(value: unknown): value is Array<[number, number]> {
+  return Array.isArray(value) && value.length >= 2 && value.length <= 10000 &&
+    value.every(point => Array.isArray(point) && point.length === 2 &&
+      typeof point[0] === "number" && Number.isFinite(point[0]) &&
+      typeof point[1] === "number" && Number.isFinite(point[1]) &&
+      point[0] >= -180 && point[0] <= 180 && point[1] >= -90 && point[1] <= 90);
 }
 
 export default function App() {
@@ -61,44 +68,8 @@ export default function App() {
   const [historyBusy, setHistoryBusy] = useState(false);
   const [receiptRideId, setReceiptRideId] = useState<string | null>(null);
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
-  const valid = pickup !== destination && Boolean(pickup && destination) && Boolean(route) && !routeLoading;
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setRoute(null);
-    setQuote(null);
-    setRouteError("");
-    // Driver/admin hosts must not trigger passenger-facing geocoding/routing work.
-    // Debounce edits so typing an address is not treated as a stream of searches.
-    if (isRoleWorkspaceHost || mode === "driver" || mode === "admin" ||
-        pickup.trim().length < 3 || destination.trim().length < 3 || pickup === destination) {
-      setRouteLoading(false);
-      return () => controller.abort();
-    }
-    setRouteLoading(false);
-    const timer = setTimeout(() => {
-      if (controller.signal.aborted) return;
-      setRouteLoading(true);
-      calculateRoute(pickup, destination, controller.signal)
-        .then(result => setRoute({
-          km: result.distanceKm,
-          mins: result.durationMinutes,
-          path: "Road route",
-          geometry: result.geometry,
-          provider: result.provider,
-        }))
-        .catch(error => {
-          if (error instanceof Error && error.name !== "AbortError") setRouteError(error.message);
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setRouteLoading(false);
-        });
-    }, 1200);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [pickup, destination, mode, isRoleWorkspaceHost]);
+  const valid = pickup.trim().length >= 3 && destination.trim().length >= 3 &&
+    pickup.trim().toLocaleLowerCase("en-US") !== destination.trim().toLocaleLowerCase("en-US") && !routeLoading;
 
   useEffect(() => {
     if (!quote?.expiresAt) return;
@@ -352,10 +323,19 @@ export default function App() {
   async function requestRide() {
     setNotice("");
     setApiState("checking");
+    setRouteLoading(true);
+    setRouteError("");
+    setRoute(null);
+    setQuote(null);
+    setBookingKey(null);
+    setRide(null);
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (base === undefined) {
+      const message = "RideForge API is not configured. Set VITE_API_BASE_URL to request quotes and create ride bookings.";
       setApiState("offline");
-      setNotice("RideForge API is not configured. Set VITE_API_BASE_URL to request quotes and create ride bookings.");
+      setRouteError(message);
+      setNotice(message);
+      setRouteLoading(false);
       return;
     }
     try {
@@ -380,7 +360,7 @@ export default function App() {
       }
       const data = await response.json() as {
         quoteId?: string; farePaise?: number; distanceKm?: number; durationMinutes?: number;
-        currency?: string; expiresAt?: string;
+        currency?: string; expiresAt?: string; geometry?: unknown;
       };
       const expiry = data.expiresAt ? Date.parse(data.expiresAt) : Number.NaN;
       if (
@@ -388,10 +368,19 @@ export default function App() {
         !Number.isSafeInteger(data.farePaise) || (data.farePaise as number) < 0 ||
         typeof data.distanceKm !== "number" || !Number.isFinite(data.distanceKm) || data.distanceKm <= 0 ||
         !Number.isSafeInteger(data.durationMinutes) || (data.durationMinutes as number) <= 0 ||
-        data.currency !== "INR" || !Number.isFinite(expiry) || expiry <= Date.now()
+        data.currency !== "INR" || !Number.isFinite(expiry) || expiry <= Date.now() ||
+        !isRouteGeometry(data.geometry)
       ) {
-        throw new Error("The quote service returned an invalid or expired quote. Please try again.");
+        throw new Error("The quote service returned an invalid quote or route. Please try again.");
       }
+      setRoute({
+        km: data.distanceKm,
+        mins: data.durationMinutes as number,
+        path: "Road route",
+        geometry: data.geometry,
+        provider: "server-side routing provider",
+      });
+      setRouteError("");
       setQuote({
         quoteId: data.quoteId, farePaise: data.farePaise as number,
         distanceKm: data.distanceKm, durationMinutes: data.durationMinutes as number,
@@ -402,13 +391,16 @@ export default function App() {
       setApiState("idle");
     } catch (error) {
       setApiState("offline");
-      if (error instanceof Error && error.name === "AbortError") {
-        setNotice("The quote service took too long to respond. Please try again.");
-      } else {
-        setNotice(error instanceof Error && error.message !== "Failed to fetch"
+      const message = error instanceof Error && error.name === "AbortError"
+        ? "The quote service took too long to respond. Please try again."
+        : error instanceof Error && error.message !== "Failed to fetch"
           ? error.message
-          : "We could not reach the quote service. Check the API and try again.");
-      }
+          : "We could not reach the quote service. Check the API and try again.";
+      setRoute(null);
+      setRouteError(message);
+      setNotice(message);
+    } finally {
+      setRouteLoading(false);
     }
   }
 
@@ -756,14 +748,14 @@ export default function App() {
               <div className="location-fields">
                 <div className="location-rail"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
                 <div className="field-stack">
-                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Pickup point" placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
+                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Pickup point" disabled={apiState === "checking"} placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
                   <div className="field-separator" />
-                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setQuote(null); setRide(null); setNotice(""); }} aria-label="Drop-off point" placeholder="Search destination in Noida" autoComplete="off" /></div></label>
+                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Drop-off point" disabled={apiState === "checking"} placeholder="Search destination in Noida" autoComplete="off" /></div></label>
                 </div>
                 <datalist id="rideforge-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
-                <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
+                <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} disabled={apiState === "checking"}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
               </div>
-              <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Finding a real road route…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Select different locations to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
+              <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Calculating route and fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Choose two locations and request a server quote to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
               <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? " awaiting server quote" : " server quote"}</span></div></div><div className="fare-note"><Check size={14} /> {quote ? "Quote from API" : "No invented price"}<br /><small>{quote ? (quote.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Check quote expiry before booking") : "A fare appears only after the server responds."}</small></div></div>
               <button className="book-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>{apiState === "checking" ? "Checking quote…" : "Get server fare quote"} <ArrowRight size={18} /></button>
               {((quote && !ride) || mode !== "ride") && account?.role !== "driver" && account?.role !== "admin" && (
