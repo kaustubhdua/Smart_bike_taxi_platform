@@ -293,7 +293,11 @@ def test_accept_racing_offer_expiry_never_leaves_a_partial_assignment():
     passenger_id, _ = passenger()
     outcomes = set()
     for _ in range(ROUNDS):
-        driver_id, token = online_driver()
+        # Keep this test's driver offline: offers are planted directly below,
+        # and an online driver could be claimed by the background dispatcher for
+        # an unrelated pending ride between go_online() and the fixture insert.
+        _, driver_id = create_driver(approved=True)
+        token = forge_token(driver_id, "driver")
         ride_id = plant_ride_with_offer(passenger_id, driver_id)
 
         def expire_offer():
