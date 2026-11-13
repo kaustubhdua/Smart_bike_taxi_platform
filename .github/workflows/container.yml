@@ -41,7 +41,8 @@ jobs:
     timeout-minutes: 20
     env:
       POSTGRES_PASSWORD: local-ci-password-not-for-production
-      DATABASE_URL: postgresql://rideforge:local-ci-password-not-for-production@db:5432/rideforge
+      RIDEFORGE_APP_PASSWORD: local-ci-runtime-password-32-characters-minimum
+      DATABASE_URL: postgresql://rideforge_app:local-ci-runtime-password-32-characters-minimum@db:5432/rideforge
       RIDEFORGE_USER_AGENT: RideForgeContainerCI/0.1 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)
       RIDEFORGE_JWT_SECRET: local-ci-secret-that-must-never-be-used-in-production-123456
       RIDEFORGE_DOMAIN: rideforge.example.test
