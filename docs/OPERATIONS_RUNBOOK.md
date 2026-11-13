@@ -42,6 +42,7 @@ A plain `docker compose down` preserves the named database volume. Do not remove
 
 - Migrations are ordered SQL files named with a stable version prefix.
 - Each migration records its version inside its own transaction.
+- Public-schema function execution is opt-in: browser roles and `service_role` receive no application-function `EXECUTE` rights by default. Grant function execution explicitly only when a reviewed API contract requires it.
 - Re-running the migration runner skips versions already recorded.
 - If an accounts table exists without schema_migrations, the runner fails closed. Back up the database and deliberately baseline its schema; do not bypass the check casually.
 - Before production schema changes, take a verified backup, test the migration on a copy, and prepare a rollback/recovery plan. Destructive migrations require a separate reviewed plan.
@@ -90,7 +91,7 @@ Before any public launch, provide HTTPS, managed secrets, least-privilege databa
 
 ## Deployment probes
 
-Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 013 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
+Use `GET /api/v1/health` for database connectivity and `GET /api/v1/ready` for rollout readiness. Readiness returns `503` if the database is unavailable, required account/ride/outbox/migration-ledger tables are missing, or any required migration version from 001 through 015 is absent from the ledger. The Compose API healthcheck uses readiness so the web service does not start against an incomplete schema.
 
 
 ## Backup and restore
@@ -113,6 +114,32 @@ mv "$temporary" "$backup"
 ~~~
 
 For the production overlay, use the same command with the additional flags: docker compose -f compose.yaml -f compose.production.yaml. Keep backup files encrypted at rest, outside the repository and outside the production host where possible.
+
+### Enable the dedicated read-only backup identity
+
+Migration 015 creates `rideforge_backup` with SELECT on current/future `public` tables and USAGE/SELECT on current/future public sequences. It has BYPASSRLS only so a dump can include every backend-owned row, but it is **NOLOGIN**, has no password, no write privileges and no application-role memberships (the project administrator remains able to assume it). Do not enable it unless the scheduled encrypted-backup workflow is being configured.
+
+To provision it, connect to the project with the owner connection in a private terminal, then run:
+
+~~~sh
+psql "$MIGRATION_DATABASE_URL"
+~~~
+
+At the `psql` prompt:
+
+~~~sql
+ALTER ROLE rideforge_backup LOGIN;
+\password rideforge_backup
+~~~
+
+The `\password` command prompts interactively and avoids placing the password in shell history or SQL text. Exit psql. Add these repository Actions secrets under **Settings → Secrets and variables → Actions**:
+
+- `RIDEFORGE_BACKUP_DATABASE_URL`: the Supabase **Session pooler** URI (port 5432), username `rideforge_backup.<PROJECT_REF>`, the new password URL-encoded, and `sslmode=require`.
+- `RIDEFORGE_BACKUP_PASSPHRASE`: a separate strong passphrase used only for AES-256 GPG encryption.
+
+The `Supabase encrypted backup` workflow runs daily at 02:30 UTC and can also be started manually. It exports only the RideForge `public` schema, encrypts the dump before upload, decrypts it in the runner to verify archive readability, and stores the encrypted artifact for 30 days. It never uploads the plaintext dump. The role does not include Supabase Auth or Storage schemas; those are currently unused by RideForge (zero Auth users and zero Storage buckets in the audit), and must be added to a separately reviewed backup plan if adopted later.
+
+**This workflow is not active until the operator configures both secrets and a successful scheduled/manual run is observed.** A readable archive is not a restore drill. Before launch, restore a downloaded encrypted artifact into an isolated PostgreSQL 17 database, verify schema/migration and representative row counts, and record measured recovery time. For stronger disaster recovery, copy encrypted artifacts to a separately administered object-storage account; GitHub artifact retention is only the initial 30-day safety net.
 
 ### Supabase Free manual logical backup (operator-run)
 
@@ -151,7 +178,7 @@ docker compose exec -T db psql -U rideforge -d rideforge_restore -X -v ON_ERROR_
 docker compose exec -T db dropdb -U rideforge rideforge_restore
 ~~~
 
-For the production overlay, prefix each command with the same two -f compose file arguments. Run the repository restore script only when RESTORE_DATABASE_URL points to a reachable, deliberately empty restore target; it refuses to overwrite existing relations.
+For the production overlay, prefix each command with the same two -f compose file arguments. Run `backend/scripts/restore.sh` only when `DATABASE_URL` points to a reachable, deliberately empty restore target; it refuses to overwrite existing relations. After restoring the logical dump, the script replays browser-role lockdown and role/privilege migrations 007 and 009–015 because `pg_dump --no-acl` intentionally excludes global roles and ACLs. Supply a fresh, standard-base64 `RIDEFORGE_APP_PASSWORD` in the private environment so the migration runner can set the restored runtime-role credential; without it, the script warns that the API must not start until the runtime credential is configured.
 
 After restoration, verify representative account, ride, event, and idempotency counts before considering recovery successful. Store backups in a separate access-controlled location, define retention/deletion, and periodically perform a timed restore drill. CI runs a disposable-database backup/restore smoke test; that is not evidence of a production backup schedule or recovery-time objective.
 

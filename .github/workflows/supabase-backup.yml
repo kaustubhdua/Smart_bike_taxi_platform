@@ -1,0 +1,76 @@
+name: Supabase encrypted backup
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rideforge-supabase-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Export and encrypt RideForge database
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install PostgreSQL client and GnuPG
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client gnupg
+
+      - name: Create, encrypt and verify the logical backup
+        shell: bash
+        env:
+          DATABASE_URL: ${{ secrets.RIDEFORGE_BACKUP_DATABASE_URL }}
+          PASSPHRASE: ${{ secrets.RIDEFORGE_BACKUP_PASSPHRASE }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          : "${DATABASE_URL:?Missing RIDEFORGE_BACKUP_DATABASE_URL repository secret}"
+          : "${PASSPHRASE:?Missing RIDEFORGE_BACKUP_PASSPHRASE repository secret}"
+          case "$DATABASE_URL" in
+            postgresql://*|postgres://*) ;;
+            *) echo "Backup URL must be a PostgreSQL URI." >&2; exit 2 ;;
+          esac
+          [[ "$DATABASE_URL" == *"rideforge_backup."* ]] || { echo "Use the dedicated rideforge_backup database role." >&2; exit 2; }
+          [[ "$DATABASE_URL" == *":5432/"* ]] || { echo "Use the Supabase Session pooler on port 5432." >&2; exit 2; }
+          [[ "$DATABASE_URL" == *"sslmode=require"* ]] || { echo "Require sslmode=require in the connection URI." >&2; exit 2; }
+
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          dump="$workdir/rideforge-$stamp.dump"
+          encrypted="$GITHUB_WORKSPACE/backup-artifact/rideforge-$stamp.dump.gpg"
+          verified="$workdir/verified.dump"
+
+          mkdir -p "$GITHUB_WORKSPACE/backup-artifact"
+          PGCONNECT_TIMEOUT=10 PGSSLMODE=require pg_dump \
+            --schema=public --format=custom --no-owner --no-acl \
+            --file="$dump" "$DATABASE_URL"
+          test -s "$dump"
+
+          printf '%s' "$PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --symmetric --cipher-algo AES256 --passphrase-fd 0 \
+            --output "$encrypted" "$dump"
+          test -s "$encrypted"
+
+          printf '%s' "$PASSPHRASE" | gpg --batch --pinentry-mode loopback \
+            --decrypt --passphrase-fd 0 --output "$verified" "$encrypted"
+          pg_restore --list "$verified" > "$workdir/archive.list"
+          grep -q "TABLE public accounts" "$workdir/archive.list"
+          sha256sum "$encrypted" > "$encrypted.sha256"
+          echo "Encrypted backup created and archive readability verified; plaintext is not uploaded."
+
+      - name: Upload encrypted backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rideforge-supabase-backup-${{ github.run_id }}
+          path: backup-artifact/*
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

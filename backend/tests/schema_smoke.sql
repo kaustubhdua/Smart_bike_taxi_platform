@@ -23,6 +23,34 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='012_runtime_role_least_privilege') THEN
     RAISE EXCEPTION 'runtime-role least-privilege migration ledger entry is missing';
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='013_runtime_role_sequence_least_privilege')
+     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='014_lock_down_public_function_execution_defaults')
+     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='015_create_readonly_backup_role') THEN
+    RAISE EXCEPTION 'database hardening migrations 013-015 must be recorded';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind='S'
+      AND has_sequence_privilege('rideforge_app',c.oid,'UPDATE')
+  ) THEN
+    RAISE EXCEPTION 'runtime role must not have UPDATE on public sequences';
+  END IF;
+  IF has_function_privilege('anon','public.enqueue_ride_event_notification()','EXECUTE')
+     OR has_function_privilege('authenticated','public.enqueue_ride_event_notification()','EXECUTE')
+     OR (EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role')
+         AND has_function_privilege('service_role','public.enqueue_ride_event_notification()','EXECUTE')) THEN
+    RAISE EXCEPTION 'browser and service roles must not execute application trigger functions';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_authid WHERE rolname='rideforge_backup'
+      AND NOT rolcanlogin AND rolbypassrls AND NOT rolsuper
+      AND NOT rolcreatedb AND NOT rolcreaterole AND rolpassword IS NULL) THEN
+    RAISE EXCEPTION 'backup role must remain disabled, passwordless and non-superuser';
+  END IF;
+  IF NOT has_table_privilege('rideforge_backup','public.accounts','SELECT')
+     OR has_table_privilege('rideforge_backup','public.accounts','INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+     OR has_sequence_privilege('rideforge_backup','public.ride_events_id_seq','UPDATE') THEN
+    RAISE EXCEPTION 'backup role must be read-only';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='010_runtime_role_database_access') THEN
     RAISE EXCEPTION 'runtime database role access migration ledger entry is missing';
   END IF;
