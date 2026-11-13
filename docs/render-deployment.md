@@ -4,11 +4,18 @@ This guide describes a free-tier evaluation deployment. It is not a production S
 
 ## Services
 
-- Static site: build from `web/` with `npm ci && npm run build`, publish `web/dist`. The passenger portal is `/`, the driver portal is `/driver` (or a `driver.` hostname), and the protected admin portal is `/admin`; all three can share one static-site origin.
-  - For direct navigation and refresh on `/driver` and `/admin`, add a Render Static Site rewrite in **Settings → Redirects/Rewrites**: source `/*`, destination `/index.html`, action **Rewrite**. Without this SPA fallback, the CDN can return 404 before the client-side entry-point code runs. See [Render's rewrite documentation](https://render.com/docs/redirects-rewrites).
-- API web service: Docker runtime, build context the repository root (`.`), Dockerfile `backend/Dockerfile`, startup command `/usr/local/bin/rideforge_render_entrypoint`.
+- Static site: the root `render.yaml` builds `web/` with `npm ci && npm run build`, publishes `web/dist`, and configures the SPA rewrite `/* → /index.html`. The passenger portal is `/`, the driver portal is `/driver`, and the protected admin portal is `/admin`.
+- API web service: the root `render.yaml` adopts `rideforge-api-final`, uses Docker context `.` and Dockerfile `backend/Dockerfile`, and checks `/api/v1/ready`.
+- The Blueprint sets both services to `main`, keeps the existing free plans, and deploys only after GitHub checks pass. It intentionally adopts only `rideforge-api-final` and `rideforge-web`; it does not create a Render database or delete historical duplicate API services.
+- Before applying a Blueprint sync, inspect the Render plan and confirm it adopts exactly those two existing services, creates no new paid resources, and keeps the existing Supabase database.
 - The API container supervises the C++ HTTP API, durable dispatch worker and outbox worker. If any child exits, the supervisor terminates siblings and exits nonzero so Render restarts the service. This combined process layout is only a demo compromise; Render recommends separate services, and its free web service sleeps after 15 minutes without inbound traffic.
 - The entrypoint runs the versioned database migration runner before starting the workers/API. It requires two separate connection strings.
+
+## Blueprint and existing services
+
+`render.yaml` is the source of truth for the two existing Render services. Create the Blueprint from the repository's `main` branch using the **adopt existing resources** option. Review the proposed sync before approving it. The plan must adopt the existing `rideforge-api-final` and `rideforge-web` services; do not approve a plan that creates a duplicate service, provisions a Render Postgres database, or selects a paid plan.
+
+The Blueprint's `sync: false` variables are secrets and must be entered in Render's protected environment settings. It generates the JWT secret in Render. On first sync, provide the Supabase session-pooler runtime URL, migration-owner URL, and runtime-role password. The runtime URL password must match `RIDEFORGE_APP_PASSWORD`. Keep the database on the existing Supabase project; no database or password is committed to Git.
 
 ## Required secrets and configuration
 
