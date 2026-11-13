@@ -66,7 +66,7 @@ export default function DemoExperience() {
     if (pickup === destination) { setMessage("Choose two different locations."); return; }
     const fare = Math.round((55 + Math.abs(places.indexOf(pickup) - places.indexOf(destination)) * 22) * 100) / 100;
     const ride: DemoRide = { id: "RF-" + Math.random().toString(36).slice(2, 8).toUpperCase(), pickup, destination, fare, status: "Searching", createdAt: new Date().toLocaleString() };
-    setRides(current => [ride, ...current]);
+    setRides(current => [ride, ...current].slice(0, 100));
     setTab("passenger");
     setMessage("Demo booking created. Switch to Driver to simulate acceptance.");
   }
