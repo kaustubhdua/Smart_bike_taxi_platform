@@ -30,7 +30,7 @@ flowchart TB
   API -->|authenticated SSE| WEB
 ```
 
-The diagram shows the target Supabase-native application path. The React static site remains on Render; authentication, HTTP API, database and transactional ride operations are Supabase-hosted. The old C++ API/worker stack remains in the repository only for rollback until release verification and Render service retirement are complete.
+The diagram shows the target Supabase-native application path. The React static site remains on Render; authentication, HTTP API, database and transactional ride operations are Supabase-hosted. The old C++ API/worker stack remains in the repository only for reference/rollback. Its Render services are legacy and are not part of the intended runtime; the production outbox notification trigger is retired.
 
 ## 3. Components and responsibilities
 
