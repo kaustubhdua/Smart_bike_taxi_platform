@@ -70,6 +70,6 @@ supabase db push
 supabase functions deploy rideforge-api --no-verify-jwt
 ```
 
-The live migrations `016_supabase_native_backend` through `020_revalidate_driver_at_acceptance` establish the Auth bridge, participant-scoped RLS, Realtime publication, transactional ride RPCs, bounded sequential dispatch, per-IP quote rate limits, serialized Nominatim requests and revalidation of driver approval/location freshness when accepting an offer.
+The live migrations `016_supabase_native_backend` through `024_retire_legacy_outbox_trigger` establish the Auth bridge, participant-scoped RLS, Realtime publication, transactional ride RPCs, bounded sequential dispatch with one active offer per ride, per-IP quote rate limits, serialized Nominatim requests, driver approval/location revalidation, and retirement of the legacy outbox notification trigger.
 
-The Render static site can continue serving the built React app. The Render API service is no longer the intended backend and must only be retired after the frontend deployment, auth bootstrap, booking/dispatch smoke tests and rollback window are verified.
+The Render static site continues serving the built React app. The Render API service is not used by the Supabase-native application and should be retired after PR #79 is merged, the static site has deployed that merge commit, Auth URL configuration and first-admin bootstrap are complete, and browser booking/dispatch acceptance tests pass. Keep the static site; remove only the three legacy API services.
