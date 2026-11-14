@@ -623,6 +623,7 @@ test("does not geocode while typing; calculates a route only after an explicit q
   });
   await blockMapTiles(page);
 
+  await page.goto("/live");
   const pickup = page.getByRole("combobox", { name: "Pickup point" });
   const destination = page.getByRole("combobox", { name: "Drop-off point" });
   await pickup.fill("Sector 62");
@@ -683,6 +684,7 @@ test("route calculations are not triggered by typing", async ({ page }) => {
   });
   await blockMapTiles(page);
 
+  await page.goto("/live");
   await page.getByRole("combobox", { name: "Pickup point" }).fill("Sector 62");
   await page.getByRole("combobox", { name: "Drop-off point" }).fill("Sector 18 Market");
   await page.waitForTimeout(1500);
@@ -732,47 +734,25 @@ test("driver and admin portals have same-origin routes and driver polls offers b
 });
 
 
-test("root demo completes a passenger-to-driver-to-admin simulation", async ({ page }) => {
+// ---- Home page is the real, API-backed app (no browser-only simulation) -----------------
+
+test("the home page is the live API-backed planner, not a simulation", async ({ page }) => {
+  await blockMapTiles(page);
   await page.goto("/");
-  await expect(page.getByText("SIMULATION ONLY")).toBeVisible();
-  await expect(page.getByText(/no real rides or payments/i)).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open API-backed passenger app" })).toHaveAttribute("href", "/live");
-
-  await page.getByRole("button", { name: "Create demo booking" }).click();
-  await expect(page.getByRole("status")).toContainText("Demo booking created");
-
-  await page.getByRole("button", { name: "Driver workspace" }).click();
-  await page.getByRole("button", { name: "Accept request" }).click();
-  await expect(page.getByRole("status")).toContainText("Demo ride updated: Driver assigned");
-  await page.getByRole("button", { name: "Start ride" }).click();
-  await page.getByRole("button", { name: "Complete ride" }).click();
-  await expect(page.getByRole("status")).toContainText("Demo ride updated: Completed");
-
-  await page.getByRole("button", { name: "Admin workspace" }).click();
-  await expect(page.getByText("Total demo rides")).toBeVisible();
-  await expect(page.getByText("Completed", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Where to\?/ })).toBeVisible();
+  await expect(page.getByText(/SIMULATION ONLY|INTERACTIVE DEMO|fictional ride records/i)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeVisible();
+  // No fare is shown until the server answers.
+  await expect(page.locator(".fare-amount")).toContainText("—");
 });
 
-test("root demo safely ignores malformed browser-stored ride records", async ({ page }) => {
+test("home page reports an unreachable API honestly and never invents a ride or fare", async ({ page }) => {
+  await blockMapTiles(page);
+  await page.route("http://api.test/**", route => route.abort("connectionrefused"));
   await page.goto("/");
-  await page.evaluate(() => {
-    localStorage.setItem("rideforge-demo-rides-v1", JSON.stringify([
-      null,
-      { id: "bad", pickup: "Private home", destination: "Unknown", fare: "free", status: "Completed" },
-      { id: "bad-status", pickup: "JIIT Sector 128", destination: "Sector 18 Market", fare: 50, status: "Paid" },
-    ]));
-  });
-  await page.reload();
-  await expect(page.getByText("SIMULATION ONLY")).toBeVisible();
-  await expect(page.getByText("No demo rides yet.")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("rideforge-demo-rides-v1"))).toBe("[]");
-});
-
-
-test("root demo meets automated WCAG 2.2 AA checks", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
-  await expect(page.getByText("SIMULATION ONLY")).toBeVisible();
-  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-  expect(results.violations).toEqual([]);
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.locator(".fare-amount")).toContainText("—");
+  await expect(page.getByText(/RF-[A-Z0-9]{6}/)).toHaveCount(0);
+  await expect(page.locator(".inline-notice").filter({ hasText: /./ }).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".fare-amount")).toContainText("—");
 });
