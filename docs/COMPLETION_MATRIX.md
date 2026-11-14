@@ -1,7 +1,7 @@
 # RideForge 100-point completion matrix
 
 **Snapshot:** 2026-11-14  
-**Repository main SHA assessed:** `5d802f212ba11a2980c066e7734595bd8b4e2ba8`  
+**Repository base SHA assessed:** `670e946f2b290ec7081d712a073edad6a697f1cb`  
 **Target:** L4 operationally ready software, with L5 commercial authorization separate.
 
 This is an evidence register, not a feature-count scoreboard. A task is **VERIFIED** only when its stated acceptance evidence exists. **IMPLEMENTED** means code/documentation exists but exact-head tests or real-environment proof are still outstanding. A queued workflow is not a pass. A blocked external dependency is not silently marked complete.
@@ -50,7 +50,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 3 | Define passenger, driver, admin and support scope | PARTIAL | Engineering | API/UI scope documented; product acceptance and support operating model still need sign-off |
 | 4 | Remove duplicate implementations and configuration paths | PARTIAL | Engineering | Active Vite entrypoint identified; complete duplicate/dead-code sweep remains |
 | 5 | Identify TODOs, mocks, hard-coded responses and nonfunctional screens | PARTIAL | Engineering | Initial UI/code review found planned safety/DSA actions and provider-dependent placeholders; full sweep remains |
-| 6 | Separate demo and live modes | IMPLEMENTED | Engineering | PR #65: browser-only localStorage simulation at `/`, API-backed experience at `/live`; exact-head Playwright pass pending |
+| 6 | Home page is the real product, not a simulation | IMPLEMENTED | Engineering | The browser-only localStorage simulation is removed; `/` serves the API-backed app (`/live` remains an alias). With the API unreachable it shows an explicit error and never invents a ride or fare; browser tests cover both |
 | 7 | Requirements-to-code-to-test matrix | PARTIAL | Engineering | This first-pass matrix maps tasks to evidence/acceptance; add exact route, test name, tested SHA and evidence URL for each implemented row |
 | 8 | Define operating geography, boundaries, hours and vehicle categories | PARTIAL | Engineering / User | Noida context exists; strict polygon geofence, operating hours and vehicle categories are not configured |
 | 9 | Define measurable acceptance criteria | PARTIAL | Engineering | CI and API acceptance tests exist; missing provider/legal/manual-device criteria remain |
