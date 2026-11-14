@@ -145,7 +145,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 65 | Payment idempotency | NOT STARTED | Engineering / Provider | Booking idempotency exists; payment-event idempotency does not |
 | 66 | Payment reconciliation | NOT STARTED | Engineering / Provider | No provider transaction reconciliation |
 | 67 | Refund workflows | NOT STARTED | Engineering / Provider | No real payment/refund provider |
-| 68 | Fare calculation boundary tests | PARTIAL | Engineering | Existing fare uses integer paise; open PR #74 adds pure C++ rounding/boundary/overflow tests and API smoke checks for component totals; exact-head CI pending |
+| 68 | Fare calculation boundary tests | PARTIAL | Engineering | PR #74 is merged; pure C++ rounding/boundary/overflow tests and API smoke checks for component totals are in main. Exact-head execution is still pending; add a backend quote integration assertion that 5.2 km at the demo ₹20 + ₹11/km tariff equals ₹77.20 |
 | 69 | Driver settlement accounting | NOT STARTED | Engineering / Finance | No net payout, commission or settlement ledger |
 | 70 | Financial audit reports | NOT STARTED | Engineering / Finance | No real transactions to reconcile; finance reporting is not implemented |
 
