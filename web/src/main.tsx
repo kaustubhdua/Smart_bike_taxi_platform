@@ -8,7 +8,7 @@ const hostname = window.location.hostname.toLowerCase();
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const isDriverPortal = hostname.startsWith("driver.") || pathname === "/driver";
 const isAdminPortal = pathname === "/admin";
-// "/live" is kept as an alias for bookmarks and tests; "/" now serves the same API-backed app.
+// "/" is the canonical API-backed app; "/live" remains a compatibility alias. No browser-only ride simulator is mounted.
 const isLiveApiView = pathname === "/live";
 
 createRoot(document.getElementById("root")!).render(
