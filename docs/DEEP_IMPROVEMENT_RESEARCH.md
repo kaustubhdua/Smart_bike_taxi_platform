@@ -329,3 +329,66 @@ Supabase's current documentation says Free projects do not receive automatic dai
 - Main SHA `5d802f212ba11a2980c066e7734595bd8b4e2ba8` is the current assessed base. No post-merge full-suite pass is established for it.
 
 **Release conclusion:** RideForge remains a full-stack academic/evaluation MVP, not a commercially authorised taxi service. A real staging journey, live API readiness, exact-head CI, backup/restore proof, driver/vehicle verification, emergency/support operations and written transport/privacy/legal approval remain separate gates.
+
+
+## Post-migration release and regulatory review — 2026-11-14
+
+This addendum supersedes earlier snapshots in this document where they describe the C++/Render API as the intended production backend or list the Render API as still required. The current intended application backend is Supabase; Render is retained only for the static web frontend.
+
+### Verified implementation state
+
+- PR #79 is merged into `main` at merge commit `670e946f2b290ec7081d712a073edad6a697f1cb`.
+- Supabase project `ghcufcegfvvjhsnqnrzr` is `ACTIVE_HEALTHY`; the `rideforge-api` Edge Function is active at version 9.
+- Security and health advisors returned zero findings in the latest check. The backend migration work records 14 public application tables with RLS enabled.
+- Transactional SQL evidence covers idempotent booking, dispatch/offer expiry and retries, acceptance revalidation, ride lifecycle, cancellation, passenger isolation, auth account creation trigger, rate limits and event persistence. These are database-level tests, not a substitute for deployed browser journeys.
+- Production has no real application accounts or rides. The first verified account/admin bootstrap and browser end-to-end journey have not been completed.
+- PR #81 forward-ports the real-app homepage change after the Supabase migration. Its exact-head Actions checks are queued; they are not passes. Do not merge until those checks complete successfully.
+- Three old Render API services remain in the account. They are not part of the intended architecture and must be deleted manually after the static frontend is confirmed healthy. Keep `rideforge-web`.
+
+### Supabase production controls to close
+
+Use the official [Supabase Production Checklist](https://supabase.com/docs/guides/deployment/going-into-prod) and [Production Security Checklist](https://supabase.com/docs/guides/security/production-checklist) as an evidence register, not just the SQL advisor.
+
+1. **Auth:** configure the Site URL and redirect allow-list for the actual frontend and local development; verify email confirmation; use custom SMTP before public signup; set confirmation/recovery OTP expiry to one hour or less; configure CAPTCHA/rate limits and an account recovery path. Create and verify a real first account before owner-only admin promotion.
+2. **Database transport/network:** verify Postgres SSL enforcement and assess database network restrictions. Do not blindly allow-list a changing serverless egress IP. Supabase notes that network restrictions apply to Postgres/pooler but not HTTPS APIs, and Edge Functions lose direct database connectivity when restrictions are enabled; validate the actual supabase-js/data-API connection path before enabling restrictions.
+3. **Organization access:** enable MFA for the Supabase and GitHub owner accounts, review team membership and privileges, and maintain at least two trusted organization owners where feasible.
+4. **Realtime:** verify the actual channel authorization model for passenger/driver subscriptions. Supabase warns that Postgres Changes DELETE events are not filtered by RLS; do not put sensitive information in unscoped broadcast payloads.
+5. **Backups:** the project is on the Free plan, which does not provide downloadable automatic daily backups or PITR. The repository's encrypted export workflow is not operational until its secrets are configured and a successful run is observed. Store encrypted backups outside the GitHub artifact retention boundary, test key recovery, and perform a timed restore into an isolated PostgreSQL 17 project. Record achieved RPO/RTO only after measurement.
+6. **Performance/availability:** run representative staging load tests (k6 or equivalent) for quote, booking, dispatch, concurrent driver location updates, Realtime subscriptions and reconnects. Capture p50/p95/p99, database pool saturation, lock waits, errors and queue/offer expiry. Review query plans with realistic data; the empty production DB cannot establish index usefulness or capacity.
+7. **Operations:** define alert ownership, incident severity, on-call/contact path, release rollback, secret rotation, data retention/deletion, user support and a documented restore drill. A zero-lint advisor result is not an operational resilience certificate.
+
+### India bike-taxi regulatory research (Noida / Uttar Pradesh)
+
+**Central guidance:** the Ministry of Road Transport and Highways' [Motor Vehicle Aggregator Guidelines, 2025](https://morth.nic.in/sites/default/files/circulars_document/MV-Aggregators-Guidelines-2025%20-%20English%20and%20Hindi.pdf) says in clause 23 that a State Government *may* permit aggregation of non-transport motorcycles for passenger journeys under section 67(3) of the Motor Vehicles Act. This is not a blanket nationwide permission. The same guidelines set substantial driver-onboarding requirements (identity, relevant licence, experience, bank account, conviction checks, medical/eye examination, psychological assessment, police antecedent verification and a written driver contract) and require passenger insurance of at least ₹5 lakh under clause 9.5.
+
+**Uttar Pradesh:** an official UP Transport Department notification dated 13 March 2026 published a *draft* Uttar Pradesh Motor Vehicle (Aggregator and Delivery Service Provider) Rules, 2026 for comments. The draft proposes a state aggregator licence, a ₹25,000 application fee, ₹5,00,000 licence fee, a security deposit tiered by fleet size, an appointed grievance-redressal/compliance officer, induction training (40 hours in the draft), driver identity/licence/experience and background/medical/psychological checks, passenger insurance and driver welfare cover. Because the retrieved instrument expressly invites objections and suggestions, it is a draft and must not be treated as the final operative rule. Before any public ride operation in Noida, obtain written advice from Uttar Pradesh transport counsel and confirmation from the State Transport Authority/competent authority of the final rules, licence route, motorcycle class/permit conditions, NCR restrictions and commencement status. Do not assume the central guideline alone authorizes the service.
+
+**Product implication:** RideForge's current driver "approval" flag is an internal workflow control, not legal verification. Before any real rides, add evidence-backed records and expiry/reverification for identity, licence class/validity, police verification, medical/eye fitness, psychological assessment, vehicle registration/permit/fitness/insurance, driver contract and induction training. Block dispatch unless every required record is valid. The platform also needs the mandated passenger and driver insurance, grievance officer, emergency response, incident reporting and audit processes. Do not collect Aadhaar or sensitive documents until a counsel-approved lawful basis, consent/notice, retention and access design exists.
+
+### DPDP Act / Rules timing
+
+The official [G.S.R. 843(E) commencement notification](https://egazette.gov.in/WriteReadData/2025/267647.pdf) phases the Digital Personal Data Protection Act, 2023. The [Digital Personal Data Protection Rules, 2025](https://egazette.gov.in/WriteReadData/2025/267650.pdf) also have phased commencement. As of 14 November 2026, the one-year provisions (including Act section 6(9), section 27(1)(d), and Rule 4) have reached their commencement date of 13 November 2026; most substantive Data Fiduciary duties, user rights, security safeguards, breach-related provisions and corresponding Rules 3, 5–16, 22 and 23 are scheduled for 13 May 2027 under the published notifications. Re-check for corrigenda, amendments and commencement changes before launch. Implement now: clear purpose-specific notices, data minimisation, consent/withdrawal flows where applicable, retention/deletion schedules, processor contracts, breach response, access/correction/erasure request handling, children's-data safeguards if relevant, and a data inventory. This section is engineering planning, not legal advice.
+
+### Completion definition — two different products
+
+**Portfolio / academic MVP completion** is achievable without pretending the product is a commercial transport operator. Require:
+- PR #81 merged after exact-head CI passes; all required checks green on the resulting main SHA.
+- Render static site deploys that exact SHA and the homepage is the real API-backed app, not a local simulation.
+- Supabase Auth redirects are configured; first verified passenger/admin account exists; signup, sign-in, passenger booking/cancellation/history, driver offer/accept/start/complete, admin controls and support journeys pass in a real browser against the deployed stack.
+- Two independent browser sessions prove driver/passenger isolation and Realtime updates; reconnect/reload recovers from persisted ride state.
+- Backup export, off-site copy, key recovery and isolated restore are demonstrated; secrets and rollback steps are documented.
+- Old Render API services are removed and the remaining hosting diagram matches reality.
+- Release evidence records exact commit SHA, deployment IDs, test results, screenshots, known limitations and measured performance. Keep the fare/receipt clearly labelled as a demo tariff/receipt and payments disabled.
+
+**Commercial ride-hailing readiness** is a separate programme, not a final coding sprint. It additionally requires the applicable UP aggregator licence and motorcycle authorization, legal review, verified drivers/vehicles, mandated insurance and training, payment-provider contract and signed webhook/refund/reconciliation flows, tax/accounting treatment, emergency and grievance operations, privacy compliance, customer support staffing, security assessment, load/capacity/SLO evidence and an operational recovery plan. Until those are independently evidenced, describe RideForge as an academic/portfolio MVP and do not accept real passengers or payments.
+
+### Research sources
+
+- Supabase, [Production Checklist](https://supabase.com/docs/guides/deployment/going-into-prod), updated 2 Nov 2026.
+- Supabase, [Production Security Checklist](https://supabase.com/docs/guides/security/production-checklist), updated 2 Nov 2026.
+- Supabase, [Database Backups](https://supabase.com/docs/guides/platform/backups), updated 5 Nov 2026.
+- Supabase, [Realtime Authorization](https://supabase.com/docs/guides/realtime/authorization).
+- MoRTH, [Motor Vehicle Aggregator Guidelines, 2025](https://morth.nic.in/sites/default/files/circulars_document/MV-Aggregators-Guidelines-2025%20-%20English%20and%20Hindi.pdf), especially clauses 9, 11 and 23.
+- Government of Uttar Pradesh, Transport Department, [draft UP Motor Vehicle (Aggregator and Delivery Service Provider) Rules, 2026](https://upidadv.up.gov.in/upload/PublicationRequest/183241/SachivalyaLKO130326Notification639090236220551079.pdf), notification dated 13 Mar 2026; expressly a draft.
+- Government of India, e-Gazette, [G.S.R. 843(E), DPDP Act commencement](https://egazette.gov.in/WriteReadData/2025/267647.pdf).
+- Government of India, e-Gazette, [G.S.R. 846(E), DPDP Rules, 2025](https://egazette.gov.in/WriteReadData/2025/267650.pdf).
