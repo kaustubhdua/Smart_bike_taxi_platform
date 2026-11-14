@@ -62,7 +62,10 @@ async function quoteRoute(body: Record<string, unknown>, req: Request) {
   if (pickupLabel.length < 3 || destinationLabel.length < 3 || pickupLabel.toLowerCase() === destinationLabel.toLowerCase()) {
     return { error: "Enter two different pickup and destination locations.", status: 422 };
   }
-  const clientIp = req.headers.get("cf-connecting-ip") ?? "unknown";
+  const clientIp = req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-real-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown";
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clientIp));
   const rateKey = Array.from(new Uint8Array(digest)).map(value => value.toString(16).padStart(2, "0")).join("");
   const { data: withinLimit, error: rateError } = await db.rpc("rideforge_consume_rate_limit", {
@@ -352,6 +355,7 @@ async function handle(req: Request): Promise<Response> {
       const { error: roleError } = await db.from("accounts").update({ role: "driver" }).eq("id", created.user.id);
       const { error: profileError } = await db.from("driver_profiles").insert({ account_id: created.user.id, vehicle_registration: vehicleRegistration, is_approved: false });
       if (roleError || profileError) {
+        await db.from("driver_profiles").delete().eq("account_id", created.user.id);
         await db.from("accounts").delete().eq("id", created.user.id);
         await db.auth.admin.deleteUser(created.user.id);
         return fail("Could not create driver profile; account creation was rolled back.", 409, origin);
