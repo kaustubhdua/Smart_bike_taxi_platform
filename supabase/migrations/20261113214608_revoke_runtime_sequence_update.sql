@@ -1,0 +1,1 @@
+-- Historical migration-ledger entry. Final sequence privileges are reasserted by 20261113215028_013_runtime_role_sequence_least_privilege.sql.
