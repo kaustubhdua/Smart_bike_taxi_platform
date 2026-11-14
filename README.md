@@ -25,6 +25,12 @@ Shortest-path routing · Durable 45-second driver offers · Automatic expiry/red
 
 The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. Durable driver offers and expiry/redispatch were merged in PR [#13](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/13). The bounded dispatch-attempt exhaustion fix was merged in PR [#15](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/15), after the full release-readiness workflow passed all 13 jobs on tested PR head `ec8780b20beef1470047f23f73f9705ac148f5a6`. See [the exact full-suite run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466789) and [API smoke run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466885). These results validate that tested revision, not a live deployment or production operations. The production-readiness evidence and release gates are documented in [`docs/RELEASE_READINESS_EVIDENCE.md`](docs/RELEASE_READINESS_EVIDENCE.md). Always verify fresh workflow runs on the exact release SHA before publishing.
 
+
+
+## Current release gate — 14 November 2026
+
+PR [#82](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/82) is the current release candidate. It makes the API-backed app the homepage and adds a clean local Supabase migration/security-invariant check to the release workflow. Do not merge until the exact PR head has green checks. The deployed Render site is still on an older main commit; real signup, first-admin bootstrap, passenger/driver/admin browser journeys, encrypted backup/restore and legacy Render API cleanup remain unverified. RideForge is an academic portfolio demo only: it is not licensed to carry passengers or process real fares.
+
 ## Full-stack roadmap status
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the source-of-truth architecture, [`docs/COMPLETION_MATRIX.md`](docs/COMPLETION_MATRIX.md) for the 100-point evidence register, and [`docs/DEEP_IMPROVEMENT_RESEARCH.md`](docs/DEEP_IMPROVEMENT_RESEARCH.md) for the research-backed priority order, security/reliability recommendations, acceptance criteria, and release gates. The implementation status below is not a production-readiness claim.
