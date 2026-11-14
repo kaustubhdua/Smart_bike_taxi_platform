@@ -1,17 +1,7 @@
 name: Supabase Edge API
 on:
   workflow_call:
-  pull_request:
-    paths:
-      - "supabase/**"
-      - "web/**"
-      - ".github/workflows/supabase-edge.yml"
-  push:
-    branches: [main]
-    paths:
-      - "supabase/**"
-      - "web/**"
-      - ".github/workflows/supabase-edge.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
