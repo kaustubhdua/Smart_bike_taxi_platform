@@ -1,10 +1,6 @@
 name: Supabase Edge API
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-
 on:
+  workflow_call:
   pull_request:
     paths:
       - "supabase/**"
@@ -21,6 +17,24 @@ permissions:
   contents: read
 
 jobs:
+  migration-rebuild:
+    name: Rebuild Supabase schema and assert security invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start isolated local Supabase stack
+        run: supabase start
+      - name: Apply every committed migration from an empty database
+        run: supabase db reset --local --yes
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Assert schema, RLS, function grants and trigger invariants
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/ci_invariants.sql
   edge-api:
     runs-on: ubuntu-latest
     steps:

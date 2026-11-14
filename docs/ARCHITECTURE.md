@@ -7,7 +7,7 @@
 
 ## 1. System boundary
 
-RideForge is a Noida-focused bike-taxi software prototype. The current intended runtime is a React/Vite static frontend on Render, with Supabase Auth, PostgreSQL, Edge Functions and Realtime providing the application backend.
+RideForge is a Noida-focused bike-taxi software prototype. The current intended runtime is a React/Vite static frontend on Render, with Supabase Auth, PostgreSQL and Edge Functions providing the application backend. Realtime publication is configured for rides and events, but the current browser client uses authenticated SSE polling plus REST recovery.
 
 The original C++ API and worker stack remains in the repository as legacy code and historical reference. It is not the active application backend. The three legacy Render API services are not part of the intended runtime and must be removed from the hosting account after the static frontend is confirmed healthy.
 
@@ -56,7 +56,7 @@ The frontend is served by the retained Render static site. Auth, API requests, d
 5. A database transaction creates the ride and its durable ride event.
 6. Dispatch selects one eligible, approved, online driver with a fresh location. One offer is active per ride at a time; offers expire after 45 seconds and dispatch advances across at most five distinct drivers.
 7. Acceptance revalidates driver approval, online status and location freshness inside the transaction. Competing acceptances cannot assign the same ride twice.
-8. Ride transitions and events are persisted. Supabase Realtime delivers updates to authorized participants; REST remains the recovery path after reconnect.
+8. Ride transitions and events are persisted. The Edge Function's authenticated SSE endpoint polls persisted ride events and reconnects every 25 seconds; REST remains the recovery path after reconnect.
 9. Completion records the final quoted fare and ride history. The printable receipt remains explicitly a demo receipt.
 
 The current implementation does not provide passenger trip-start OTP/PIN confirmation, verified driver identity/licence/vehicle records, emergency dispatch or payment settlement. These are not to be implied by the interface.
@@ -68,7 +68,7 @@ The current implementation does not provide passenger trip-start OTP/PIN confirm
 - Passenger, driver and admin roles are distinct. Driver accounts require administrator provisioning/approval in the current MVP.
 - Edge Function handlers validate the bearer token and application account state/role before privileged operations.
 - The Supabase service-role credential is server-only. It must never be placed in Vite variables, browser bundles, source control or client logs.
-- All 14 public application tables have RLS enabled. Participant SELECT access is limited to the required account/ride/event data; direct browser writes to application tables are denied. Transactional writes go through the Edge Function and restricted RPCs.
+- All 14 public tables including the migration ledger (13 operational application tables) have RLS enabled. Participant SELECT access is limited to the required account/ride/event data; direct browser writes to application tables are denied. Transactional writes go through the Edge Function and restricted RPCs.
 - SECURITY DEFINER functions use a pinned search path and explicit execute grants. Never grant privileged RPC execution to `anon` or general `authenticated` users.
 - Quote and external provider requests are rate-limited/throttled. These controls still require abuse/load testing at realistic scale.
 
