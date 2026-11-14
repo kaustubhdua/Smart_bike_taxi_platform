@@ -52,7 +52,7 @@ Confirm exactly one row is returned. This is intentionally a manual privileged o
 - The service-role key is used only inside the Supabase Edge Function runtime.
 - Driver accounts are created by an administrator and remain ineligible for dispatch until explicitly approved.
 - Driver location is considered fresh for two minutes; offers expire after 45 seconds; a ride is offered to at most five distinct eligible drivers.
-- The fare quote is server-calculated, persisted for five minutes and consumed transactionally during booking.
+- The fare quote is server-calculated, persisted for five minutes and consumed transactionally during booking. Public quote requests are limited to 10 per client IP per minute, and database-backed provider slots serialize Nominatim requests across Edge Function instances.
 - This remains a demonstration platform, not a live transport, payment or emergency-response service.
 
 ## Deployment
