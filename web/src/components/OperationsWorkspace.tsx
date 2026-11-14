@@ -11,7 +11,7 @@ type RideRequest = {
   pickupDistanceMeters?: number;
   offerExpiresAt?: string;
 };
-type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number; pendingOutboxEvents?: number; deadLetteredOutboxEvents?: number; oldestPendingOutboxAgeSeconds?: number };
+type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number };
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
 type SupportReport = { id: string; rideId: string | null; category: string; description: string; status: string; resolutionNote: string; createdAt: string; updatedAt: string; resolvedAt: string | null; reporterEmail: string; reporterName: string };
@@ -362,9 +362,6 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       setMetrics({
         ridesByStatus: data.ridesByStatus as Record<string, number>,
         onlineDrivers: data.onlineDrivers,
-        pendingOutboxEvents: typeof data.pendingOutboxEvents === "number" ? data.pendingOutboxEvents : undefined,
-        deadLetteredOutboxEvents: typeof data.deadLetteredOutboxEvents === "number" ? data.deadLetteredOutboxEvents : undefined,
-        oldestPendingOutboxAgeSeconds: typeof data.oldestPendingOutboxAgeSeconds === "number" ? data.oldestPendingOutboxAgeSeconds : undefined,
       });
       setError("Operational metrics refreshed from PostgreSQL.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Metrics unavailable."); }
@@ -536,7 +533,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                   <div><strong>{item.status.replaceAll("_", " ")} · ₹{(item.farePaise / 100).toFixed(2)}</strong><span>{item.pickup} → {item.destination}</span><small>Passenger: {item.passengerEmail} · Driver: {item.driverEmail ?? "unassigned"} · {item.rideId}</small><small>{new Date(item.createdAt).toLocaleString()}</small></div>
                 </article>)}
               </div>
-              {metrics && <div className="driver-queue"><h3>PostgreSQL-backed counts</h3><p>Online drivers: <strong>{metrics.onlineDrivers}</strong></p><p>Outbox backlog: <strong>{metrics.pendingOutboxEvents ?? "—"}</strong> pending · <strong>{metrics.deadLetteredOutboxEvents ?? "—"}</strong> dead-lettered · oldest pending {metrics.oldestPendingOutboxAgeSeconds ?? "—"}s</p>{(metrics.deadLetteredOutboxEvents ?? 0) > 0 && <p role="alert">Dead-lettered ride events need operator review.</p>}{Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}</div>}
+              {metrics && <div className="driver-queue"><h3>PostgreSQL-backed counts</h3><p>Drivers online with a location updated in the last two minutes: <strong>{metrics.onlineDrivers}</strong></p>{Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}</div>}
               <div className="driver-queue"><h3>Privileged action audit ({auditEvents.length})</h3>
                 {auditEvents.length === 0 ? <p>Refresh audit history to inspect driver provisioning, approval and suspension events.</p> : auditEvents.map(event => <div className="ride-confirmation" key={event.id}>
                   <div><strong>{event.action.replaceAll(".", " ")}</strong><span>{event.actorEmail} · {event.targetType} · {event.targetId}</span><small>{new Date(event.createdAt).toLocaleString()} · {JSON.stringify(event.details)}</small></div>
