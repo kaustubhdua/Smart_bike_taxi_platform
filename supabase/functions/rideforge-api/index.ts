@@ -54,7 +54,7 @@ const mapReport = (r: Record<string, unknown>) => ({
   updatedAt: r.updated_at, resolvedAt: r.resolved_at,
 });
 
-async function quoteRoute(body: Record<string, unknown>) {
+async function quoteRoute(body: Record<string, unknown>, req: Request) {
   const pickup = body.pickup && typeof body.pickup === "object" ? body.pickup as Record<string, unknown> : {};
   const destination = body.destination && typeof body.destination === "object" ? body.destination as Record<string, unknown> : {};
   const pickupLabel = clean(pickup.label);
@@ -62,10 +62,25 @@ async function quoteRoute(body: Record<string, unknown>) {
   if (pickupLabel.length < 3 || destinationLabel.length < 3 || pickupLabel.toLowerCase() === destinationLabel.toLowerCase()) {
     return { error: "Enter two different pickup and destination locations.", status: 422 };
   }
+  const clientIp = req.headers.get("cf-connecting-ip") ?? "unknown";
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clientIp));
+  const rateKey = Array.from(new Uint8Array(digest)).map(value => value.toString(16).padStart(2, "0")).join("");
+  const { data: withinLimit, error: rateError } = await db.rpc("rideforge_consume_rate_limit", {
+    p_key_hash: rateKey, p_limit: 10, p_window_seconds: 60,
+  });
+  if (rateError) return { error: "Quote service is temporarily unavailable.", status: 503 };
+  if (withinLimit !== true) return { error: "Too many quote requests. Wait a moment and try again.", status: 429 };
+
   const geoUrl = Deno.env.get("RIDEFORGE_GEOCODING_URL") ?? "https://nominatim.openstreetmap.org/search";
   const routeUrl = Deno.env.get("RIDEFORGE_ROUTING_URL") ?? "https://router.project-osrm.org/route/v1/driving";
   const userAgent = Deno.env.get("RIDEFORGE_USER_AGENT") ?? "RideForge/1.0 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)";
   const geocode = async (label: string) => {
+    const { data: slot, error: throttleError } = await db.rpc("rideforge_reserve_provider_slot", {
+      p_provider: "nominatim", p_interval_ms: 1100,
+    });
+    if (throttleError || typeof slot !== "string") throw new Error("Geocoding provider is temporarily unavailable.");
+    const waitMs = Date.parse(slot) - Date.now();
+    if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
     const url = new URL(geoUrl);
     url.searchParams.set("q", label + ", Noida, Uttar Pradesh, India");
     url.searchParams.set("format", "jsonv2");
@@ -77,7 +92,8 @@ async function quoteRoute(body: Record<string, unknown>) {
     return { lat: Number(results[0].lat), lon: Number(results[0].lon) };
   };
   try {
-    const [p, d] = await Promise.all([geocode(pickupLabel), geocode(destinationLabel)]);
+    const p = await geocode(pickupLabel);
+    const d = await geocode(destinationLabel);
     const response = await fetch(routeUrl + "/" + p.lon + "," + p.lat + ";" + d.lon + "," + d.lat + "?overview=full&geometries=geojson&steps=false", { headers: { "Accept": "application/json", "User-Agent": userAgent } });
     if (!response.ok) throw new Error("Routing provider unavailable.");
     const result = await response.json();
@@ -142,7 +158,7 @@ async function handle(req: Request): Promise<Response> {
   }
 
   if (path === "/routes/quote" && method === "POST") {
-    const result = await quoteRoute(body);
+    const result = await quoteRoute(body, req);
     return "status" in result ? fail(String(result.error), Number(result.status), origin) : json(result, 200, origin);
   }
 
