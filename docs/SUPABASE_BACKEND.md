@@ -65,6 +65,8 @@ Deploy the Edge Function from the repository with Supabase CLI:
 
 ```bash
 supabase link --project-ref ghcufcegfvvjhsnqnrzr
+supabase migration list --linked
+supabase db push
 supabase functions deploy rideforge-api --no-verify-jwt
 ```
 
