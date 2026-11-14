@@ -11,6 +11,7 @@ test("passenger can read the authenticated profile and update their display name
         distanceKm: 5.2,
         durationMinutes: 14,
         farePaise: 4750,
+        fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" },
         currency: "INR",
         expiresAt: new Date(Date.now() + 120_000).toISOString(),
         geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],

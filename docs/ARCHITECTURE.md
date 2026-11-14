@@ -37,7 +37,7 @@ The diagram shows logical responsibilities, not separate cloud services. In the 
 | Component | Source of truth | Responsibility | Important boundary |
 |---|---|---|---|
 | Web client | `web/src/App.tsx`, `web/src/components/OperationsWorkspace.tsx` | Passenger booking, driver workspace, admin operations, support UI | API-backed flows require the C++ API; no payment is implied |
-| Browser demo | Pending PR #65: `web/src/DemoExperience.tsx` | Local passenger/driver/admin walkthrough | Browser `localStorage` only; no real account, GPS, dispatch, payment or database write |
+| Web app | `web/src/App.tsx` served at `/` (alias `/live`), driver/admin workspaces at `/driver` and `/admin` | Passenger planner, booking, tracking, history, support | Talks only to the RideForge API; shows an explicit error when it is unreachable and never invents rides or fares. The earlier browser-only simulation has been removed |
 | HTTP API | `backend/src/server.cpp` | Auth, quotes, bookings, passenger rides, driver actions, admin/support, SSE | Stateless HTTP process; validates bearer tokens and scopes database queries |
 | Database | Supabase project `ghcufcegfvvjhsnqnrzr` | Accounts, quotes, rides, offers, events, outbox, support and audit records | PostgreSQL 17; 12 application migrations currently recorded |
 | Dispatch worker | `rideforge_dispatch_worker` | Finds eligible approved/online drivers, creates durable exclusive offers, expires/retries offers | Durable database state; no guarantee of a driver or a live ETA |
