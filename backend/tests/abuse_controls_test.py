@@ -284,7 +284,9 @@ class FakeProvider:
                                                  "display_name": label}])
                     distance = 9.0e8 if mode == "far" else 2500.2
                     return reply(200, {"code": "Ok",
-                                            "routes": [{"distance": distance, "duration": 600.1}]})
+                                            "routes": [{"distance": distance, "duration": 600.1,
+                                                "geometry": {"type": "LineString",
+                                                             "coordinates": [[77.35, 28.53], [77.36, 28.54]]}}]})
                 finally:
                     release()
 
@@ -312,9 +314,13 @@ def provider_stack(**extra_env):
 _quote_counter = [0]
 
 
-def quote(base, pickup="Pickup Place", destination="Destination Place"):
-    # Vary the client address so the per-address quote limiter is not what we measure.
+def quote(base, pickup=None, destination=None):
+    # Vary the client address so the per-address quote limiter is not what we measure, and
+    # vary the labels by default: the server caches geocodes (10 min) and routes (2 min), so
+    # repeating a place would be answered from cache and never reach the provider under test.
     _quote_counter[0] += 1
+    pickup = pickup or "Pickup Place %d" % _quote_counter[0]
+    destination = destination or "Destination Place %d" % _quote_counter[0]
     return request("POST", "/api/v1/routes/quote", base=base,
                    headers={"X-Forwarded-For": "192.0.2.%d" % (_quote_counter[0] % 250 + 1)},
                    body={"pickup": {"label": pickup}, "destination": {"label": destination}})
@@ -327,6 +333,19 @@ def test_provider_returning_html_is_an_outage_not_data():
         resp = quote(base)
         check(resp.status == 503, "HTML 200 from the provider returned %s" % resp.status)
         check(resp.json == {"error": "quote_service_unavailable"}, "unexpected body %s" % resp.text)
+
+
+def test_repeated_places_are_served_from_cache_during_a_short_provider_outage():
+    with provider_stack() as (provider, base, _):
+        first = quote(base, "Cached Origin", "Cached Destination")
+        check(first.status == 200, "control quote failed")
+        provider.mode = "http500"
+        again = quote(base, "Cached Origin", "Cached Destination")
+        check(again.status == 200, "a cached place pair should survive an outage, got %s" % again.status)
+        check(again.json["distanceKm"] == first.json["distanceKm"], "cached quote changed distance")
+        check(again.json["quoteId"] != first.json["quoteId"], "each quote must still get its own ID")
+        fresh = quote(base, "Never Seen Origin", "Never Seen Destination")
+        check(fresh.status == 503, "an uncached place pair must fail during an outage, got %s" % fresh.status)
 
 
 def test_oversized_provider_response_is_rejected():

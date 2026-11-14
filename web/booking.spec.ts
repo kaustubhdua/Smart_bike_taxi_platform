@@ -347,7 +347,6 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
     expect(route.request().headers()["authorization"]).toBe("Bearer admin-access-token");
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       ridesByStatus: { requested: 3, completed: 2 }, onlineDrivers: 4,
-      pendingOutboxEvents: 5, deadLetteredOutboxEvents: 1, oldestPendingOutboxAgeSeconds: 240,
     }) });
   });
   await page.goto("/live");
@@ -358,10 +357,9 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await page.locator("#operations").getByLabel("Password").fill("admin-password");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await page.getByRole("button", { name: "Refresh metrics" }).click();
-  await expect(page.getByText("Online drivers:")).toBeVisible();
-  await expect(page.getByText(/Online drivers:\s*4/)).toBeVisible();
-  await expect(page.getByText(/Outbox backlog:\s*5 pending · 1 dead-lettered · oldest pending 240s/)).toBeVisible();
-  await expect(page.getByRole("alert")).toContainText("Dead-lettered ride events need operator review");
+  await expect(page.getByText(/Drivers online with a location updated in the last two minutes:\s*4/)).toBeVisible();
+  // The Supabase backend streams persisted ride events directly; there is no outbox backlog to report.
+  await expect(page.getByText(/Outbox backlog/)).toHaveCount(0);
   await expect(page.getByText("requested", { exact: true })).toBeVisible();
 });
 
