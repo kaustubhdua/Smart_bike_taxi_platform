@@ -14,11 +14,11 @@ const isLiveApiView = pathname === "/live";
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     {isDriverPortal
-      ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured RideForge API and real credentials.</div><OperationsWorkspace mode="driver" /></>
+      ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API and real credentials.</div><OperationsWorkspace mode="driver" /></>
       : isAdminPortal
-        ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured RideForge API and administrator credentials.</div><OperationsWorkspace mode="admin" /></>
+        ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API and administrator credentials.</div><OperationsWorkspace mode="admin" /></>
         : isLiveApiView
-          ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured RideForge API. Not a live transport service.</div><App /></>
+          ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API. Not a live transport service.</div><App /></>
           : <App />}
   </React.StrictMode>,
 );
