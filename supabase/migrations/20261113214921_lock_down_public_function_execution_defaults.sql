@@ -1,0 +1,1 @@
+-- Historical migration-ledger entry. Final function execution defaults are reasserted by 20261113215034_014_lock_down_public_function_execution_defaults.sql.
