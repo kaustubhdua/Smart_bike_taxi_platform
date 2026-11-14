@@ -2,34 +2,6 @@ name: Container build and Compose validation
 on:
   workflow_call:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - "web/**"
-      - "compose.yaml"
-      - ".env.example"
-      - ".env.production.example"
-      - "compose.production.yaml"
-      - "Caddyfile"
-      - "deployment/**"
-      - "README.md"
-      - "docs/**"
-      - ".github/workflows/container.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - "web/**"
-      - "compose.yaml"
-      - ".env.example"
-      - ".env.production.example"
-      - "compose.production.yaml"
-      - "Caddyfile"
-      - "deployment/**"
-      - "README.md"
-      - "docs/**"
-      - ".github/workflows/container.yml"
 
 permissions:
   contents: read

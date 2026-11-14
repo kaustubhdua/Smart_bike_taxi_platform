@@ -1,18 +1,6 @@
 name: Dependency audit
 on:
   workflow_call:
-  pull_request:
-    branches: [main]
-    paths:
-      - "web/package.json"
-      - "web/package-lock.json"
-      - ".github/workflows/dependency-review.yml"
-  push:
-    branches: [main]
-    paths:
-      - "web/package.json"
-      - "web/package-lock.json"
-      - ".github/workflows/dependency-review.yml"
   workflow_dispatch:
 
 permissions:
