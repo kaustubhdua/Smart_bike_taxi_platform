@@ -8,7 +8,8 @@ const hostname = window.location.hostname.toLowerCase();
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const isDriverPortal = hostname.startsWith("driver.") || pathname === "/driver";
 const isAdminPortal = pathname === "/admin";
-// "/" is the canonical API-backed app; "/live" remains a compatibility alias. No browser-only ride simulator is mounted.\n// This entry point must never fabricate a booking or fare when Supabase is unavailable.
+// "/" is the canonical API-backed app; "/live" remains a compatibility alias. No browser-only ride simulator is mounted.
+// This entry point must never fabricate a booking or fare when Supabase is unavailable.
 const isLiveApiView = pathname === "/live";
 
 createRoot(document.getElementById("root")!).render(
