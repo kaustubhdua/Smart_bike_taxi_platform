@@ -30,6 +30,10 @@ npm run build
 npm test
 ```
 
+## Supabase Auth URL configuration
+
+In Supabase Dashboard → Authentication → URL Configuration, set the Site URL to `https://rideforge-web.onrender.com` and add `https://rideforge-web.onrender.com/**` plus `http://localhost:5173/**` to the allowed redirect URLs. The Edge Function sends signup verification links back to the Render static frontend by default; override `RIDEFORGE_AUTH_REDIRECT_URL` only if the frontend domain changes.
+
 ## Initial administrator bootstrap
 
 There are currently no application accounts in the production database. The first account must be registered through the app and its email verified. Then an authorized project owner must promote that exact account once in the Supabase SQL Editor:
