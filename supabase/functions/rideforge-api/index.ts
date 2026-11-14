@@ -319,23 +319,16 @@ async function handle(req: Request): Promise<Response> {
     if (!adminOnly(ctx)) return fail("Administrator access required.", 403, origin);
     if (path === "/admin/metrics" && method === "GET") {
       const statuses = ["requested","matching","assigned","driver_arriving","in_progress","completed","cancelled","failed"];
-      const [statusCounts, drivers, pending, dead, oldest] = await Promise.all([
+      const [statusCounts, drivers] = await Promise.all([
         Promise.all(statuses.map(status => db.from("rides").select("id", { count: "exact", head: true }).eq("status", status))),
-        db.from("driver_profiles").select("account_id", { count: "exact", head: true }).eq("is_online", true).eq("is_approved", true),
-        db.from("ride_event_outbox").select("id", { count: "exact", head: true }).is("published_at", null).is("dead_lettered_at", null),
-        db.from("ride_event_outbox").select("id", { count: "exact", head: true }).not("dead_lettered_at", "is", null),
-        db.from("ride_event_outbox").select("created_at").is("published_at", null).is("dead_lettered_at", null).order("created_at", { ascending: true }).limit(1).maybeSingle(),
+        db.from("driver_profiles").select("account_id", { count: "exact", head: true })
+          .eq("is_online", true).eq("is_approved", true)
+          .gte("last_location_at", new Date(Date.now() - 120_000).toISOString()),
       ]);
-      if (statusCounts.some(result => result.error) || drivers.error || pending.error || dead.error) return fail("Operational metrics unavailable.", 500, origin);
+      if (statusCounts.some(result => result.error) || drivers.error) return fail("Operational metrics unavailable.", 500, origin);
       const ridesByStatus: Record<string, number> = {};
       statuses.forEach((status, index) => { ridesByStatus[status] = statusCounts[index].count ?? 0; });
-      const oldestPendingOutboxAgeSeconds = oldest.data?.created_at
-        ? Math.max(0, Math.floor((Date.now() - Date.parse(oldest.data.created_at)) / 1000)) : 0;
-      return json({
-        ridesByStatus, onlineDrivers: drivers.count ?? 0,
-        pendingOutboxEvents: pending.count ?? 0, deadLetteredOutboxEvents: dead.count ?? 0,
-        oldestPendingOutboxAgeSeconds,
-      }, 200, origin);
+      return json({ ridesByStatus, onlineDrivers: drivers.count ?? 0 }, 200, origin);
     }
     if (path === "/admin/audit" && method === "GET") {
       const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? 50) || 50));
