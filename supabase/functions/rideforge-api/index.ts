@@ -26,6 +26,14 @@ const parseBody = async (req: Request): Promise<Record<string, unknown>> => {
 };
 const clean = (value: unknown, max = 240) => typeof value === "string" ? value.trim().slice(0, max) : "";
 const num = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : null;
+const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const radians = Math.PI / 180;
+  const dLat = (lat2 - lat1) * radians;
+  const dLon = (lon2 - lon1) * radians;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * radians) * Math.cos(lat2 * radians) * Math.sin(dLon / 2) ** 2;
+  return Math.round(6371000 * 2 * Math.asin(Math.sqrt(Math.min(1, a))));
+};
 const accountView = (a: Record<string, unknown>) => ({
   email: a.email, displayName: a.display_name, role: a.role,
 });
@@ -243,7 +251,7 @@ async function handle(req: Request): Promise<Response> {
   }
   if (path === "/driver/rides" && method === "GET") {
     if (account.role !== "driver") return fail("Driver account required.", 403, origin);
-    const { data: dp } = await db.from("driver_profiles").select("is_approved,is_online,last_location_at").eq("account_id", accountId).maybeSingle();
+    const { data: dp } = await db.from("driver_profiles").select("is_approved,is_online,last_location_at,current_latitude,current_longitude").eq("account_id", accountId).maybeSingle();
     if (!dp?.is_approved || !dp.is_online || !dp.last_location_at || Date.now() - Date.parse(dp.last_location_at) > 120_000) return json({ rides: [] }, 200, origin);
     const { data: pending } = await db.from("rides").select("id").in("status", ["requested", "matching"]).is("driver_id", null).order("created_at").limit(20);
     for (const ride of pending ?? []) await db.rpc("rideforge_dispatch_ride", { p_ride_id: ride.id });
@@ -252,7 +260,13 @@ async function handle(req: Request): Promise<Response> {
     if (!ids.length) return json({ rides: [] }, 200, origin);
     const { data: rides } = await db.from("rides").select("*").in("id", ids);
     const expiry = new Map((offers ?? []).map(o => [o.ride_id, o.expires_at]));
-    return json({ rides: (rides ?? []).map(r => ({ rideId: r.id, pickup: r.pickup_label, destination: r.destination_label, distanceMeters: r.route_distance_m, farePaise: r.quoted_fare_paise, offerExpiresAt: expiry.get(r.id) })) }, 200, origin);
+    return json({ rides: (rides ?? []).map(r => ({
+      rideId: r.id, pickup: r.pickup_label, destination: r.destination_label,
+      distanceMeters: r.route_distance_m,
+      pickupDistanceMeters: dp.current_latitude !== null && dp.current_longitude !== null
+        ? haversineMeters(dp.current_latitude, dp.current_longitude, r.pickup_latitude, r.pickup_longitude) : undefined,
+      farePaise: r.quoted_fare_paise, offerExpiresAt: expiry.get(r.id),
+    })) }, 200, origin);
   }
   if (path === "/driver/rides/history" && method === "GET") {
     if (account.role !== "driver") return fail("Driver account required.", 403, origin);
