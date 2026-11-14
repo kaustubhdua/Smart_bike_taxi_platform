@@ -1,0 +1,4 @@
+project_id = "ghcufcegfvvjhsnqnrzr"
+
+[functions.rideforge-api]
+verify_jwt = false

@@ -1,52 +1,8 @@
-# Render Blueprint for the existing RideForge free-tier evaluation services.
-# This adopts rideforge-api-final and rideforge-web; it does not provision a database.
-# The PostgreSQL database remains the existing Supabase project.
+# Render hosts only the static React frontend. RideForge's API and database are Supabase-native.
 previews:
   generation: off
 
 services:
-  - type: web
-    name: rideforge-api-final
-    runtime: docker
-    plan: free
-    region: singapore
-    branch: main
-    dockerContext: .
-    dockerfilePath: ./backend/Dockerfile
-    healthCheckPath: /api/v1/ready
-    autoDeployTrigger: checksPass
-    envVars:
-      - key: DATABASE_URL_TEMPLATE
-        sync: false
-      - key: MIGRATION_DATABASE_URL
-        sync: false
-      # Render generates the runtime-role password; the migration entrypoint
-      # applies it to rideforge_app before the API/workers start.
-      - key: RIDEFORGE_RUNTIME_ROLE_PASSWORD
-        generateValue: true
-      - key: RIDEFORGE_JWT_SECRET
-        generateValue: true
-      - key: RIDEFORGE_BIND_ADDRESS
-        value: 0.0.0.0
-      - key: RIDEFORGE_USER_AGENT
-        value: "RideForge/1.0 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)"
-      - key: RIDEFORGE_ALLOWED_ORIGINS
-        value: https://rideforge-web.onrender.com
-      - key: RIDEFORGE_PUBLIC_ORIGIN
-        value: https://rideforge-web.onrender.com
-      - key: RIDEFORGE_GEOCODING_URL
-        value: https://nominatim.openstreetmap.org/search
-      - key: RIDEFORGE_GEOCODING_CONTEXT
-        value: "Noida, Uttar Pradesh, India"
-      - key: RIDEFORGE_ROUTING_URL
-        value: https://router.project-osrm.org/route/v1/driving
-      - key: RIDEFORGE_ROUTING_MIN_INTERVAL_MS
-        value: "1000"
-      - key: RIDEFORGE_DISPATCH_RADIUS_KM
-        value: "20"
-      - key: RIDEFORGE_DISPATCH_MAX_ATTEMPTS
-        value: "5"
-
   - type: web
     name: rideforge-web
     runtime: static
@@ -60,4 +16,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://rideforge-api-final.onrender.com
+        value: https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api

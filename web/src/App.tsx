@@ -434,7 +434,14 @@ export default function App() {
         accessToken?: string;
         account?: { email?: string; displayName?: string; role?: string };
         error?: string;
+        verificationRequired?: boolean;
+        message?: string;
       };
+      if (response.status === 202 && data.verificationRequired) {
+        setAuthPassword("");
+        setNotice(data.message || "Check your email to verify your account, then sign in.");
+        return;
+      }
       if (!response.ok || !data.accessToken || !data.account?.email) {
         throw new Error(response.status === 409 ? "An account already exists for this email. Sign in instead."
           : response.status === 401 ? "Email or password is incorrect."
