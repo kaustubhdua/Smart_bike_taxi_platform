@@ -61,14 +61,19 @@ Confirm exactly one row is returned. This is intentionally a manual privileged o
 
 ## Deployment
 
-Deploy the Edge Function from the repository with Supabase CLI:
+The repository's CI pins Supabase CLI v3.0.0 rather than floating on `latest`. This avoids silently changing migration/deployment semantics when a new major CLI is released.
+
+Deploy the Edge Function from the repository with Supabase CLI v3 (pin the version in CI and review the v3 migration guide before upgrading):
 
 ```bash
+supabase login
 supabase link --project-ref ghcufcegfvvjhsnqnrzr
-supabase migration list --linked
-supabase db push
-supabase functions deploy rideforge-api --no-verify-jwt
+supabase migration list --remote
+supabase db push --remote --yes
+supabase functions deploy rideforge-api --no-verify-jwt --yes
 ```
+
+CLI v3 runs local database commands locally by default and requires explicit `--remote` for hosted database operations. Hosted changes require `--yes` in unattended automation. Never use `db reset --remote` against production.
 
 The live migrations `016_supabase_native_backend` through `024_retire_legacy_outbox_trigger` establish the Auth bridge, participant-scoped RLS, Realtime publication, transactional ride RPCs, bounded sequential dispatch with one active offer per ride, per-IP quote rate limits, serialized Nominatim requests, driver approval/location revalidation, and retirement of the legacy outbox notification trigger.
 

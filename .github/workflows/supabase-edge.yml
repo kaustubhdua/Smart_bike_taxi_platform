@@ -16,11 +16,11 @@ jobs:
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0
       - name: Start isolated local Supabase stack
         run: supabase start
       - name: Apply every committed migration from an empty database
-        run: supabase db reset --local --yes
+        run: supabase db reset --yes
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install --yes postgresql-client
       - name: Assert schema, RLS, function grants and trigger invariants
