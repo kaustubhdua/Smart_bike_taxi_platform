@@ -148,7 +148,11 @@ async function handle(req: Request): Promise<Response> {
     const password = typeof body.password === "string" ? body.password : "";
     const displayName = clean(body.displayName, 120);
     if (!email.includes("@") || password.length < 12 || password.length > 128 || !displayName) return fail("Enter a valid email, display name and password of at least 12 characters.", 422, origin);
-    const { data, error } = await publicAuth.auth.signUp({ email, password, options: { data: { display_name: displayName } } });
+    const emailRedirectTo = Deno.env.get("RIDEFORGE_AUTH_REDIRECT_URL") ?? "https://rideforge-web.onrender.com";
+    const { data, error } = await publicAuth.auth.signUp({
+      email, password,
+      options: { data: { display_name: displayName }, emailRedirectTo },
+    });
     if (error) return fail(error.message, error.status ?? 400, origin);
     if (!data.session) return json({ verificationRequired: true, message: "Check your email to verify your account, then sign in." }, 202, origin);
     const { data: account } = await db.from("accounts").select("*").eq("id", data.user!.id).single();
