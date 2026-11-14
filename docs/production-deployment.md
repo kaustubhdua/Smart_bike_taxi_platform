@@ -1,5 +1,8 @@
 # Self-hosted HTTPS deployment (template)
 
+> **LEGACY DEPLOYMENT TEMPLATE — SUPERSEDED.** This document deploys the old C++ API, dispatch worker, outbox worker and self-hosted PostgreSQL Compose stack. That is not the current RideForge runtime. The current architecture uses Supabase Auth, PostgreSQL and the `rideforge-api` Edge Function, with Render serving only the static React frontend. Use [SUPABASE_OPERATIONS.md](SUPABASE_OPERATIONS.md) and [SUPABASE_BACKEND.md](SUPABASE_BACKEND.md) instead. Keep this file only as historical reference for the retired backend.
+
+
 This is a reproducible two-host deployment template for a Linux VPS with Docker Engine/Compose v2 and a domain name. It is not a claim that RideForge is already deployed or commercially ready. Do not process real passenger data or real payments until the remaining privacy, safety, legal, provider, and operational gates are completed.
 
 ## Topology
