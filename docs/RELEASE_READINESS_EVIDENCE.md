@@ -2,14 +2,14 @@
 
 **Assessment date:** 2026-11-14  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Main SHA at assessment:** `5d802f212ba11a2980c066e7734595bd8b4e2ba8`  
+**Main SHA at assessment:** `670e946f2b290ec7081d712a073edad6a697f1cb`  
 **Release decision:** **Not ready for public/commercial rides.** The repository has a substantially hardened full-stack MVP, but no verified public staging deployment, real two-device journey, production operational service, driver/vehicle compliance process, or transport-authority/legal approval.
 
 This report distinguishes repository implementation and automated CI from evidence that requires real infrastructure. A green build, local Compose stack, mock-provider browser test, or demo receipt is not proof of a commercially operating taxi service.
 
 ## Repository refresh — 2026-11-14
 
-The current GitHub `main` branch is `5d802f212ba11a2980c066e7734595bd8b4e2ba8`. PRs #64, #65, #67–74 are merged; PR #66 remains closed without merge and is deferred. PR #75 is closed as superseded by PR #76, which adds migrations 014–015, a disabled read-only backup identity, a scheduled encrypted backup workflow, readiness updates, restore-role re-provisioning and CI regression probes.
+The current GitHub `main` branch is `670e946f2b290ec7081d712a073edad6a697f1cb` (PR #79 Supabase-native backend merge). PR #82 is the current open release candidate; its exact-head aggregate workflow is queued and has not passed. PRs #64, #65, #67–74 are merged; PR #66 remains closed without merge and is deferred. PR #75 is closed as superseded by PR #76, which adds migrations 014–015, a disabled read-only backup identity, a scheduled encrypted backup workflow, readiness updates, restore-role re-provisioning and CI regression probes.
 
 Migrations 013–015 have now been applied to the live `rideforge-production` Supabase project. The authoritative RideForge application ledger, `public.schema_migrations`, records versions 001–015. Post-change `has_sequence_privilege` checks confirm `rideforge_app` retains USAGE and SELECT but no UPDATE on all five public sequences; the default sequence UPDATE grant is also revoked. Migration 014 revokes existing and default public-function EXECUTE grants from PUBLIC, anon, authenticated and service_role for functions created by the migration owner. Migration 015 creates `rideforge_backup` as a NOLOGIN/BYPASSRLS role with SELECT-only access to current/future public tables and USAGE/SELECT on sequences; its password is unset. The Supabase platform migration history is a separate audit ledger and also contains the five `apply_migration` operations used during this work; do not confuse it with the backend runner's application ledger.
 
@@ -17,7 +17,7 @@ The connected workflow-status query returned no status records for merge SHA `5d
 
 The branch-protection issue #17 remains open: GitHub reports `main` as unprotected, and the available repository integration cannot configure branch protection/rulesets. The administrator must enable PR-only changes, required checks, and force-push/deletion protection.
 
-PR #72 merged the refreshed evidence and matrix; PR #74's fare breakdown is now in `main`. PR #76 carries the next database-hardening and backup-automation changes. All previously documented external release blockers remain: no verified healthy API deployment, no production runtime-credential authentication proof, no encrypted scheduled off-site backup or production restore drill, no external two-device ride journey, no real payment provider, no driver/vehicle verification process, and no transport-authority/legal approval. Render auto-deploys from `main`; keep merges and deployments separate until the hosting decision and deployment guard are explicitly resolved.
+PR #72 merged the refreshed evidence and matrix; PR #74's fare breakdown is now in `main`. PR #76 carries the next database-hardening and backup-automation changes. Remaining external release blockers include unverified external HTTP readiness, no production runtime-credential/browser authentication proof, no activated encrypted off-site backup or production restore drill, no external two-device ride journey, no real payment provider, no driver/vehicle verification process, and no transport-authority/legal approval. The Supabase Edge Function is deployed ACTIVE; that does not establish a successful live application journey. Render auto-deploys from `main`; keep merges and deployments separate until the hosting decision and deployment guard are explicitly resolved.
 
 ## Latest merged upgrades — PR #53 and PR #54
 
@@ -322,3 +322,47 @@ Read-only SQL recheck of project `ghcufcegfvvjhsnqnrzr` confirms:
 - Direct `pg_authid` inspection confirms `rideforge_app` currently has no password verifier. Render startup still fails before migration-owner validation because the configured `DATABASE_URL_TEMPLATE` lacks the required `__RIDEFORGE_PASSWORD__` placeholder. No runtime connection has been demonstrated.
 
 This evidence does not replace a successful exact-head CI run, an authenticated application login, an encrypted backup export, an isolated restore drill, or two-device end-to-end acceptance.
+
+
+## Supabase-native release recheck — 14 November 2026
+
+This section supersedes earlier snapshots in this file that describe the old C++/Render API as the active backend, report 12 application tables, or state that the legacy ride-event outbox trigger remains attached.
+
+### Current repository and hosting state
+
+- PR #79 is merged into `main` at `670e946f2b290ec7081d712a073edad6a697f1cb`. It migrates the active backend to Supabase Auth, PostgreSQL, Edge Functions, transactional RPCs and Realtime.
+- PR #82 is the current open release candidate. It makes the API-backed React app the homepage, removes the browser-only simulation, corrects architecture/release documentation, and fixes a reusable-workflow concurrency defect. It is not merged; merge only after every exact-head required check passes.
+- Supabase project `ghcufcegfvvjhsnqnrzr` is `ACTIVE_HEALTHY`; Edge Function `rideforge-api` is ACTIVE version 9. The latest Security and Health Advisor responses contain zero lints.
+- Fourteen public tables including the migration ledger have RLS enabled (13 operational application tables plus the ledger). Browser direct writes are denied; participant reads and privileged transactional writes are mediated by the Edge Function/RPC security model. The production ride event notification outbox trigger was retired by migration 024; ride events remain durable and Realtime is published for `rides` and `ride_events`.
+- Production currently contains no real application accounts or rides. Synthetic SQL tests rolled back their rows. A real verified signup, first-admin bootstrap, deployed browser E2E and live operational load test have not been proven.
+- Render still contains three legacy API service objects: `rideforge-api-final`, `rideforge-api-v2` and `rideforge-api`. Keep `rideforge-web`, the static site. The connected Render integration has no delete-service operation; deletion and post-deletion inventory verification are dashboard tasks.
+
+### Exact-head CI and orchestration
+
+A final audit found that several reusable workflow files used concurrency groups keyed only by `github.workflow`. When called by the aggregate release workflow, sibling reusable jobs could share a group and cancel one another. PR #82 removes those concurrency groups from reusable workflows; the top-level aggregate workflow retains PR-scoped concurrency. Exact-head checks have been re-triggered after that fix. Queued, cancelled or pending jobs are not passes. Require successful conclusions for C++, API, PostgreSQL migration, web build/Playwright/accessibility, Supabase Edge typecheck/readiness, container/Compose, container scan, dependency audit, CodeQL and aggregate release readiness.
+
+### Remaining production gates
+
+1. Configure Supabase Auth Site URL and allowed redirects for `https://rideforge-web.onrender.com` and local development; verify email confirmations, custom SMTP/recovery and suitable rate limits.
+2. Create and verify the first real account, then perform the owner-only admin bootstrap documented in `docs/SUPABASE_BACKEND.md`.
+3. Verify the final exact-head CI suite, merge PR #82, confirm the static site deploys the merged SHA, and run passenger/driver/admin journeys in two independent browser sessions including Realtime reconnect and REST resync.
+4. Configure the encrypted backup workflow secrets, observe a successful encrypted export, retain an off-site copy, recover the key, and complete an isolated restore drill. Free plan automatic backups/PITR are not available.
+5. Delete the three legacy Render API services, retain the static frontend, and verify the resulting Render inventory.
+6. Enable GitHub main branch rules/required checks. Issue #17 remains open; the connected GitHub integration cannot write branch-protection/ruleset settings.
+7. Perform representative load, abuse, reconnect, provider-failure and restore tests. The empty production database and zero advisor lints do not establish capacity or availability.
+
+### Commercial operation remains out of scope
+
+The software is an academic/portfolio MVP, not an authorised transport operator. MoRTH Motor Vehicle Aggregator Guidelines 2025, clause 23, leave non-transport motorcycle aggregation to State permission. The UP final Thirty-third Amendment aggregator rules were notified on 22 May 2026 and are operative; the 13 March document was only the earlier draft. Noida's NCR vehicle pool is also subject to CAQM Direction 94 and its BS-VI two-wheeler transition expires 31 December 2026. Before real passenger operations, obtain written UP legal/transport authority confirmation, aggregator licence and motorcycle/permit authorization, passenger and driver insurance, driver/vehicle identity and fitness verification, police/medical/psychological checks, induction training, grievance/compliance officer, emergency operations, payment/refund settlement and DPDP implementation. See `docs/DEEP_IMPROVEMENT_RESEARCH.md` for the source register and DPDP phased commencement dates.
+
+
+## Final candidate recheck and regulatory correction — 14 November 2026
+
+- PR #82 is the sole open PR; PR #81 is superseded and closed. PR #82's latest exact-head Full release readiness run is queued with 15 child jobs. The child workflows now run through the aggregate workflow to avoid duplicate PR runs. Do not merge until every child job passes on the latest head. The aggregate release workflow includes a Supabase-specific workflow that rebuilds the local Supabase database from all committed migrations and asserts RLS, RPC grants, search_path, Auth trigger, Realtime publication and retired outbox-trigger invariants.
+- Current Supabase inventory: project ACTIVE_HEALTHY, PostgreSQL 17.11, Edge Function ACTIVE v9, 14 public tables (including the migration ledger) with RLS, one Auth account-bridge trigger, and rides/ride_events in the Realtime publication. The 26 migration files in the release branch match the 26 applied remote migration versions. The React client currently uses authenticated SSE with REST recovery rather than direct Realtime subscriptions.
+- The latest production database contains zero Auth users, accounts or rides. Logs show no Edge Function invocations in the observed 24-hour log window. This means no live app journey is certified.
+- Latest advisors: Security 0, Health 0, Performance 16 informational unused indexes. Empty-table unused-index notices are not grounds to delete indexes.
+- The organization is on Supabase Free. Free projects do not receive automatic daily backups or PITR; a manual encrypted export, off-site retention, key-recovery and isolated restore drill remain required.
+- The final UP Thirty-third Amendment (Aggregator and Delivery Service Provider) Rules, 2026 were notified on 22 May 2026 and came into force 15 days after Gazette publication. The March 13 instrument was only a draft. New operators must obtain an STA licence before launch. Driver/vehicle eligibility, insurance, training, control room, grievance, app security certification, fare disclosure and data retention are material requirements.
+- Noida is an NCR city. CAQM Direction 94 as amended on 23 December 2025 prohibits further induction of conventional petrol/diesel two-wheelers from 1 January 2026, with a transitional allowance for BS-VI two-wheelers in existing fleets only through 31 December 2026. Do not assume this temporary allowance covers a new aggregator or continues into 2027; EV-only is the conservative product assumption pending written authority advice.
+- The Render static site is live on the old main commit, not the PR #82 candidate. Three legacy API service objects remain; manual deletion is not available through the connected Render actions. The branch pins Supabase CLI 3.0.0 and the Edge Function's Supabase JS SDK 2.119.0; the currently deployed Edge Function remains v9 until the reviewed source is deployed after release.

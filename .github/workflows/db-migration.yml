@@ -1,34 +1,7 @@
 name: PostgreSQL migration smoke test
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-
 on:
   workflow_call:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - "README.md"
-      - "docs/**"
-      - ".env.production.example"
-      - "compose.production.yaml"
-      - "Caddyfile"
-      - "deployment/**"
-      - ".github/workflows/db-migration.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - "README.md"
-      - "docs/**"
-      - ".env.production.example"
-      - "compose.production.yaml"
-      - "Caddyfile"
-      - "deployment/**"
-      - ".github/workflows/db-migration.yml"
 
 permissions:
   contents: read

@@ -2,17 +2,10 @@
 
 # 🏍️ RideForge — Smart Bike Taxi Platform
 
-**A C++17 DSA simulator with a Supabase-backed bike-taxi web platform, transactional bookings, and driver/admin workspaces.**
+**A React/Vite + Supabase-backed bike-taxi web platform, with a retained C++17 DSA simulator, transactional bookings, and driver/admin workspaces.**
 
 Shortest-path routing · Durable 45-second driver offers · Automatic expiry/redispatch · Transactional bookings
 
-![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
-![CI](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/cpp.yml/badge.svg)
-![Supabase Edge API](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/supabase-edge.yml/badge.svg)
-![Database](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/db-migration.yml/badge.svg)
-![Web](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/web.yml/badge.svg)
-![Containers](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/container.yml/badge.svg)
-![Container security](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/container-scan.yml/badge.svg)
 ![Release readiness](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 ![Project](https://img.shields.io/badge/status-portfolio%20MVP%20in%20progress-blue)
@@ -25,11 +18,17 @@ Shortest-path routing · Durable 45-second driver offers · Automatic expiry/red
 
 The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. Durable driver offers and expiry/redispatch were merged in PR [#13](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/13). The bounded dispatch-attempt exhaustion fix was merged in PR [#15](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/15), after the full release-readiness workflow passed all 13 jobs on tested PR head `ec8780b20beef1470047f23f73f9705ac148f5a6`. See [the exact full-suite run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466789) and [API smoke run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466885). These results validate that tested revision, not a live deployment or production operations. The production-readiness evidence and release gates are documented in [`docs/RELEASE_READINESS_EVIDENCE.md`](docs/RELEASE_READINESS_EVIDENCE.md). Always verify fresh workflow runs on the exact release SHA before publishing.
 
+
+
+## Current release gate — 14 November 2026
+
+PR [#82](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/82) is the current release candidate. It makes the API-backed app the homepage and adds a clean local Supabase migration/security-invariant check to the release workflow. Do not merge until the exact PR head has green checks. The deployed Render site is still on an older main commit; real signup, first-admin bootstrap, passenger/driver/admin browser journeys, encrypted backup/restore and legacy Render API cleanup remain unverified. RideForge is an academic portfolio demo only: it is not licensed to carry passengers or process real fares.
+
 ## Full-stack roadmap status
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the source-of-truth architecture, [`docs/COMPLETION_MATRIX.md`](docs/COMPLETION_MATRIX.md) for the 100-point evidence register, and [`docs/DEEP_IMPROVEMENT_RESEARCH.md`](docs/DEEP_IMPROVEMENT_RESEARCH.md) for the research-backed priority order, security/reliability recommendations, acceptance criteria, and release gates. The implementation status below is not a production-readiness claim.
 
-This repository has evolved from its original C++17 academic simulation into **RideForge**, an original bike-taxi portfolio MVP. The web platform now targets a Supabase-native backend: Supabase Auth, PostgreSQL, Edge Functions, transactional RPCs, RLS and Realtime. The migration is tracked in PR [#79](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/79); the Edge Function and additive database migrations are already deployed. The static evaluation frontend remains hosted at [rideforge-web.onrender.com](https://rideforge-web.onrender.com). See [the Supabase backend runbook](docs/SUPABASE_BACKEND.md) for the migration architecture, administrator bootstrap and deployment details. The legacy C++ API is retained in the repository during the cutover window; it is no longer the intended application backend. RideForge is a portfolio demo, not a live taxi service: no real passenger transport, payments, verified driver/vehicle onboarding or emergency dispatch are offered. Use public landmarks/test locations only; do not submit home addresses or personal data to the public OpenStreetMap demo providers.
+This repository has evolved from its original C++17 academic simulation into **RideForge**, an original bike-taxi portfolio MVP. The web platform now uses a Supabase-native backend: Supabase Auth, PostgreSQL, Edge Functions, transactional RPCs, RLS and Realtime. The migration was merged in PR [#79](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/79), and the Edge Function and additive database migrations are deployed. PR [#82](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/82) makes the API-backed app the homepage and removes the local-only simulation; it must pass exact-head CI before merge. The static evaluation frontend remains hosted at [rideforge-web.onrender.com](https://rideforge-web.onrender.com). See [the Supabase backend architecture](docs/SUPABASE_BACKEND.md) and the active [Supabase operations runbook](docs/SUPABASE_OPERATIONS.md) for deployment, Auth bootstrap, backup/restore and release procedures. The old [Compose deployment](docs/production-deployment.md) and [Render API guide](docs/render-deployment.md) are explicitly marked as legacy. The legacy C++ API is retained in the repository during the cutover window; it is no longer the intended application backend. RideForge is a portfolio demo, not a live taxi service: no real passenger transport, payments, verified driver/vehicle onboarding or emergency dispatch are offered. Use public landmarks/test locations only; do not submit home addresses or personal data to the public OpenStreetMap demo providers.
 
 | Area | Current evidence | Status |
 |---|---|---|

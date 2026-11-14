@@ -1,5 +1,8 @@
 # Render deployment for RideForge
 
+> **LEGACY RENDER API GUIDE — SUPERSEDED.** The current RideForge application does not use a Render API or Render-hosted PostgreSQL backend. The only Render service to retain is the static site `rideforge-web`; the three historical API services are scheduled for manual deletion after the final frontend deployment is verified. Use [SUPABASE_OPERATIONS.md](SUPABASE_OPERATIONS.md) for the active Supabase-native deployment and operations. Do not create or reconfigure the legacy API services from this guide.
+
+
 This guide describes a free-tier evaluation deployment. It is not a production SLA: Render free web services sleep when idle, and the combined API/worker service therefore pauses dispatch and outbox delivery while asleep. Use an always-on paid service and separate worker processes for a real operating service; obtain explicit budget approval first.
 
 ## Services

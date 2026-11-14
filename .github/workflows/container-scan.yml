@@ -1,40 +1,7 @@
 name: Container vulnerability scan
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-
 on:
   workflow_call:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - "web/**"
-      - "README.md"
-      - "docs/**"
-      - ".env.production.example"
-      - "compose.yaml"
-      - ".env.example"
-      - ".github/workflows/container-scan.yml"
-      - "compose.production.yaml"
-      - "Caddyfile"
-      - "deployment/**"
-  push:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - "web/**"
-      - "README.md"
-      - "docs/**"
-      - ".env.production.example"
-      - "compose.yaml"
-      - ".env.example"
-      - ".github/workflows/container-scan.yml"
-      - "compose.production.yaml"
-      - "Caddyfile"
-      - "deployment/**"
   schedule:
     - cron: "41 4 * * 1"
 

@@ -2,126 +2,124 @@
 
 **Assessment date:** 2026-11-14  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Assessed main SHA:** `b4f91bc43e5b3185580a84f47238bb9085b2026c`  
-**Purpose:** source-of-truth description of the current academic/demo system. This document is not a claim of commercial readiness.
+**Assessed base SHA:** `670e946f2b290ec7081d712a073edad6a697f1cb`  
+**Purpose:** describe the current academic/portfolio MVP architecture and its verified boundaries. This is not a claim of commercial readiness.
 
 ## 1. System boundary
 
-RideForge is a Noida-focused bike-taxi software prototype. It has a passenger booking experience, driver workspace, admin/support workspace, Supabase Auth, PostgreSQL persistence, an Edge Function HTTP API, transactional dispatch RPCs and external geocoding/routing providers. The original C++ API and workers are legacy rollback components during migration.
+RideForge is a Noida-focused bike-taxi software prototype. The current intended runtime is a React/Vite static frontend on Render, with Supabase Auth, PostgreSQL and Edge Functions providing the application backend. Realtime publication is configured for rides and events, but the current browser client uses authenticated SSE polling plus REST recovery.
 
-It is **not** an authorised commercial aggregator. Demo mode, live API mode, simulated receipts and actual financial transactions must remain distinct. A successful local build or database test is not proof of a live ride.
+The original C++ API and worker stack remains in the repository as legacy code and historical reference. It is not the active application backend. The three legacy Render API services are not part of the intended runtime and must be removed from the hosting account after the static frontend is confirmed healthy.
+
+RideForge is **not** an authorised commercial aggregator. The current fare is a demonstration tariff, the receipt is not a tax invoice or proof of payment, and no real payment processing, driver-document verification, emergency response or passenger transport is offered.
 
 ## 2. Logical architecture
 
 ```mermaid
 flowchart TB
-  P[Passenger browser] --> WEB[React + Vite web app]
+  P[Passenger browser] --> WEB[React + Vite static app]
   D[Driver browser] --> WEB
   A[Admin browser] --> WEB
-  WEB -->|REST /api/v1| API[C++17 HTTP API]
-  WEB <-->|SSE ride events + REST recovery| API
-  API --> PG[(Supabase PostgreSQL 17)]
-  DW[Dispatch worker] --> PG
-  OW[Outbox worker] --> PG
-  API --> GEO[Nominatim geocoding]
-  API --> ROUTE[OSRM routing]
-  API --> TILES[OpenStreetMap raster tiles]
-  OW -->|PostgreSQL NOTIFY| API
-  API -->|authenticated SSE| WEB
+  WEB -->|HTTPS REST| EDGE[Supabase Edge Function]
+  WEB <-->|Authorized Realtime + REST recovery| EDGE
+  EDGE --> AUTH[Supabase Auth]
+  EDGE --> PG[(Supabase PostgreSQL 17)]
+  PG --> RPC[Transactional booking and dispatch RPCs]
+  EDGE --> GEO[Nominatim geocoding]
+  EDGE --> ROUTE[OSRM routing]
+  WEB --> TILES[OpenStreetMap tiles]
 ```
 
-The diagram shows the target Supabase-native application path. The React static site remains on Render; authentication, HTTP API, database and transactional ride operations are Supabase-hosted. The old C++ API/worker stack remains in the repository only for reference/rollback. Its Render services are legacy and are not part of the intended runtime; the production outbox notification trigger is retired.
+The frontend is served by the retained Render static site. Auth, API requests, durable application state and transactional ride operations are Supabase-hosted. Browser code must never receive the Supabase service-role secret or direct privileged database credentials.
 
 ## 3. Components and responsibilities
 
 | Component | Source of truth | Responsibility | Important boundary |
 |---|---|---|---|
-| Web client | `web/src/App.tsx`, `web/src/components/OperationsWorkspace.tsx` | Passenger booking, driver workspace, admin operations, support UI | API-backed flows require the C++ API; no payment is implied |
-| Browser demo | Pending PR #65: `web/src/DemoExperience.tsx` | Local passenger/driver/admin walkthrough | Browser `localStorage` only; no real account, GPS, dispatch, payment or database write |
-| HTTP API | `supabase/functions/rideforge-api/index.ts` | Supabase Auth, quotes, bookings, passenger rides, driver actions, admin/support, SSE compatibility | Validates bearer JWT and account role before service-role operations |
-| Database | Supabase project `ghcufcegfvvjhsnqnrzr` | Accounts, quotes, rides, offers, events, outbox, support and audit records | PostgreSQL 17; 12 application migrations currently recorded |
-| Dispatch RPC | `public.rideforge_dispatch_ride` | Finds eligible approved/online drivers and creates one exclusive 45-second offer | Called after booking and during driver queue refresh; max five distinct drivers |
-| Ride events | `public.ride_events` + Supabase Realtime | Persists ride lifecycle changes; SSE compatibility endpoint replays event rows | Realtime publication is participant-scoped by RLS; legacy outbox worker is retained only during cutover |
-| Geocoding | Nominatim | Converts location labels into coordinates | Public demo endpoint, paced and cached; no production SLA |
-| Routing | OSRM | Returns road distance, duration and geometry | Public demo endpoint, paced and cached; not live traffic |
-| Map tiles | OpenStreetMap tile service | Displays route map | External tile service; map failure must not block manual address entry |
+| Web client | `web/src/App.tsx`, `web/src/components/OperationsWorkspace.tsx` | Passenger planner, booking, tracking, history, driver workspace, admin and support UI | `/` is the API-backed app; `/live` remains an alias. No localStorage ride simulator is part of the intended product |
+| Static hosting | Render static site `rideforge-web` | Serves the built React/Vite assets | Keep this service; do not confuse it with the retired legacy API services |
+| Authentication | Supabase Auth | Signup, email confirmation, sign-in and JWT issuance | Site URL/redirect allow-list and email delivery must be configured before real signup |
+| HTTP API | `supabase/functions/rideforge-api/index.ts` | Authenticated profile, quote, booking, passenger, driver, admin and support operations | Function validates bearer identity and account role before privileged server-side operations |
+| Database | Supabase project `ghcufcegfvvjhsnqnrzr` | Accounts, driver profiles, quotes, rides, offers, ride events, support and audit data | PostgreSQL 17; migrations are versioned in the repository and production ledger |
+| Booking/dispatch RPCs | `public.rideforge_*` functions | Idempotent booking, availability, one-at-a-time driver offers, acceptance, lifecycle and cancellation | Transactional database functions; privileged execution is not granted to browser roles |
+| Realtime | Supabase Realtime publication for `rides` and `ride_events` | Live state updates to authorized participants | RLS and participant checks are security boundaries; clients must recover state through REST after reconnect |
+| Geocoding | Nominatim | Converts submitted place labels into coordinates | Public demo endpoint, paced; no production SLA or commercial usage guarantee |
+| Routing | OSRM | Returns road distance, duration and geometry | Public demo endpoint; not live traffic or guaranteed availability |
+| Map tiles | OpenStreetMap tile service | Displays the route map | External service; map failure must not prevent manual location entry |
 
-## 4. Request and trip lifecycle
+## 4. Request and ride lifecycle
 
 1. Passenger submits pickup and destination labels.
-2. API validates labels, geocodes both locations, rejects identical resolved coordinates and requests a road route.
-3. API calculates the current demonstration fare (₹20 base + ₹11/km, rounded up to paise) and persists a short-lived quote.
-4. Passenger consumes the quote to create a ride. Booking idempotency prevents duplicate rides for the same key/fingerprint.
-5. A database transaction creates the ride and its durable event/outbox record.
-6. Dispatch worker selects one eligible driver at a time. An offer is durable, exclusive and expires after 45 seconds. Decline/expiry advances to the next candidate, subject to the configured maximum attempts. A request that remains unassigned for 10 minutes receives an explicit no-driver outcome.
-7. Driver actions move the ride through the permitted lifecycle. Database constraints and transactional updates prevent competing assignment and invalid transitions.
-8. Ride events are persisted. The outbox worker publishes notifications; passenger SSE streams replay persisted events and REST remains the recovery path.
-9. Completion stores the final quoted fare and history record. A printable receipt is explicitly a demo receipt, not a tax invoice or proof of payment.
+2. The Edge Function validates input, obtains geocoding and routing results, and calculates a versioned demonstration fare.
+3. The API persists a short-lived quote. The client does not invent a fare when the API is unavailable.
+4. Passenger consumes the quote to create a ride. A transactional idempotency key prevents duplicate booking on retries.
+5. A database transaction creates the ride and its durable ride event.
+6. Dispatch selects one eligible, approved, online driver with a fresh location. One offer is active per ride at a time; offers expire after 45 seconds and dispatch advances across at most five distinct drivers.
+7. Acceptance revalidates driver approval, online status and location freshness inside the transaction. Competing acceptances cannot assign the same ride twice.
+8. Ride transitions and events are persisted. The Edge Function's authenticated SSE endpoint polls persisted ride events and reconnects every 25 seconds; REST remains the recovery path after reconnect.
+9. Completion records the final quoted fare and ride history. The printable receipt remains explicitly a demo receipt.
 
-The current driver start action validates driver ownership and lifecycle state, but does not implement passenger OTP/PIN confirmation. That is a safety gap before real passenger operations.
+The current implementation does not provide passenger trip-start OTP/PIN confirmation, verified driver identity/licence/vehicle records, emergency dispatch or payment settlement. These are not to be implied by the interface.
 
 ## 5. Authentication and trust boundaries
 
-- Supabase Auth owns password hashing, email verification and access-token issuance. The Auth trigger creates the corresponding `public.accounts` row with the same UUID.
-- Passenger, driver and admin roles are distinct. Driver profiles are provisioned by an administrator and start unapproved. Approval/suspension is audited.
-- Passenger and driver ride queries are scoped to the authenticated account in SQL. UUIDs are not authorization.
-- Admin driver approval, support triage and audit endpoints are admin-only.
-- Quote-provider rate limiting and distributed abuse controls still need additional hardening before a public production launch.
-- Phone/email verification, password reset, account deletion, push/SMS notifications and emergency response are not implemented.
-- Driver approval is not identity, licence, insurance or vehicle-document verification.
+- Supabase Auth owns password handling, email confirmation and access-token issuance.
+- An Auth trigger creates the corresponding application account with the Auth user UUID.
+- Passenger, driver and admin roles are distinct. Driver accounts require administrator provisioning/approval in the current MVP.
+- Edge Function handlers validate the bearer token and application account state/role before privileged operations.
+- The Supabase service-role credential is server-only. It must never be placed in Vite variables, browser bundles, source control or client logs.
+- All 14 public tables including the migration ledger (13 operational application tables) have RLS enabled. Participant SELECT access is limited to the required account/ride/event data; direct browser writes to application tables are denied. Transactional writes go through the Edge Function and restricted RPCs.
+- SECURITY DEFINER functions use a pinned search path and explicit execute grants. Never grant privileged RPC execution to `anon` or general `authenticated` users.
+- Quote and external provider requests are rate-limited/throttled. These controls still require abuse/load testing at realistic scale.
 
-### Supabase database boundary
+## 6. Database, backups and capacity
 
-The connected Supabase project has RLS enabled on all 12 application tables. Migration 016 adds participant/self SELECT policies for the small set of tables needed by Realtime and explicit deny policies for internal tables; browser roles have no table write grants. Service-role operations are confined to the Edge Function after JWT/account/role validation. The old `rideforge_app` PostgreSQL role is legacy and must not be used by the new Edge API.
-
-Both `public.schema_migrations` and Supabase's migration ledger record versions 001–012. The runtime role's password verifier exists, but authentication from a deployed application process has not been proven.
-
-## 6. Database and capacity
-
-- API PostgreSQL pool: 10 connections per API process, 2-second acquisition timeout.
-- Dispatch worker: one persistent database connection.
-- Outbox worker: one persistent database connection.
-- Approximate one-instance steady-state budget: 12 connections (10 API + 1 dispatch + 1 outbox), plus short-lived migration/maintenance connections. Add 10 per additional API process. This is a budget estimate, not a measured saturation limit.
-- Runtime role has no DELETE/TRUNCATE; audit/event/migration records are append-only from the application role.
-- Supabase Free plan does not provide automatic daily backups or PITR. No encrypted production backup schedule or production restore drill has been verified.
+- Production is PostgreSQL 17 in Supabase region `ap-south-1`.
+- Local migration files and the production application migration ledger are reconciled; use reviewed migrations for future schema changes.
+- Production currently has no real passenger accounts or rides. Synthetic SQL tests are rolled back and do not constitute real-user journey evidence.
+- Supabase Free does not provide automatic daily downloadable backups or PITR. The repository contains an encrypted export workflow, but it is not operational until its repository secrets are configured, a successful export is observed, an off-site copy is stored and an isolated restore drill succeeds.
+- No representative load test or production capacity limit has been measured. Do not infer throughput from an empty database or advisor output. Measure query plans, connection behavior, dispatch contention and Realtime reconnect load before increasing traffic.
 
 ## 7. External dependencies and failure behavior
 
-| Dependency | Used for | Failure behavior / limitation |
+| Dependency | Used for | Limitation / required production action |
 |---|---|---|
-| Supabase PostgreSQL | Durable state | API readiness fails when DB/schema is unavailable; no successful deployed runtime connection proven |
-| Nominatim | Geocoding | Timeouts, provider errors and non-JSON responses fail closed; public service is evaluation-only |
-| OSRM | Route distance/duration/geometry | No live traffic guarantee; provider errors return quote failure |
-| OpenStreetMap tiles | Map display | Map may be unavailable independently of quote/booking; manual labels remain the fallback |
-| GitHub Actions | CI and release checks | Current PR checks are queued; do not treat queued as passed |
-| Hosting provider | Web/API runtime | Vercel is deferred. Static web hosting and persistent C++ API/worker hosting are separate deployment decisions |
+| Supabase Auth | Identity and sessions | Configure redirect URLs, confirmation email delivery, recovery and account security controls |
+| Supabase PostgreSQL | Durable state and transactional operations | Verify SSL/network controls, backups, restore, monitoring and realistic performance |
+| Supabase Edge Functions | HTTP API and privileged orchestration | Verify exact-head typecheck, live readiness, request logs, timeouts and idempotent retries |
+| Supabase Realtime | Ride state updates | Test participant authorization, reconnect/resync and concurrent subscriptions |
+| Nominatim | Geocoding | Public endpoint is paced and evaluation-only; obtain a contracted/self-hosted provider for production |
+| OSRM | Route metrics | Public endpoint has no traffic or uptime guarantee; obtain a production routing provider for commercial use |
+| OpenStreetMap tiles | Map display | Respect tile usage policy or use a contracted tile provider; map failure must degrade gracefully |
+| Render static site | Frontend assets | Deploy the merged main SHA and verify browser behavior after deployment |
 
-## 8. Deployment decision for the next phase
+## 8. Deployment and cutover
 
-The user has explicitly deferred creating/configuring Vercel until repository engineering is complete. No Vercel project or deployment was created through this execution.
+The target architecture retains Render only for `rideforge-web` and uses Supabase for the application backend. The repository Blueprint no longer declares a Render API service. Three old Render API service objects still require deletion from the Render dashboard; source configuration changes do not delete already-created cloud resources.
 
-Vercel can host the static React/Vite frontend. It is not a direct runtime for the existing persistent C++ API, dispatch worker and PostgreSQL LISTEN/NOTIFY outbox worker. If Vercel is selected for the frontend, a persistent compute host is still needed for those backend processes. Alternatively, the backend can be deliberately rewritten into serverless/queue-driven components, but that is a separate architecture migration requiring new concurrency, recovery and integration tests.
+Before calling the academic MVP deployed:
+1. Configure Supabase Auth Site URL and allowed redirects for the production frontend and local development.
+2. Register and verify a real account; promote the intended owner account through the documented owner-only bootstrap procedure.
+3. Merge PR #81 only after all exact-head required CI checks pass.
+4. Confirm the Render static site deploys the merged `main` SHA and uses the Supabase Edge Function URL.
+5. Run real browser journeys for passenger, driver and admin roles, including two-session authorization and Realtime reconnect.
+6. Delete the three legacy Render API services and verify only the static frontend remains for RideForge.
 
-The existing Render API service is configured with auto-deploy enabled on `main` and the `checksPass` trigger. Therefore, merging any PR to `main` can initiate a Render deployment even though the user has deferred Vercel/hosting work. Do not merge any PR until the hosting decision is confirmed or the user explicitly disables Render auto-deploy. No live Render service setting has been changed. Do not deploy or merge Render-specific changes merely to keep the existing Render service alive. PR #66 is closed with its branch retained as a deferred option; PR #64 contains the CI-only fixes.
+## 9. Explicitly out of scope for the portfolio MVP
 
-## 9. Explicitly out of scope until providers/approvals exist
+- Real payment initiation, signed webhooks, refunds, settlement ledger and tax invoices.
+- Driver identity, police, licence, medical, psychological and vehicle-document verification.
+- Passenger trip-start OTP/PIN and emergency assistance.
+- Strict polygonal operating geofence and legally approved fare schedule.
+- Staffed grievance response, safety operations and 24/7 incident handling.
+- Commercial aggregator licence, motorcycle authorization, insurance, driver welfare and regulatory certification.
+- DPDP operational programme, contractual processor controls and verified data-retention/deletion operations.
 
-- Real payment initiation, webhook verification, refunds and settlement accounting.
-- Driver identity, licence, vehicle-document and insurance verification.
-- Phone/email OTP verification and account recovery.
-- Passenger trip-start OTP/PIN confirmation.
-- Strict polygonal service-area validation (geocoding context is not a geofence).
-- Commercial fare configuration, discounts, taxes and cancellation fees.
-- Emergency assistance, staffed safety operations and 24/7 grievance response.
-- Automated retention/deletion and production backup/restore operations.
-- Commercial aggregator licence, vehicle eligibility, insurance and regulatory certification.
-
-These are tracked as release blockers or provider/legal dependencies, not silently simulated features.
+These are commercial/legal gates, not tasks that should be faked with demo UI or test credentials.
 
 ## 10. Verification sources
 
-- Backend endpoint and state behavior: `backend/src/server.cpp`, `backend/openapi.yaml`.
-- Database constraints and grants: `backend/migrations/*.sql`, `docs/SECURITY_MODEL.md`.
-- Worker behavior: `backend/src/server.cpp`, `backend/tests/concurrency_test.py`, `backend/tests/dispatch_worker_restart_test.py`.
-- Operational commands: `docs/OPERATIONS_RUNBOOK.md`.
-- Release evidence and known blockers: `docs/RELEASE_READINESS_EVIDENCE.md`.
+- API and transactional behavior: `supabase/functions/rideforge-api/index.ts`, `supabase/migrations/*.sql`.
+- Database constraints, RLS and function grants: `docs/SUPABASE_BACKEND.md`, `docs/SECURITY_MODEL.md`.
+- Operational commands and release steps: `docs/OPERATIONS_RUNBOOK.md`.
+- Current acceptance evidence and unresolved gates: `docs/RELEASE_READINESS_EVIDENCE.md`, `docs/COMPLETION_MATRIX.md`, `docs/DEEP_IMPROVEMENT_RESEARCH.md`.

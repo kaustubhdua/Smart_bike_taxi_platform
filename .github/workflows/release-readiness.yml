@@ -15,6 +15,9 @@ permissions:
   contents: read
 
 jobs:
+  supabase_edge:
+    name: Supabase migrations and Edge API
+    uses: ./.github/workflows/supabase-edge.yml
   cpp:
     name: C++ tests and benchmarks
     uses: ./.github/workflows/cpp.yml

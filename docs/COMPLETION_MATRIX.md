@@ -1,7 +1,7 @@
 # RideForge 100-point completion matrix
 
 **Snapshot:** 2026-11-14  
-**Repository main SHA assessed:** `5d802f212ba11a2980c066e7734595bd8b4e2ba8`  
+**Repository base SHA assessed:** `670e946f2b290ec7081d712a073edad6a697f1cb`  
 **Target:** L4 operationally ready software, with L5 commercial authorization separate.
 
 This is an evidence register, not a feature-count scoreboard. A task is **VERIFIED** only when its stated acceptance evidence exists. **IMPLEMENTED** means code/documentation exists but exact-head tests or real-environment proof are still outstanding. A queued workflow is not a pass. A blocked external dependency is not silently marked complete.
@@ -19,22 +19,25 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 ## Current release summary
 
-- Live Supabase schema, the RideForge application migration ledger and runtime-role privilege boundaries were verified; migrations 013–015 were subsequently applied and their post-change privileges rechecked.
-- Main SHA `e07cff3` is the current repository head. Its push-triggered C++ build, API smoke, PostgreSQL migration/recovery, container, vulnerability, web and full release-readiness runs were observed queued; no fresh successful full-suite result is established for this SHA.
-- PRs #64, #65 and #67–71 are merged. PR #66 is closed without merge and remains deferred. PR #72–74 are merged. PR #76 adds public-function execution hardening, a disabled read-only backup identity, an encrypted backup workflow, restore-role re-provisioning and CI regression probes; PR #75 is superseded. Exact-head checks remain queued, not passed.
-- Migrations 013–015 are applied and verified in the live RideForge application ledger `public.schema_migrations`; `rideforge_app` retains USAGE/SELECT but no UPDATE on all five public sequences; public function execution is opt-in; and `rideforge_backup` is NOLOGIN with SELECT-only access. PR #76 carries the source migrations, readiness updates, CI regression checks and a scheduled encrypted backup workflow. The workflow is not active until repository secrets are configured and a successful run is observed. The Supabase platform migration history is a separate audit ledger and contains operator-applied DDL records in addition to the timestamped baseline records.
-- GitHub reports `main` unprotected. Issue #17 remains an administrator action; the available integration cannot write branch-protection/ruleset settings.
-- PR #66 remains intentionally deferred. No Render deployment or Vercel deployment is being performed in this phase. Read-only Render logs show the latest API startup blocker is a malformed `DATABASE_URL_TEMPLATE`: the latest environment-updated deploy fails because the URI does not contain the literal `__RIDEFORGE_PASSWORD__` placeholder. An earlier attempt failed because the variable was missing; `MIGRATION_DATABASE_URL` remains unvalidated. The Render service is configured with `autoDeployTrigger=checksPass`, so a merge with passing repository checks can initiate a deployment.
-- Supabase is on the Free plan: no automatic daily backup/PITR; no production backup/restore drill has been verified.
-- Commercial operations are not authorised.
+- main is at 670e946f2b290ec7081d712a073edad6a697f1cb, merging PR #79 (Supabase-native backend).
+- The current release candidate is PR #82: https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/82. It is open and not merged. Its exact head is 5f091ae5fec80f3d955aee39d9df06c2c05b0c7c; all observed exact-head GitHub Actions runs were queued, and no successful final suite has been observed. Do not merge until they complete.
+- Supabase project ghcufcegfvvjhsnqnrzr is ACTIVE_HEALTHY, PostgreSQL 17.11, Free plan. The 26 timestamped migrations in this branch exactly match the 26 applied Supabase migration-history versions. Edge Function rideforge-api is ACTIVE version 9. The latest Security and Health Advisors returned zero findings. Performance Advisor reports 16 informational unused indexes; the database is empty, so do not drop them without representative workload evidence.
+- Production has 14 public tables including the application migration ledger; all 14 have RLS enabled. The 13 operational tables have participant/self read policies or explicit deny policies. Client roles cannot execute the rideforge_* SECURITY DEFINER RPCs; their search paths are pinned. The auth.users insert trigger rideforge_auth_user_created exists and creates the passenger account.
+- Supabase Realtime publication includes rides and ride_events, but the current React client does not directly subscribe to Realtime. It consumes the authenticated SSE compatibility endpoint, which polls durable ride events every 1.5 seconds for up to 25 seconds per connection and reconnects; REST polling is the recovery path. Do not describe the browser as a direct Realtime subscriber.
+- Production has zero Auth users, zero application accounts and zero rides. Supabase logs in the latest 24-hour window showed no Edge Function log source/invocations. Real signup, first-admin bootstrap and deployed passenger/driver/admin journeys have not been proven.
+- The retained Render static site rideforge-web is live on commit d8552eb0a8b2a5b11cea3c900a2ed068b6978c1d, not the PR #82 candidate. Three legacy Render API service objects remain and their most recent deploys failed/are not serving the current app. Delete them manually after the final static frontend is confirmed deployed; keep rideforge-web.
+- Supabase Auth redirect configuration and first verified admin bootstrap remain operator tasks. No successful encrypted off-site backup export or isolated restore drill is evidenced; the organization is on Free, which has no automatic daily backup/PITR entitlement.
+- Exact-head CI, live HTTP readiness from an external runner, browser E2E, realistic load testing, branch protection and post-cleanup Render inventory remain unverified.
+- Commercial Noida operations are not authorized. UP's final Thirty-third Amendment aggregator rules were notified on 22 May 2026 and require a state licence before new operations. Noida's NCR vehicle onboarding is also subject to CAQM Direction 94; the temporary BS-VI two-wheeler exception for existing fleets expires 31 Dec 2026. The project must remain an academic/portfolio demo unless licensing, EV/vehicle eligibility, insurance, driver compliance, safety operations and counsel/authority approvals are evidenced.
+
 
 ## Snapshot counts
 
 | Status | Tasks |
 |---|---:|
 | VERIFIED | 5 |
-| IMPLEMENTED | 35 |
-| PARTIAL | 45 |
+| IMPLEMENTED | 36 |
+| PARTIAL | 44 |
 | BLOCKED | 7 |
 | NOT STARTED | 7 |
 | DEFERRED | 1 |
@@ -50,7 +53,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 3 | Define passenger, driver, admin and support scope | PARTIAL | Engineering | API/UI scope documented; product acceptance and support operating model still need sign-off |
 | 4 | Remove duplicate implementations and configuration paths | PARTIAL | Engineering | Active Vite entrypoint identified; complete duplicate/dead-code sweep remains |
 | 5 | Identify TODOs, mocks, hard-coded responses and nonfunctional screens | PARTIAL | Engineering | Initial UI/code review found planned safety/DSA actions and provider-dependent placeholders; full sweep remains |
-| 6 | Separate demo and live modes | IMPLEMENTED | Engineering | PR #65: browser-only localStorage simulation at `/`, API-backed experience at `/live`; exact-head Playwright pass pending |
+| 6 | Home page is the real product, not a simulation | IMPLEMENTED | Engineering | The browser-only localStorage simulation is removed; `/` serves the API-backed app (`/live` remains an alias). With the API unreachable it shows an explicit error and never invents a ride or fare; browser tests cover both |
 | 7 | Requirements-to-code-to-test matrix | PARTIAL | Engineering | This first-pass matrix maps tasks to evidence/acceptance; add exact route, test name, tested SHA and evidence URL for each implemented row |
 | 8 | Define operating geography, boundaries, hours and vehicle categories | PARTIAL | Engineering / User | Noida context exists; strict polygon geofence, operating hours and vehicle categories are not configured |
 | 9 | Define measurable acceptance criteria | PARTIAL | Engineering | CI and API acceptance tests exist; missing provider/legal/manual-device criteria remain |
@@ -66,7 +69,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 14 | Destination selection and saved destinations | PARTIAL | Engineering | Label selection exists; saved destinations and manual pin placement are absent |
 | 15 | Strict service-area validation | PARTIAL | Engineering | Noida geocoding context exists; context is not a polygonal geofence or service-hours check |
 | 16 | Server-side fare estimation | IMPLEMENTED | Engineering | Server geocodes/routes and computes the demo tariff; exact-head integration pass pending |
-| 17 | Transparent fare breakdown | PARTIAL | Engineering | Main still returns only the total fare. Open PR #74 adds base/distance components and UI display; commercial tariff configuration, taxes/fees, surge and regulatory fare review remain out of scope |
+| 17 | Transparent fare breakdown | IMPLEMENTED | Engineering | Server quote and UI display base plus distance components; demo tariff is explicitly not a UP-approved commercial tariff. Exact-head Playwright and deployed journey evidence remain required |
 | 18 | Durable, idempotent booking creation | IMPLEMENTED | Engineering | Transactional booking and idempotency fingerprint tests exist; exact-head CI pending |
 | 19 | Booking lifecycle tracking | IMPLEMENTED | Engineering | Persisted ride events, authenticated SSE replay and REST recovery exist; deployed live journey not verified |
 | 20 | Passenger trip history and receipts | IMPLEMENTED | Engineering | History and printable receipt exist; receipt is explicitly demo-only, not tax invoice/payment proof |
@@ -142,7 +145,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | 65 | Payment idempotency | NOT STARTED | Engineering / Provider | Booking idempotency exists; payment-event idempotency does not |
 | 66 | Payment reconciliation | NOT STARTED | Engineering / Provider | No provider transaction reconciliation |
 | 67 | Refund workflows | NOT STARTED | Engineering / Provider | No real payment/refund provider |
-| 68 | Fare calculation boundary tests | PARTIAL | Engineering | Existing fare uses integer paise; open PR #74 adds pure C++ rounding/boundary/overflow tests and API smoke checks for component totals; exact-head CI pending |
+| 68 | Fare calculation boundary tests | PARTIAL | Engineering | PR #74 is merged; pure C++ rounding/boundary/overflow tests and API smoke checks for component totals are in main. Exact-head execution is still pending; add a backend quote integration assertion that 5.2 km at the demo ₹20 + ₹11/km tariff equals ₹77.20 |
 | 69 | Driver settlement accounting | NOT STARTED | Engineering / Finance | No net payout, commission or settlement ledger |
 | 70 | Financial audit reports | NOT STARTED | Engineering / Finance | No real transactions to reconcile; finance reporting is not implemented |
 
@@ -198,7 +201,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | L0 — Repository complete | PARTIAL | Architecture and matrix are drafted; CI queue, docs/branch review and remaining gaps persist |
 | L1 — Feature complete | PARTIAL | Core booking/dispatch/admin paths exist; profile, verification, safety, payments and service-area gaps remain |
 | L2 — Test complete | NOT ACHIEVED | Exact current PR checks are queued; main SHA b4f91bc failed API smoke and web tests |
-| L3 — Deployment complete | DEFERRED | Vercel intentionally postponed; no healthy live API has been verified |
+| L3 — Deployment complete | PARTIAL | Supabase Edge Function is deployed ACTIVE and Render serves the static site, but external HTTP readiness, final frontend SHA and real user journeys are not verified |
 | L4 — Operationally ready | NOT ACHIEVED | No production backup/restore, monitoring, load proof or real-device acceptance |
 | L5 — Commercially authorised | NOT AUTHORISED | Licence, insurance, driver/vehicle verification and regulatory approval are separate gates |
 

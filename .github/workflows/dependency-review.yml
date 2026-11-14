@@ -1,23 +1,6 @@
 name: Dependency audit
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-
 on:
   workflow_call:
-  pull_request:
-    branches: [main]
-    paths:
-      - "web/package.json"
-      - "web/package-lock.json"
-      - ".github/workflows/dependency-review.yml"
-  push:
-    branches: [main]
-    paths:
-      - "web/package.json"
-      - "web/package-lock.json"
-      - ".github/workflows/dependency-review.yml"
   workflow_dispatch:
 
 permissions:
