@@ -1,9 +1,4 @@
 name: Container vulnerability scan
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-
 on:
   workflow_call:
   workflow_dispatch:
