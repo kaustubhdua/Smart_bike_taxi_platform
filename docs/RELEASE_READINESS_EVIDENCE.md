@@ -322,3 +322,35 @@ Read-only SQL recheck of project `ghcufcegfvvjhsnqnrzr` confirms:
 - Direct `pg_authid` inspection confirms `rideforge_app` currently has no password verifier. Render startup still fails before migration-owner validation because the configured `DATABASE_URL_TEMPLATE` lacks the required `__RIDEFORGE_PASSWORD__` placeholder. No runtime connection has been demonstrated.
 
 This evidence does not replace a successful exact-head CI run, an authenticated application login, an encrypted backup export, an isolated restore drill, or two-device end-to-end acceptance.
+
+
+## Supabase-native release recheck — 14 November 2026
+
+This section supersedes earlier snapshots in this file that describe the old C++/Render API as the active backend, report 12 application tables, or state that the legacy ride-event outbox trigger remains attached.
+
+### Current repository and hosting state
+
+- PR #79 is merged into `main` at `670e946f2b290ec7081d712a073edad6a697f1cb`. It migrates the active backend to Supabase Auth, PostgreSQL, Edge Functions, transactional RPCs and Realtime.
+- PR #81 is the current open release candidate. It makes the API-backed React app the homepage, removes the browser-only simulation, corrects architecture/release documentation, and fixes a reusable-workflow concurrency defect. It is not merged; merge only after every exact-head required check passes.
+- Supabase project `ghcufcegfvvjhsnqnrzr` is `ACTIVE_HEALTHY`; Edge Function `rideforge-api` is ACTIVE version 9. The latest Security and Health Advisor responses contain zero lints.
+- Fourteen public application tables have RLS enabled. Browser direct writes are denied; participant reads and privileged transactional writes are mediated by the Edge Function/RPC security model. The production ride event notification outbox trigger was retired by migration 024; ride events remain durable and Realtime is published for `rides` and `ride_events`.
+- Production currently contains no real application accounts or rides. Synthetic SQL tests rolled back their rows. A real verified signup, first-admin bootstrap, deployed browser E2E and live operational load test have not been proven.
+- Render still contains three legacy API service objects: `rideforge-api-final`, `rideforge-api-v2` and `rideforge-api`. Keep `rideforge-web`, the static site. The connected Render integration has no delete-service operation; deletion and post-deletion inventory verification are dashboard tasks.
+
+### Exact-head CI and orchestration
+
+A final audit found that several reusable workflow files used concurrency groups keyed only by `github.workflow`. When called by the aggregate release workflow, sibling reusable jobs could share a group and cancel one another. PR #81 removes those concurrency groups from reusable workflows; the top-level aggregate workflow retains PR-scoped concurrency. Exact-head checks have been re-triggered after that fix. Queued, cancelled or pending jobs are not passes. Require successful conclusions for C++, API, PostgreSQL migration, web build/Playwright/accessibility, Supabase Edge typecheck/readiness, container/Compose, container scan, dependency audit, CodeQL and aggregate release readiness.
+
+### Remaining production gates
+
+1. Configure Supabase Auth Site URL and allowed redirects for `https://rideforge-web.onrender.com` and local development; verify email confirmations, custom SMTP/recovery and suitable rate limits.
+2. Create and verify the first real account, then perform the owner-only admin bootstrap documented in `docs/SUPABASE_BACKEND.md`.
+3. Verify the final exact-head CI suite, merge PR #81, confirm the static site deploys the merged SHA, and run passenger/driver/admin journeys in two independent browser sessions including Realtime reconnect and REST resync.
+4. Configure the encrypted backup workflow secrets, observe a successful encrypted export, retain an off-site copy, recover the key, and complete an isolated restore drill. Free plan automatic backups/PITR are not available.
+5. Delete the three legacy Render API services, retain the static frontend, and verify the resulting Render inventory.
+6. Enable GitHub main branch rules/required checks. Issue #17 remains open; the connected GitHub integration cannot write branch-protection/ruleset settings.
+7. Perform representative load, abuse, reconnect, provider-failure and restore tests. The empty production database and zero advisor lints do not establish capacity or availability.
+
+### Commercial operation remains out of scope
+
+The software is an academic/portfolio MVP, not an authorised transport operator. MoRTH Motor Vehicle Aggregator Guidelines 2025, clause 23, leave non-transport motorcycle aggregation to State permission. The UP Transport Department's 13 March 2026 aggregator rules document found in research is a draft, not a final authorization. Before real passenger operations, obtain written UP legal/transport authority confirmation, aggregator licence and motorcycle/permit authorization, passenger and driver insurance, driver/vehicle identity and fitness verification, police/medical/psychological checks, induction training, grievance/compliance officer, emergency operations, payment/refund settlement and DPDP implementation. See `docs/DEEP_IMPROVEMENT_RESEARCH.md` for the source register and DPDP phased commencement dates.
