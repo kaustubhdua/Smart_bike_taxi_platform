@@ -36,8 +36,8 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 | Status | Tasks |
 |---|---:|
 | VERIFIED | 5 |
-| IMPLEMENTED | 35 |
-| PARTIAL | 45 |
+| IMPLEMENTED | 36 |
+| PARTIAL | 44 |
 | BLOCKED | 7 |
 | NOT STARTED | 7 |
 | DEFERRED | 1 |
