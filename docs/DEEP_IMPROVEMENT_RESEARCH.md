@@ -392,3 +392,8 @@ The official [G.S.R. 843(E) commencement notification](https://egazette.gov.in/W
 - Government of Uttar Pradesh, Transport Department, [draft UP Motor Vehicle (Aggregator and Delivery Service Provider) Rules, 2026](https://upidadv.up.gov.in/upload/PublicationRequest/183241/SachivalyaLKO130326Notification639090236220551079.pdf), notification dated 13 Mar 2026; expressly a draft.
 - Government of India, e-Gazette, [G.S.R. 843(E), DPDP Act commencement](https://egazette.gov.in/WriteReadData/2025/267647.pdf).
 - Government of India, e-Gazette, [G.S.R. 846(E), DPDP Rules, 2025](https://egazette.gov.in/WriteReadData/2025/267650.pdf).
+
+
+### CI concurrency defect discovered during final audit — 2026-11-14
+
+The reusable workflows `codeql.yml`, `container-scan.yml`, `container.yml`, `db-migration.yml`, `dependency-review.yml` and `web.yml` had workflow-level concurrency groups based on `github.workflow`. When invoked as reusable jobs by `release-readiness.yml`, those jobs inherit the caller workflow context and can collide on the same group, cancelling sibling jobs. This was consistent with the observed exact-head cancellations. PR #81 removes concurrency groups from those reusable workflow files; the top-level `release-readiness.yml` retains one PR-scoped concurrency group to cancel superseded aggregate runs. Re-run the aggregate workflow on the exact final PR head and confirm every child job completes before merging. The previous cancelled runs are not evidence of test success.
