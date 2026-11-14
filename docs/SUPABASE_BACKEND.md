@@ -64,6 +64,6 @@ supabase link --project-ref ghcufcegfvvjhsnqnrzr
 supabase functions deploy rideforge-api --no-verify-jwt
 ```
 
-The live project migration `016_supabase_native_backend` establishes the Auth bridge, RLS policies, Realtime publication and transactional RPCs. Migration `017_dispatch_retry_and_event_integrity` bounds dispatch retries and records accurate ride-state transitions.
+The live migrations `016_supabase_native_backend` through `020_revalidate_driver_at_acceptance` establish the Auth bridge, participant-scoped RLS, Realtime publication, transactional ride RPCs, bounded sequential dispatch, per-IP quote rate limits, serialized Nominatim requests and revalidation of driver approval/location freshness when accepting an offer.
 
 The Render static site can continue serving the built React app. The Render API service is no longer the intended backend and must only be retired after the frontend deployment, auth bootstrap, booking/dispatch smoke tests and rollback window are verified.
