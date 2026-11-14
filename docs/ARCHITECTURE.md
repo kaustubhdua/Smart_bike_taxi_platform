@@ -37,7 +37,7 @@ The diagram shows the target Supabase-native application path. The React static 
 | Component | Source of truth | Responsibility | Important boundary |
 |---|---|---|---|
 | Web client | `web/src/App.tsx`, `web/src/components/OperationsWorkspace.tsx` | Passenger booking, driver workspace, admin operations, support UI | API-backed flows require the C++ API; no payment is implied |
-| Browser demo | Pending PR #65: `web/src/DemoExperience.tsx` | Local passenger/driver/admin walkthrough | Browser `localStorage` only; no real account, GPS, dispatch, payment or database write |
+| Web app | `web/src/App.tsx` served at `/` (alias `/live`), driver/admin workspaces at `/driver` and `/admin` | Passenger planner, booking, tracking, history and support | Uses Supabase Auth and the Supabase Edge Function API; shows an explicit error when the API is unreachable and never invents rides or fares |
 | HTTP API | `supabase/functions/rideforge-api/index.ts` | Supabase Auth, quotes, bookings, passenger rides, driver actions, admin/support, SSE compatibility | Validates bearer JWT and account role before service-role operations |
 | Database | Supabase project `ghcufcegfvvjhsnqnrzr` | Accounts, quotes, rides, offers, events, outbox, support and audit records | PostgreSQL 17; 12 application migrations currently recorded |
 | Dispatch RPC | `public.rideforge_dispatch_ride` | Finds eligible approved/online drivers and creates one exclusive 45-second offer | Called after booking and during driver queue refresh; max five distinct drivers |
@@ -55,7 +55,7 @@ The diagram shows the target Supabase-native application path. The React static 
 5. A database transaction creates the ride and its durable event/outbox record.
 6. Dispatch worker selects one eligible driver at a time. An offer is durable, exclusive and expires after 45 seconds. Decline/expiry advances to the next candidate, subject to the configured maximum attempts. A request that remains unassigned for 10 minutes receives an explicit no-driver outcome.
 7. Driver actions move the ride through the permitted lifecycle. Database constraints and transactional updates prevent competing assignment and invalid transitions.
-8. Ride events are persisted. The outbox worker publishes notifications; passenger SSE streams replay persisted events and REST remains the recovery path.
+8. Ride events are persisted and delivered through Supabase Realtime; REST remains the recovery path.
 9. Completion stores the final quoted fare and history record. A printable receipt is explicitly a demo receipt, not a tax invoice or proof of payment.
 
 The current driver start action validates driver ownership and lifecycle state, but does not implement passenger OTP/PIN confirmation. That is a safety gap before real passenger operations.
@@ -100,7 +100,7 @@ Both `public.schema_migrations` and Supabase's migration ledger record versions 
 
 The user has explicitly deferred creating/configuring Vercel until repository engineering is complete. No Vercel project or deployment was created through this execution.
 
-Vercel can host the static React/Vite frontend. It is not a direct runtime for the existing persistent C++ API, dispatch worker and PostgreSQL LISTEN/NOTIFY outbox worker. If Vercel is selected for the frontend, a persistent compute host is still needed for those backend processes. Alternatively, the backend can be deliberately rewritten into serverless/queue-driven components, but that is a separate architecture migration requiring new concurrency, recovery and integration tests.
+The current target deployment uses Render only for the static React/Vite frontend and Supabase for Auth, PostgreSQL, Realtime and the Edge Function API. The previous C++ API and worker services are legacy rollback components and must not be treated as the active production backend.
 
 The existing Render API service is configured with auto-deploy enabled on `main` and the `checksPass` trigger. Therefore, merging any PR to `main` can initiate a Render deployment even though the user has deferred Vercel/hosting work. Do not merge any PR until the hosting decision is confirmed or the user explicitly disables Render auto-deploy. No live Render service setting has been changed. Do not deploy or merge Render-specific changes merely to keep the existing Render service alive. PR #66 is closed with its branch retained as a deferred option; PR #64 contains the CI-only fixes.
 
