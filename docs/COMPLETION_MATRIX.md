@@ -21,7 +21,7 @@ This is an evidence register, not a feature-count scoreboard. A task is **VERIFI
 
 - main is at 670e946f2b290ec7081d712a073edad6a697f1cb, merging PR #79 (Supabase-native backend).
 - The current release candidate is PR #82: https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/82. It is open and not merged. Its exact head is 5f091ae5fec80f3d955aee39d9df06c2c05b0c7c; all observed exact-head GitHub Actions runs were queued, and no successful final suite has been observed. Do not merge until they complete.
-- Supabase project ghcufcegfvvjhsnqnrzr is ACTIVE_HEALTHY, PostgreSQL 17.11, Free plan. Edge Function rideforge-api is ACTIVE version 9. The latest Security and Health Advisors returned zero findings. Performance Advisor reports 16 informational unused indexes; the database is empty, so do not drop them without representative workload evidence.
+- Supabase project ghcufcegfvvjhsnqnrzr is ACTIVE_HEALTHY, PostgreSQL 17.11, Free plan. The 26 timestamped migrations in this branch exactly match the 26 applied Supabase migration-history versions. Edge Function rideforge-api is ACTIVE version 9. The latest Security and Health Advisors returned zero findings. Performance Advisor reports 16 informational unused indexes; the database is empty, so do not drop them without representative workload evidence.
 - Production has 14 public tables including the application migration ledger; all 14 have RLS enabled. The 13 operational tables have participant/self read policies or explicit deny policies. Client roles cannot execute the rideforge_* SECURITY DEFINER RPCs; their search paths are pinned. The auth.users insert trigger rideforge_auth_user_created exists and creates the passenger account.
 - Supabase Realtime publication includes rides and ride_events, but the current React client does not directly subscribe to Realtime. It consumes the authenticated SSE compatibility endpoint, which polls durable ride events every 1.5 seconds for up to 25 seconds per connection and reconnects; REST polling is the recovery path. Do not describe the browser as a direct Realtime subscriber.
 - Production has zero Auth users, zero application accounts and zero rides. Supabase logs in the latest 24-hour window showed no Edge Function log source/invocations. Real signup, first-admin bootstrap and deployed passenger/driver/admin journeys have not been proven.
@@ -201,7 +201,7 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | L0 — Repository complete | PARTIAL | Architecture and matrix are drafted; CI queue, docs/branch review and remaining gaps persist |
 | L1 — Feature complete | PARTIAL | Core booking/dispatch/admin paths exist; profile, verification, safety, payments and service-area gaps remain |
 | L2 — Test complete | NOT ACHIEVED | Exact current PR checks are queued; main SHA b4f91bc failed API smoke and web tests |
-| L3 — Deployment complete | DEFERRED | Vercel intentionally postponed; no healthy live API has been verified |
+| L3 — Deployment complete | PARTIAL | Supabase Edge Function is deployed ACTIVE and Render serves the static site, but external HTTP readiness, final frontend SHA and real user journeys are not verified |
 | L4 — Operationally ready | NOT ACHIEVED | No production backup/restore, monitoring, load proof or real-device acceptance |
 | L5 — Commercially authorised | NOT AUTHORISED | Licence, insurance, driver/vehicle verification and regulatory approval are separate gates |
 
