@@ -20,7 +20,7 @@ test("calculates road route and shows a fare only after a valid server quote", a
       status: 200, contentType: "application/json",
       body: JSON.stringify({
         quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
-        distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
+        distanceKm: 5.2, durationMinutes: 14, farePaise: 7720, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 5720, pricingModel: "demo_base_plus_distance" }, currency: "INR",
         expiresAt: new Date(Date.now() + 120_000).toISOString(),
         geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
       }),
@@ -39,10 +39,10 @@ test("calculates road route and shows a fare only after a valid server quote", a
   await expect(page.locator(".leaflet-control-attribution a[href*='openstreetmap.org/copyright']")).toBeVisible();
   expect(tileHosts).toContain("tile.openstreetmap.org");
   expect(tileHosts.every(host => host === "tile.openstreetmap.org")).toBe(true);
-  await expect(page.locator(".fare-amount")).toContainText("₹47.50");
+  await expect(page.locator(".fare-amount")).toContainText("₹77.20");
   await expect(page.locator(".fare-breakdown")).toContainText("Base fare");
   await expect(page.locator(".fare-breakdown")).toContainText("₹20.00");
-  await expect(page.locator(".fare-breakdown")).toContainText("₹27.50");
+  await expect(page.locator(".fare-breakdown")).toContainText("₹57.20");
   await expect(page.locator(".inline-notice")).toContainText("This checks the quote only");
 });
 
@@ -53,8 +53,8 @@ test("rejects a server quote whose fare breakdown does not add up", async ({ pag
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
       distanceKm: 5.2,
       durationMinutes: 14,
-      farePaise: 4750,
-      fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2749, pricingModel: "demo_base_plus_distance" },
+      farePaise: 7720,
+      fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 5719, pricingModel: "demo_base_plus_distance" },
       currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
@@ -72,7 +72,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
-      durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
+      durationMinutes: 14, farePaise: 7720, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 5720, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
@@ -89,8 +89,8 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
     if (route.request().method() === "GET") {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [{
         rideId: "30000000-0000-4000-8000-000000000001", status: "completed",
-        pickup: "JIIT Sector 128", destination: "Sector 18 Market", farePaise: 4750,
-        finalFarePaise: 4750, currency: "INR", createdAt: new Date().toISOString(), completedAt: new Date().toISOString(),
+        pickup: "JIIT Sector 128", destination: "Sector 18 Market", farePaise: 7720,
+        finalFarePaise: 7720, currency: "INR", createdAt: new Date().toISOString(), completedAt: new Date().toISOString(),
       }] }) });
       return;
     }
@@ -162,7 +162,7 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
-      durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
+      durationMinutes: 14, farePaise: 7720, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 5720, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
@@ -287,14 +287,14 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await page.route("http://api.test/api/v1/driver/rides", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [{
       rideId: "30000000-0000-4000-8000-000000000001", pickup: "Pickup", destination: "Destination",
-      farePaise: 4750, distanceMeters: 5200,
+      farePaise: 7720, distanceMeters: 5200,
     }] }) });
   });
   await page.route("http://api.test/api/v1/driver/rides/history", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer driver-access-token");
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-      rides: [{ rideId: "30000000-0000-4000-8000-000000000001", status: "completed", pickup: "Pickup", destination: "Destination", farePaise: 4750, finalFarePaise: 4750, createdAt: new Date().toISOString() }],
-      grossCompletedFarePaise: 4750, currency: "INR", note: "Gross completed fares only; this is not a payout or net-earnings ledger.",
+      rides: [{ rideId: "30000000-0000-4000-8000-000000000001", status: "completed", pickup: "Pickup", destination: "Destination", farePaise: 7720, finalFarePaise: 7720, createdAt: new Date().toISOString() }],
+      grossCompletedFarePaise: 7720, currency: "INR", note: "Gross completed fares only; this is not a payout or net-earnings ledger.",
     }) });
   });
   await page.route("http://api.test/api/v1/driver/rides/*/accept", async route => {
@@ -333,7 +333,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await expect(page.getByText("Status: completed")).toBeVisible();
   await page.getByRole("button", { name: /Refresh trip history/ }).click();
   await expect(page.getByText("Gross completed fares:")).toBeVisible();
-  await expect(page.locator("#operations .driver-queue").filter({ hasText: "Gross completed fares:" }).getByText("₹47.50", { exact: true })).toBeVisible();
+  await expect(page.locator("#operations .driver-queue").filter({ hasText: "Gross completed fares:" }).getByText("₹77.20", { exact: true })).toBeVisible();
   await expect(page.getByText(/not a payout or net-earnings ledger/)).toBeVisible();
 });
 
@@ -402,7 +402,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rides: [{
       rideId: "ride-test-0001", status: "completed", passengerEmail: "rider@example.test",
       driverEmail: "driver@example.test", pickup: "JIIT Sector 128", destination: "Sector 18 Market",
-      farePaise: 4750, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      farePaise: 7720, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     }], limit: 100 }) });
   });
   await page.route("http://api.test/api/v1/admin/support-reports**", async route => {
@@ -556,7 +556,7 @@ test("passenger applies authenticated server-sent ride events without waiting fo
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d", distanceKm: 5.2,
-      durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
+      durationMinutes: 14, farePaise: 7720, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 5720, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
@@ -616,7 +616,7 @@ test("does not geocode while typing; calculates a route only after an explicit q
     quoteRequests += 1;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
-      distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
+      distanceKm: 5.2, durationMinutes: 14, farePaise: 7720, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 5720, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
     }) });
@@ -643,7 +643,7 @@ test("rejects malformed road-route coordinates instead of drawing them", async (
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
-      distanceKm: 5.2, durationMinutes: 14, farePaise: 4750, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" }, currency: "INR",
+      distanceKm: 5.2, durationMinutes: 14, farePaise: 7720, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 5720, pricingModel: "demo_base_plus_distance" }, currency: "INR",
       expiresAt: new Date(Date.now() + 120_000).toISOString(),
       geometry: [[999, 28.53], [77.34, 28.54]],
     }) });
