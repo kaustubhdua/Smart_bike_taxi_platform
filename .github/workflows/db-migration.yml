@@ -37,8 +37,13 @@ jobs:
         uses: actions/checkout@v4
       - name: Install PostgreSQL client
         run: |
+          # The service container is PostgreSQL 16; a newer pg_dump emits settings
+          # (for example transaction_timeout) that a 16 server rejects on restore.
           sudo apt-get update
-          sudo apt-get install --yes postgresql-client
+          sudo apt-get install --yes postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install --yes postgresql-client-16
+          echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
       - name: Verify Render runtime database URL construction
         run: bash backend/tests/render_database_url_test.sh
       - name: Create Supabase compatibility roles for local PostgreSQL
@@ -69,13 +74,14 @@ jobs:
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '013_runtime_role_sequence_least_privilege'" | grep -Fx '013_runtime_role_sequence_least_privilege'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '014_lock_down_public_function_execution_defaults'" | grep -Fx '014_lock_down_public_function_execution_defaults'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '015_create_readonly_backup_role'" | grep -Fx '015_create_readonly_backup_role'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '016_revoke_public_function_execute_by_default'" | grep -Fx '016_revoke_public_function_execute_by_default'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_trigger WHERE tgname = 'ride_event_notification_outbox' AND NOT tgisinternal" | grep -Fx '1'
       - name: Verify public data API lockdown, private runtime role and FK indexes
         run: |
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity" | grep -Fx '0'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_tables t WHERE schemaname = 'public' AND (has_table_privilege('anon', format('%I.%I', schemaname, tablename), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_table_privilege('authenticated', format('%I.%I', schemaname, tablename), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))" | grep -Fx '0'
-          psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'S' AND (has_sequence_privilege('anon', c.oid, 'USAGE,SELECT,UPDATE') OR has_sequence_privilege('authenticated', c.oid, 'USAGE,SELECT,UPDATE'))" | grep -Fx '0'
-          psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'S' AND has_sequence_privilege('rideforge_app', c.oid, 'UPDATE')" | grep -Fx '0'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_sequences s WHERE s.schemaname = 'public' AND (has_sequence_privilege('anon', format('%I.%I', s.schemaname, s.sequencename), 'USAGE,SELECT,UPDATE') OR has_sequence_privilege('authenticated', format('%I.%I', s.schemaname, s.sequencename), 'USAGE,SELECT,UPDATE'))" | grep -Fx '0'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_sequences s WHERE s.schemaname = 'public' AND has_sequence_privilege('rideforge_app', format('%I.%I', s.schemaname, s.sequencename), 'UPDATE')" | grep -Fx '0'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT prosecdef AND proconfig @> ARRAY['search_path=pg_catalog, public'] FROM pg_proc WHERE oid = 'public.enqueue_ride_event_notification()'::regprocedure" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT rolcanlogin AND rolbypassrls AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND rolpassword IS NOT NULL AND has_database_privilege('rideforge_app', current_database(), 'CONNECT') FROM pg_roles WHERE rolname = 'rideforge_app'" | grep -Fx 't'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT has_table_privilege('rideforge_app','public.accounts','SELECT,INSERT,UPDATE') AND NOT has_table_privilege('rideforge_app','public.accounts','DELETE,TRUNCATE')" | grep -Fx 't'

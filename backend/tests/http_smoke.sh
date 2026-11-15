@@ -627,7 +627,9 @@ python3 -c 'import json,sys; assert all(r["rideId"] != sys.argv[1] for r in json
 status="$(curl --silent --show-error --output "$tmp_dir/declined-passenger-detail.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $token" "$base_url/api/v1/rides/$second_ride_id")"
 test "$status" = "200"
-grep -q '"status":"requested"' "$tmp_dir/declined-passenger-detail.json"
+# The booking stays active after a decline: still waiting for a first offer ("requested") or
+# already being matched by the dispatch worker ("matching").
+grep -Eq '"status":"(requested|matching)"' "$tmp_dir/declined-passenger-detail.json"
 
 status="$(curl --silent --show-error --output "$tmp_dir/driver-history.json" --write-out '%{http_code}' \
   --header "Authorization: Bearer $driver_token" "$base_url/api/v1/driver/rides/history")"
