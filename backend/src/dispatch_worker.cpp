@@ -216,6 +216,26 @@ bool dispatch_one(PGconn* db, int radius_meters, int max_attempts_value) {
         if (!inserted.get() || PQresultStatus(inserted.get()) != PGRES_COMMAND_OK)
             throw std::runtime_error("dispatch worker offer insert failed");
         const bool created = std::string(PQcmdTuples(inserted.get())) == "1";
+        if (created) {
+            // A ride that has a live offer is "matching", as in the Supabase dispatch function.
+            // The status change and its event commit atomically with the offer itself.
+            const char* matching_params[] = {ride_id.c_str()};
+            Result advanced(PQexecParams(db,
+                "UPDATE rides SET status='matching',updated_at=now() "
+                "WHERE id=$1::uuid AND status='requested' AND driver_id IS NULL",
+                1, nullptr, matching_params, nullptr, nullptr, 0));
+            if (!advanced.get() || PQresultStatus(advanced.get()) != PGRES_COMMAND_OK)
+                throw std::runtime_error("dispatch worker could not mark ride as matching");
+            if (std::string(PQcmdTuples(advanced.get())) == "1") {
+                Result event(PQexecParams(db,
+                    "INSERT INTO ride_events (ride_id,previous_status,new_status,details) "
+                    "VALUES ($1::uuid,'requested','matching',"
+                    "jsonb_build_object('source','dispatch_worker','reason','driver_offer_created'))",
+                    1, nullptr, matching_params, nullptr, nullptr, 0));
+                if (!event.get() || PQresultStatus(event.get()) != PGRES_COMMAND_OK)
+                    throw std::runtime_error("dispatch worker could not record matching event");
+            }
+        }
         command(db, "COMMIT");
         if (created)
             std::cout << "{\"event\":\"driver_offer_created\",\"rideId\":\"" << ride_id
