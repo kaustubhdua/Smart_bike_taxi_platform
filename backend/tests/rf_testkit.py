@@ -99,15 +99,27 @@ def unique(prefix):
 
 def register(email=None, name="Test User", base=None):
     email = email or unique("t") + "@example.test"
-    resp = request("POST", "/api/v1/auth/register", base=base,
-                   body={"email": email, "displayName": name, "password": PASSWORD})
+    body = {"email": email, "displayName": name, "password": PASSWORD}
+    resp = request("POST", "/api/v1/auth/register", base=base, body=body)
+    # The per-address auth limiter (10/min) is real behaviour under test elsewhere. Wait out
+    # its window instead of failing when several suites register accounts in the same minute.
+    deadline = time.monotonic() + 75
+    while resp.status == 429 and time.monotonic() < deadline:
+        time.sleep(5)
+        resp = request("POST", "/api/v1/auth/register", base=base, body=body)
     check(resp.status == 201, "register failed: %s %s" % (resp.status, resp.text))
     return email, resp.json["account"]["id"], resp.json["accessToken"]
 
 
-def login(email, password=PASSWORD, base=None, headers=None):
-    return request("POST", "/api/v1/auth/login", base=base, headers=headers,
-                   body={"email": email, "password": password})
+def login(email, password=PASSWORD, base=None, headers=None, patient=False):
+    """patient=True waits out the per-address auth limiter (10/min) instead of returning 429."""
+    body = {"email": email, "password": password}
+    resp = request("POST", "/api/v1/auth/login", base=base, headers=headers, body=body)
+    deadline = time.monotonic() + 75
+    while patient and resp.status == 429 and time.monotonic() < deadline:
+        time.sleep(5)
+        resp = request("POST", "/api/v1/auth/login", base=base, headers=headers, body=body)
+    return resp
 
 
 _hash_cache = {}

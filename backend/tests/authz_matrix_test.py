@@ -24,7 +24,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rf_testkit import (  # noqa: E402
     Runner, b64url, book, check, create_account, create_driver, forge_token,
-    new_quote, psql, register, request, unique,
+    login, new_quote, psql, register, request, unique,
 )
 
 ZERO_UUID = "00000000-0000-4000-8000-000000000000"
@@ -235,7 +235,7 @@ def test_role_denial_does_not_mutate_state():
 
 def test_login_returns_stored_display_name():
     email, account_id, _ = register(name="Login Profile")
-    logged_in = login(email)
+    logged_in = login(email, patient=True)
     check(logged_in.status == 200, "login failed after successful registration: %s" % logged_in.status)
     check(logged_in.json["account"]["id"] == account_id, "login returned the wrong account ID")
     check(logged_in.json["account"]["displayName"] == "Login Profile",

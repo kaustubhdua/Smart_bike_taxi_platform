@@ -29,9 +29,12 @@ BEGIN
     RAISE EXCEPTION 'database hardening migrations 013-015 must be recorded';
   END IF;
   IF EXISTS (
-    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-    WHERE n.nspname='public' AND c.relkind='S'
-      AND has_sequence_privilege('rideforge_app',c.oid,'UPDATE')
+    -- pg_sequences lists only real sequences. Filtering pg_class by relkind and calling
+    -- has_sequence_privilege in one WHERE lets the planner evaluate the function on TOAST
+    -- tables first, which fails with '"pg_toast_N" is not a sequence' on a fresh database.
+    SELECT 1 FROM pg_sequences s
+    WHERE s.schemaname='public'
+      AND has_sequence_privilege('rideforge_app',format('%I.%I',s.schemaname,s.sequencename),'UPDATE')
   ) THEN
     RAISE EXCEPTION 'runtime role must not have UPDATE on public sequences';
   END IF;
