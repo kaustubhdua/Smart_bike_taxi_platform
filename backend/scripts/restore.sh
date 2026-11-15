@@ -27,7 +27,8 @@ for migration in \
   012_runtime_role_least_privilege \
   013_runtime_role_sequence_least_privilege \
   014_lock_down_public_function_execution_defaults \
-  015_create_readonly_backup_role
+  015_create_readonly_backup_role \
+  016_revoke_public_function_execute_by_default
 do
   migration_file="$migrations_dir/$migration.sql"
   if [ ! -s "$migration_file" ]; then

@@ -69,6 +69,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '013_runtime_role_sequence_least_privilege'" | grep -Fx '013_runtime_role_sequence_least_privilege'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '014_lock_down_public_function_execution_defaults'" | grep -Fx '014_lock_down_public_function_execution_defaults'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '015_create_readonly_backup_role'" | grep -Fx '015_create_readonly_backup_role'
+          psql -v ON_ERROR_STOP=1 -tAc "SELECT version FROM schema_migrations WHERE version = '016_revoke_public_function_execute_by_default'" | grep -Fx '016_revoke_public_function_execute_by_default'
           psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM pg_trigger WHERE tgname = 'ride_event_notification_outbox' AND NOT tgisinternal" | grep -Fx '1'
       - name: Verify public data API lockdown, private runtime role and FK indexes
         run: |

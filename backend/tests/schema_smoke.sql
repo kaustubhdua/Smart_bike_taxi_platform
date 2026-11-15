@@ -25,8 +25,9 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='013_runtime_role_sequence_least_privilege')
      OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='014_lock_down_public_function_execution_defaults')
-     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='015_create_readonly_backup_role') THEN
-    RAISE EXCEPTION 'database hardening migrations 013-015 must be recorded';
+     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='015_create_readonly_backup_role')
+     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version='016_revoke_public_function_execute_by_default') THEN
+    RAISE EXCEPTION 'database hardening migrations 013-016 must be recorded';
   END IF;
   IF EXISTS (
     -- pg_sequences lists only real sequences. Filtering pg_class by relkind and calling
@@ -38,10 +39,15 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'runtime role must not have UPDATE on public sequences';
   END IF;
-  IF has_function_privilege('anon','public.enqueue_ride_event_notification()','EXECUTE')
-     OR has_function_privilege('authenticated','public.enqueue_ride_event_notification()','EXECUTE')
-     OR (EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role')
-         AND has_function_privilege('service_role','public.enqueue_ride_event_notification()','EXECUTE')) THEN
+  -- Supabase roles exist only on Supabase/CI-prepared clusters. CASE guarantees the role
+  -- lookup runs before the privilege call; AND/OR give no such evaluation-order promise.
+  -- Each CASE is parenthesised because PL/pgSQL ends an IF condition at the first THEN token.
+  IF (CASE WHEN EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon')
+          THEN has_function_privilege('anon','public.enqueue_ride_event_notification()','EXECUTE') ELSE false END)
+     OR (CASE WHEN EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated')
+          THEN has_function_privilege('authenticated','public.enqueue_ride_event_notification()','EXECUTE') ELSE false END)
+     OR (CASE WHEN EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role')
+          THEN has_function_privilege('service_role','public.enqueue_ride_event_notification()','EXECUTE') ELSE false END) THEN
     RAISE EXCEPTION 'browser and service roles must not execute application trigger functions';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_authid WHERE rolname='rideforge_backup'
@@ -100,6 +106,20 @@ BEGIN
   END IF;
 END $$;
 
+
+DO $$
+BEGIN
+  CREATE FUNCTION public.__rideforge_smoke_acl_probe() RETURNS integer LANGUAGE sql AS 'SELECT 1';
+  -- proacl is NULL when the built-in default (PUBLIC may EXECUTE) is untouched.
+  IF (SELECT proacl FROM pg_proc WHERE oid='public.__rideforge_smoke_acl_probe()'::regprocedure) IS NULL
+     OR EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a
+                WHERE p.oid='public.__rideforge_smoke_acl_probe()'::regprocedure
+                  AND a.grantee=0 AND a.privilege_type='EXECUTE') THEN
+    DROP FUNCTION public.__rideforge_smoke_acl_probe();
+    RAISE EXCEPTION 'new public functions are executable by PUBLIC by default';
+  END IF;
+  DROP FUNCTION public.__rideforge_smoke_acl_probe();
+END $$;
 
 INSERT INTO accounts (id, email, display_name, role, password_hash)
 VALUES
