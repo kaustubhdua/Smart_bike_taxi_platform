@@ -37,8 +37,13 @@ jobs:
         uses: actions/checkout@v4
       - name: Install PostgreSQL client
         run: |
+          # The service container is PostgreSQL 16; a newer pg_dump emits settings
+          # (for example transaction_timeout) that a 16 server rejects on restore.
           sudo apt-get update
-          sudo apt-get install --yes postgresql-client
+          sudo apt-get install --yes postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install --yes postgresql-client-16
+          echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
       - name: Verify Render runtime database URL construction
         run: bash backend/tests/render_database_url_test.sh
       - name: Create Supabase compatibility roles for local PostgreSQL
