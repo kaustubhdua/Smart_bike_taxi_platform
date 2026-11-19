@@ -1,6 +1,6 @@
 # Supabase-native RideForge operations
 
-> **Operational refresh (19 November 2026):** Vercel production is deployed on main commit `1a52e982123e0ec334f7fe5e91d55c3cde499337` and its `VITE_API_BASE_URL` points to the Supabase Edge Function. The Vercel SPA rewrite/CORS/backup integration is under PR #97; deploy the matching Edge Function after its exact-head CI passes. Supabase migration `025_atomic_driver_offer_transitions` is applied and its RPC grants were verified. The live Edge Function remains version 10 until PR #97 is merged and deployed. Backup credentials, Auth URL allowlist and hosted passenger/driver/admin acceptance remain outstanding. See [FINAL_READINESS_AUDIT_2026-11-19.md](FINAL_READINESS_AUDIT_2026-11-19.md) for current status.
+> **Operational refresh (19 November 2026):** Vercel production is deployed on main commit `facfd623b03097816705ec5fb4b09a44a5878376` and its `VITE_API_BASE_URL` points to the Supabase Edge Function. PRs #100 and #101 are merged; the full release-readiness suite passed 15/15 on the exact PR #101 head. The live `rideforge-api` Edge Function is deployed at version 12 from the merged source. Route quoting now defaults to Photon with Nominatim fallback; both providers are throttled and the client accepts both response formats. A one-time `[verify-live-quote]` main-push smoke test is added in this update to validate a real Noida quote against the deployed Edge Function. Backup credentials, Auth URL allowlist and hosted passenger/driver/admin acceptance remain outstanding.
 
 **Scope:** current academic/portfolio MVP deployment as of 19 November 2026. This is the active operations guide. It does not authorize real passenger transport, payments, or commercial operation.
 
@@ -8,7 +8,7 @@
 
 - GitHub repository: [kaustubhdua/Smart_bike_taxi_platform](https://github.com/kaustubhdua/Smart_bike_taxi_platform).
 - Supabase project: `ghcufcegfvvjhsnqnrzr`, Mumbai region, PostgreSQL 17.11, Free plan.
-- Edge Function: `rideforge-api`, deployed and ACTIVE at version 10 (last observed 19 November 2026).
+- Edge Function: `rideforge-api`, deployed and ACTIVE at version 12 (last observed 19 November 2026).
 - Active frontend: Vercel project `smart-bike-taxi-platform` at [smart-bike-taxi-platform.vercel.app](https://smart-bike-taxi-platform.vercel.app), connected to `main` with root directory `web`.
 - Production browser API base: `https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api` (Vercel Production environment variable `VITE_API_BASE_URL`).
 - Historical Render static/API services are legacy. Keep them until Vercel/Auth/browser acceptance is complete; do not delete the old API services or static fallback prematurely.
@@ -129,7 +129,7 @@ The final Uttar Pradesh Thirty-third Amendment aggregator rules were notified on
 
 ## 8. External service and cost boundaries
 
-- Public Nominatim and OSRM endpoints are evaluation defaults, not a production service contract. Do not submit personal/confidential pickup addresses to public Nominatim. Select a contracted or self-hosted geocoder/router before real-world use.
+- Public Photon/Nominatim and OSRM endpoints are evaluation defaults, not a production service contract. Do not submit personal/confidential pickup addresses to public Nominatim. Select a contracted or self-hosted geocoder/router before real-world use.
 - Supabase Free has limited compute, database, log and backup capabilities. Measure actual workload and plan capacity before any public pilot.
 - Render is used only for the static frontend in the active architecture. The three legacy Render API services are not required by the Supabase-native app.
 - Do not add real payment or emergency integrations without an approved provider, credentials, legal review and end-to-end tests.
