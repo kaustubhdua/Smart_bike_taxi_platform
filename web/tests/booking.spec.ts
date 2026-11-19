@@ -49,8 +49,8 @@ async function mockPhotonSearch(page: Page, onRequest?: (query: string) => void)
 }
 
 async function fillJourney(page: Page) {
-  await page.getByRole("textbox", { name: "Pickup point" }).fill("JIIT Sector 128, Noida");
-  await page.getByRole("textbox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
+  await page.getByRole("combobox", { name: "Pickup point" }).fill("JIIT Sector 128, Noida");
+  await page.getByRole("combobox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
 }
 
 test("geocodes only on quote request and sends coordinates for server-side fare calculation", async ({ page }) => {
@@ -117,8 +117,8 @@ test("does not display a fare when browser geocoding fails", async ({ page }) =>
 
 test("uses GPS coordinates even if reverse address lookup is unavailable", async ({ page }) => {
   let quotePayload: Record<string, any> | undefined;
-  await page.grantPermissions(["geolocation"]);
-  await page.setGeolocation({ latitude: 28.5193178, longitude: 77.3659633 });
+  await page.context().grantPermissions(["geolocation"]);
+  await page.context().setGeolocation({ latitude: 28.5193178, longitude: 77.3659633 });
   await mockHealth(page);
   await page.route("https://photon.komoot.io/reverse**", route =>
     route.fulfill({ status: 503, headers: corsHeaders, contentType: "application/json", body: JSON.stringify({ error: true }) }),
