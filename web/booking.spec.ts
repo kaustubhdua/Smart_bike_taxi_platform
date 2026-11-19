@@ -663,6 +663,9 @@ test("does not geocode while typing; calculates a route only after an explicit q
   });
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     quoteRequests += 1;
+    const payload = route.request().postDataJSON();
+    expect(payload.pickup).toMatchObject({ latitude: 28.53, longitude: 77.35 });
+    expect(payload.destination).toMatchObject({ latitude: 28.53, longitude: 77.35 });
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
       distanceKm: 5.2, durationMinutes: 14, farePaise: 7720, fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 5720, pricingModel: "demo_base_plus_distance" }, currency: "INR",
