@@ -541,7 +541,7 @@ export default function App() {
       if (response.status === 429) throw new Error("You've reached the five-report hourly limit. Try again later.");
       if (!response.ok || !data.id) throw new Error(data.error || "Could not submit support report.");
       setSupportDescription("");
-      setNotice("Support report submitted. Reference: " + data.id + ". This demo does not contact emergency services.");
+      setNotice("Support report submitted. Reference: " + data.id + ". Support reports are recorded for review; they do not contact emergency services.");
       await loadSupportReports();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not submit support report.");
@@ -599,8 +599,8 @@ export default function App() {
         <span className="status-indicator" data-state={apiHealth} />
         <span>{apiHealth === "online" ? "RIDEFORGE API CONNECTED" : apiHealth === "checking" ? "CHECKING RIDEFORGE SERVICES" : "SERVICE CONNECTION UNAVAILABLE"}</span>
         <span className="announcement-divider" />
-        <span>NOIDA · BIKE RIDE DEMO</span>
-        <span className="announcement-right">ACADEMIC PROJECT · NO LIVE TRANSPORT SERVICE</span>
+        <span>NOIDA · RIDE PLANNING</span>
+        <span className="announcement-right">PREVIEW ENVIRONMENT · NO ACTIVE DRIVER FLEET</span>
       </div>
 
       <header className="site-header app-header">
@@ -624,7 +624,7 @@ export default function App() {
       <main id="top" className="app-main">
         <section className="booking-hero" id="booking">
           <div className="booking-hero-copy">
-            <div className="eyebrow"><span className="eyebrow-dot" /> SIMPLE CITY RIDES, BUILT AROUND YOU</div>
+            <div className="eyebrow"><span className="eyebrow-dot" /> NOIDA RIDE PLANNING · CLEAR BY DESIGN</div>
             <h1>Your ride.<br /><em>Your route.<br />No guesswork.</em></h1>
             <p className="hero-description">Set your pickup and destination, see a real road route and a server-calculated fare, then request a ride. Clear steps, clear status.</p>
             <div className="hero-benefits">
@@ -662,7 +662,7 @@ export default function App() {
             <div className="quote-row">
               <div className="quote-icon"><Route size={18} /></div>
               <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Address lookup runs only when you request a quote. The server calculates the route and fare; no price appears before it responds."}</span></div>
-              <button className="text-action help-button" onClick={() => setNotice("RideForge resolves locations in your browser after an explicit action. The server calculates road distance, duration and the demo fare.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
+              <button className="text-action help-button" onClick={() => setNotice("RideForge resolves locations in your browser after an explicit action. The server calculates road distance, duration and the preview fare.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
             </div>
 
             <div className="fare-row">
@@ -672,7 +672,7 @@ export default function App() {
             {quote && <div className="fare-breakdown" aria-label="Fare breakdown">
               <div><span>Base fare</span><strong>₹{(quote.baseFarePaise / 100).toFixed(2)}</strong></div>
               <div><span>Distance charge · {quote.distanceKm.toFixed(2)} km</span><strong>₹{(quote.distanceFarePaise / 100).toFixed(2)}</strong></div>
-              <p>Demo tariff only. This is not a commercial fare commitment or a payment request.</p>
+              <p>Preview tariff only. Not a commercial fare or a payment request.</p>
             </div>}
 
             <button aria-label="Get server fare quote — Get fare estimate" className="book-button quote-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>
@@ -720,21 +720,21 @@ export default function App() {
                 <details className="tool-disclosure"><summary>My profile</summary>
                   <label className="auth-field"><span>Display name</span><input value={profileName} onChange={event => setProfileName(event.target.value)} maxLength={120} autoComplete="name" /></label>
                   <button className="outline-button" onClick={saveProfile} disabled={profileBusy || !profileName.trim()}>{profileBusy ? "Saving…" : "Save profile"}</button>
-                  <p className="auth-caption">Phone verification and notification preferences are not configured in this demo.</p>
+                  <p className="auth-caption">Phone verification and notification preferences are not configured in preview.</p>
                 </details>
                 <details className="tool-disclosure"><summary>My trip history</summary>
                   <button className="outline-button" onClick={loadPassengerHistory} disabled={historyBusy}>{historyBusy ? "Loading…" : "Refresh trip history"}</button>
                   {passengerHistory.length === 0 ? <p className="auth-caption">Your saved trips will appear here after you refresh.</p> : passengerHistory.map(item => <article className="ride-confirmation history-item" key={item.rideId}>
                     <div><strong>{item.pickup} → {item.destination}</strong><span>{item.status.replaceAll("_", " ")} · ₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()}</small></div>
-                    {item.status === "completed" && <button className="text-action" onClick={() => setReceiptRideId(item.rideId)}>View demo receipt</button>}
+                    {item.status === "completed" && <button className="text-action" onClick={() => setReceiptRideId(item.rideId)}>View trip record</button>}
                   </article>)}
                   {receiptRideId && passengerHistory.find(item => item.rideId === receiptRideId && item.status === "completed") && (() => {
                     const item = passengerHistory.find(entry => entry.rideId === receiptRideId)!;
-                    return <div className="print-receipt"><div className="card-heading"><div><span className="card-eyebrow">RIDEFORGE · DEMO RECEIPT</span><h3>Trip receipt</h3></div><button className="outline-button" onClick={() => window.print()}>Print receipt</button></div><p><strong>Trip reference</strong><br />{item.rideId}</p><p><strong>Pickup</strong><br />{item.pickup}</p><p><strong>Destination</strong><br />{item.destination}</p><p><strong>Completed</strong><br />{item.completedAt ? new Date(item.completedAt).toLocaleString() : new Date(item.createdAt).toLocaleString()}</p><p><strong>Final fare</strong><br />₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)} {item.currency}</p><p className="auth-caption">Demo trip record only. Not a tax invoice, proof of payment, or driver payout statement.</p></div>;
+                    return <div className="print-receipt"><div className="card-heading"><div><span className="card-eyebrow">RIDEFORGE · TRIP RECORD</span><h3>Trip receipt</h3></div><button className="outline-button" onClick={() => window.print()}>Print receipt</button></div><p><strong>Trip reference</strong><br />{item.rideId}</p><p><strong>Pickup</strong><br />{item.pickup}</p><p><strong>Destination</strong><br />{item.destination}</p><p><strong>Completed</strong><br />{item.completedAt ? new Date(item.completedAt).toLocaleString() : new Date(item.createdAt).toLocaleString()}</p><p><strong>Final fare</strong><br />₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)} {item.currency}</p><p className="auth-caption">Trip record only. Not a tax invoice, proof of payment, or driver payout statement.</p></div>;
                   })()}
                 </details>
                 <details className="tool-disclosure"><summary>Help & support</summary>
-                  <p className="auth-caption">Reports are sent to authorized administrators for review. This demo does not contact emergency services.</p>
+                  <p className="auth-caption">Reports are sent to authorized administrators for review. They do not contact emergency services.</p>
                   <form className="auth-panel support-form" onSubmit={submitSupportReport}>
                     <label className="auth-field"><span>What is this about?</span><select value={supportCategory} onChange={event => setSupportCategory(event.target.value)}><option value="booking">Booking or trip status</option><option value="driver">Driver or vehicle</option><option value="payment">Fare or payment</option><option value="safety">Safety concern</option><option value="technical">Technical issue</option><option value="other">Other</option></select></label>
                     <label className="auth-field"><span>Describe the issue (10–2,000 characters)</span><textarea className="support-description" minLength={10} maxLength={2000} required value={supportDescription} onChange={event => setSupportDescription(event.target.value)} placeholder="Tell us what happened and what should be reviewed." rows={4} /></label>
@@ -748,7 +748,7 @@ export default function App() {
             )}
 
             <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
-            <div className="card-footnote"><ShieldCheck size={14} /><span>Your fare and ride status come from the RideForge API. This is an academic demonstration: no live transport service, emergency response or payment processing is provided.</span></div>
+            <div className="card-footnote"><ShieldCheck size={14} /><span>Your fare and ride status come from the RideForge API. RideForge is in preview: no active driver fleet, emergency-response integration or payment processing is connected.</span></div>
           </div>
         </section>
 
@@ -772,21 +772,21 @@ export default function App() {
           <h2>Three clear steps.<br /><em>One less thing to worry about.</em></h2>
           <div className="how-grid">
             <article><span>01</span><MapPin size={21} /><h3>Choose your locations</h3><p>Enter your pickup and destination, or use your device location for pickup.</p></article>
-            <article><span>02</span><Route size={21} /><h3>Review your fare</h3><p>We request a road route and a transparent demo fare from the server before you confirm.</p></article>
+            <article><span>02</span><Route size={21} /><h3>Review your fare</h3><p>We request a real road route and a clearly labelled preview tariff from the server before you continue.</p></article>
             <article><span>03</span><Bike size={21} /><h3>Request and follow</h3><p>Sign in, request your ride and follow the status updates. Eligible drivers must be approved and online. The backend creates time-limited offers for eligible, approved drivers who are online with a fresh location.</p></article>
           </div>
         </section>
 
         <section className="safety-section" id="safety">
           <div className="safety-icon"><ShieldCheck size={24} /></div>
-          <div><span className="section-kicker">SAFETY & TRANSPARENCY</span><h2>Clear about what works — and what doesn't.</h2><p>RideForge is a portfolio and academic demo, not an operating taxi service. It does not process payments, verify identity documents, contact emergency services or guarantee a driver. Driver location is shared only while online; no historical GPS trail is retained. Do not use it to arrange real-world travel.</p></div>
+          <div><span className="section-kicker">SAFETY & TRANSPARENCY</span><h2>Clear about what works — and what doesn't.</h2><p>RideForge is currently in preview and has no active driver fleet. Payments, identity-document verification and emergency-response services are not connected. Driver location is shared only while a driver is online; no historical GPS trail is retained. Do not use this preview to arrange real-world travel.</p></div>
           <a href="/driver" className="outline-button">Driver workspace <ArrowRight size={15} /></a>
         </section>
       </main>
 
       <footer className="site-footer app-footer">
         <a className="brand footer-brand" href="#top"><span className="brand-mark"><Bike size={20} /></span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
-        <span className="footer-note">Built for learning. Designed for clear journeys.</span>
+        <span className="footer-note">Built around clear journeys and transparent estimates.</span>
         <div className="footer-links"><a href="#booking">Book a ride</a><a href="#how-it-works">How it works</a><a href="/driver">Driver portal</a><a href="/admin">Admin portal</a><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">GitHub</a></div>
         <span className="copyright">© 2026 RIDEFORGE</span>
       </footer>

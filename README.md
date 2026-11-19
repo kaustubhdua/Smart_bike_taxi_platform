@@ -2,19 +2,33 @@
 
 # 🏍️ RideForge — Smart Bike Taxi Platform
 
-**A React/Vite + Supabase-backed bike-taxi web platform, with a retained C++17 DSA simulator, transactional bookings, and driver/admin workspaces.**
+**A Noida-focused bike-ride planning and booking preview built with React, Vite and Supabase, with passenger, driver and operator workspaces.**
 
 Shortest-path routing · Durable 45-second driver offers · Automatic expiry/redispatch · Transactional bookings
 
 ![Release readiness](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
-![Project](https://img.shields.io/badge/status-portfolio%20MVP%20in%20progress-blue)
+![Project](https://img.shields.io/badge/status-live%20preview-orange)
 
 </div>
 
 ---
 
-> **Latest evidence snapshot — 19 November 2026:** `main` is `1a52e982123e0ec334f7fe5e91d55c3cde499337`. PR #91 (trusted client-IP rate limiting and upstream timeouts) and PR #90 (atomic offer acceptance/decline transitions) are merged. Production Vercel is live on that main SHA with `VITE_API_BASE_URL` configured to the Supabase Edge Function. Supabase migration `025_atomic_driver_offer_transitions` is applied and its privileged RPC grants are verified. Integrated PR [#97](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/97) consolidates Vercel SPA rewrites, Vercel-aware CORS/Auth redirect, and encrypted backup/restore workflows; it must pass exact-head CI before merge and Edge Function redeployment. The production database has zero Auth users/accounts/rides. Backup credentials, Auth redirect allowlist, hosted passenger/driver/admin journeys, branch protection and manual device/legal acceptance remain open. See the [current final-readiness audit](docs/FINAL_READINESS_AUDIT_2026-11-19.md).
+> **Latest verified evidence — 20 November 2026:** `main` is `b0c319484d39138202cd4ca275cc080aadffa622` before the pending UI polish PR. PR [#106](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/106) is merged: the Nirdhoom-inspired cream/forest-green/saffron/navy design system, browser-side Photon address resolution, GPS-coordinate fallback, and server-authoritative route/fare quotes. Full release-readiness run [#44588482642](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44588482642) passed all 15 jobs; the web job passed 51 browser tests and the one-time live Noida quote acceptance. Supabase `rideforge-api` is ACTIVE at version 15; the project is ACTIVE_HEALTHY and Security/Health Advisors report zero findings. The live route quote test returned HTTP 200 with actual OSRM road geometry and a clearly labelled preview tariff. The current Vercel production alias is READY on commit `136b6bcff9cbb34cec55e44a71b756c441d1fe69`; Vercel's daily deployment quota blocked the next preview, so the Render static site is the alternate production target. The production database still has zero Auth users, application accounts and rides. Backup credentials/restore drill, first-admin bootstrap, hosted passenger/driver/admin lifecycle, enforced branch protection, manual device/accessibility review, and all commercial/legal/vehicle/insurance/payment/emergency-service approvals remain open. RideForge is an academic/portfolio preview, not an operating transport service. See the [final-readiness audit](docs/FINAL_READINESS_AUDIT_2026-11-19.md).
+
+## Quick live demo
+
+The currently verified passenger flow is the **real route-quote journey**:
+
+1. Open the live RideForge frontend and wait for the API connection indicator.
+2. Enter **JIIT Sector 128, Noida** as pickup.
+3. Enter **Sector 18 Market, Noida** as destination.
+4. Select **Get fare estimate**.
+5. Confirm that the server returns a quote, route distance/duration, expiry and a real road geometry map.
+
+Latest hosted acceptance returned HTTP 200 for this route; the last measured result was 9.753 km, 15 minutes and ₹127.28 under the explicitly labelled **preview tariff**. Route estimates can vary as the routing dataset changes.
+
+**Honest demo boundary:** production currently has zero passenger accounts, driver accounts and rides. No active driver fleet, real payment processor, emergency-response integration or commercial transport authorization is connected. Do not present the preview tariff as a fare quote for a real trip or claim a real ride was booked. No synthetic drivers or fake bookings are seeded into production.
 
 ## Run the complete verification suite
 
