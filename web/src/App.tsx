@@ -967,7 +967,7 @@ export default function App() {
                   </div>
                 </section>
               )}
-              <div className="card-footnote"><ShieldCheck size={14} /> Quotes and rides persist through the API. Authenticated ride-status events stream with polling/reconnect recovery. The latest driver location is shared only while online and shown during active rides; no historical GPS trail or automated driver dispatch is provided.</div>
+              <div className="card-footnote"><ShieldCheck size={14} /> Quotes and rides persist through the API. The backend creates time-limited offers for eligible, approved drivers who are online with a fresh location. Authenticated ride-status events stream with polling/reconnect recovery. Driver location is shared only while online; no historical GPS trail is retained. This is an academic demo, not a live transport service.</div>
               <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
             </div>
             <div className="route-card">
