@@ -468,7 +468,7 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
 .rideforge-app :is(h1,h2,h3,.brand){font-family:'Plus Jakarta Sans','DM Sans',sans-serif}
 .rideforge-app .app-announcement{background:#14213d;color:#f8f2e6;letter-spacing:.09em}
 .rideforge-app .status-indicator[data-state=online]{background:#73bd8c;box-shadow:0 0 0 4px #73bd8c22}
-.rideforge-app .site-header{max-width:1320px;border-color:var(--rf-line);background:#fffbf3eF}
+.rideforge-app .app-header{max-width:1320px;border-color:var(--rf-line);background:#fffbf3eF}
 .rideforge-app .brand-mark{background:var(--rf-green);color:#fff;border-radius:13px;box-shadow:0 7px 20px #0f6e3a24}
 .rideforge-app .brand-period{color:var(--rf-saffron)}
 .rideforge-app .nav-link.active:after{background:var(--rf-saffron);height:3px;border-radius:4px}
@@ -533,7 +533,7 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
  .rideforge-app .booking-hero{padding-top:32px}
  .rideforge-app .booking-card-primary{padding:20px 16px}
  .rideforge-app .booking-hero h1{letter-spacing:-.055em}
- .rideforge-app .site-header{background:#fffbf3}
+ .rideforge-app .app-header{background:#fffbf3}
 }
 @media(prefers-reduced-motion:reduce){
  .rideforge-app *, .rideforge-app *::before,.rideforge-app *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
@@ -590,3 +590,8 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
  .rideforge-app .route-map-canvas .rideforge-route-line{animation:none!important;stroke-dashoffset:0!important}
  .rideforge-app .route-map-canvas .rideforge-pickup-marker,.rideforge-app .route-map-canvas .rideforge-drop-marker,.rideforge-app .route-map-canvas .rideforge-driver-marker{animation:none!important}
 }
+
+.rideforge-app .route-map-canvas{min-height:280px;border:1px solid var(--rf-line);border-radius:15px;overflow:hidden;background:#f1e8d6}
+.rideforge-app .leaflet-container{font-family:'DM Sans',sans-serif;background:#f1e8d6}
+.rideforge-app .leaflet-control-zoom a{color:var(--rf-green)}
+.rideforge-app .leaflet-control-attribution{font-size:9px}
