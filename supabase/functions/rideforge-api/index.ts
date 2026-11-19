@@ -106,11 +106,17 @@ async function quoteRoute(body: Record<string, unknown>, req: Request) {
         const waitMs = Date.parse(slot) - Date.now();
         if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
         const response = await fetch(buildGeocodingUrl(endpoint, label), {
-          headers: { "User-Agent": userAgent, "Accept": "application/json" },
+          headers: {
+            "User-Agent": userAgent,
+            "Accept": "application/json",
+            "Referer": "https://smart-bike-taxi-platform.vercel.app/",
+            "Origin": "https://smart-bike-taxi-platform.vercel.app",
+          },
           signal: AbortSignal.timeout(8_000),
         });
         if (!response.ok) {
-          console.warn("RideForge geocoding provider returned a non-OK response", provider, response.status);
+          const diagnostic = (await response.text()).slice(0, 180).replace(/\\s+/g, " ");
+          console.warn("RideForge geocoding provider returned a non-OK response", provider, response.status, diagnostic);
           lastError = new Error("Geocoding provider is temporarily unavailable.");
           continue;
         }
