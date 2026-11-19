@@ -150,7 +150,7 @@ The following must all be true before the next audit can issue a positive *MVP c
 Commercial passenger operations remain a separate L5 authorization gate and must not be inferred from an MVP completion verdict.
 
 
-## 8. Live deployment and remediation update — 19 November 2026 (16:xx IST)
+## 8. Live deployment and remediation update — 19 November 2026
 
 ### Verified repository and Vercel state
 
