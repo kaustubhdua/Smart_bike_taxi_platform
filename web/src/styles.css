@@ -563,3 +563,30 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
 .rideforge-app.role-workspace .admin-metrics>span{background:#fbf5e9;color:var(--rf-muted)}
 .rideforge-app.role-workspace :is(input,select,textarea){background:#fffdf8;border-color:var(--rf-line);border-radius:10px;color:var(--rf-ink)}
 .rideforge-app.role-workspace :is(button,a,input,select,textarea):focus-visible{outline:3px solid var(--rf-saffron)!important;outline-offset:3px}
+
+
+/* Purposeful, quick motion: one entrance per surface, no decorative motion loops. */
+@keyframes rf-enter-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes rf-route-draw{to{stroke-dashoffset:0}}
+@keyframes rf-marker-in{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:scale(1)}}
+.rideforge-app .booking-hero{position:relative;isolation:isolate}
+.rideforge-app .booking-hero:before{content:"";position:absolute;z-index:-1;left:-10%;top:8%;width:42%;height:75%;pointer-events:none;background:radial-gradient(ellipse at 35% 40%,rgba(232,130,27,.09),transparent 68%)}
+.rideforge-app .booking-hero-copy{animation:rf-enter-up .62s cubic-bezier(.22,1,.36,1) both}
+.rideforge-app .booking-card-primary{animation:rf-enter-up .72s .08s cubic-bezier(.22,1,.36,1) both}
+.rideforge-app .route-card-large{transition:box-shadow .24s,border-color .24s}
+.rideforge-app .route-card-large:hover{border-color:#b4d9bf;box-shadow:0 24px 54px -36px #14213d70}
+.rideforge-app .how-grid article{will-change:transform}
+.rideforge-app .book-button,.rideforge-app .header-cta,.rideforge-app .outline-button,.rideforge-app .location-action{transition:transform .18s cubic-bezier(.22,1,.36,1),background-color .18s,border-color .18s,box-shadow .18s}
+.rideforge-app .book-button:hover:not(:disabled),.rideforge-app .header-cta:hover,.rideforge-app .outline-button:hover{transform:translateY(-2px)}
+.rideforge-app .field-control input{transition:color .16s}
+.rideforge-app .field-control:focus-within{color:var(--rf-green)}
+.rideforge-app .fare-amount{font-variant-numeric:tabular-nums}
+.rideforge-app .route-map-canvas .rideforge-route-line{stroke-dasharray:9999;stroke-dashoffset:9999;animation:rf-route-draw 1.15s cubic-bezier(.22,1,.36,1) forwards}
+.rideforge-app .route-map-canvas .rideforge-pickup-marker,
+.rideforge-app .route-map-canvas .rideforge-drop-marker,
+.rideforge-app .route-map-canvas .rideforge-driver-marker{transform-box:fill-box;transform-origin:center;animation:rf-marker-in .32s cubic-bezier(.22,1,.36,1) both}
+@media(prefers-reduced-motion:reduce){
+ .rideforge-app .booking-hero-copy,.rideforge-app .booking-card-primary{animation:none!important}
+ .rideforge-app .route-map-canvas .rideforge-route-line{animation:none!important;stroke-dashoffset:0!important}
+ .rideforge-app .route-map-canvas .rideforge-pickup-marker,.rideforge-app .route-map-canvas .rideforge-drop-marker,.rideforge-app .route-map-canvas .rideforge-driver-marker{animation:none!important}
+}
