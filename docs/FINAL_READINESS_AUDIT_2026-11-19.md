@@ -148,3 +148,41 @@ The following must all be true before the next audit can issue a positive *MVP c
 6. The completion matrix and README reflect the exact tested SHA and evidence links.
 
 Commercial passenger operations remain a separate L5 authorization gate and must not be inferred from an MVP completion verdict.
+
+
+## 8. Live deployment and remediation update — 19 November 2026
+
+### Verified repository and Vercel state
+
+- Current main at the start of this release pass: `1a52e982123e0ec334f7fe5e91d55c3cde499337`.
+- PR [#91](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/91) is merged. It adds trusted Cloudflare client-IP extraction for hosted quote rate limiting, rejects caller-controlled forwarding headers, and bounds upstream provider calls.
+- PR [#90](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/90) is merged. Its exact-head Full release readiness run [#732](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44516667633) passed all 15 jobs, including the dispatch accept/decline race test, Supabase schema rebuild/security invariants, both API smoke radii, browser tests, CodeQL and Trivy.
+- Vercel Production deployment `dpl_DZEjKWKVvnH59QysSv2wtQn3aKVS` is READY on main SHA `1a52e982123e0ec334f7fe5e91d55c3cde499337`. The production bundle embeds `https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api` through `VITE_API_BASE_URL`.
+- The integrated release PR [#97](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/97) consolidates Vercel SPA rewrites, exact-origin CORS, Vercel Auth redirect defaults, and encrypted public-schema backup/restore. Its exact-head Full release readiness and backup-workflow actionlint checks must pass before merge.
+- The Vercel preview for PR #97 returned HTTP 200 and the Vite entry point for `/`, `/driver`, and `/admin`. Production deep links remain pending until PR #97 is merged and Vercel deploys the resulting main SHA.
+
+### Verified Supabase production state
+
+- Project `ghcufcegfvvjhsnqnrzr` is ACTIVE_HEALTHY, PostgreSQL 17.11, Mumbai region, Free plan.
+- 14 public tables are present and all 14 have RLS enabled. Security Advisor and Health Advisor returned zero lints; Performance Advisor reports informational unused indexes on the empty database.
+- The project has zero Auth users, zero application accounts, zero rides, and no development/staging branches. No dummy passenger, driver or administrator identities were created in production.
+- Migration `025_atomic_driver_offer_transitions` was applied on 19 November 2026 and recorded in both migration histories. The `rideforge_accept_offer` and `rideforge_decline_offer` SECURITY DEFINER RPCs exist; `service_role` can execute both, while `anon` and `authenticated` cannot.
+- After the migration, the live `/api/v1/health` and `/api/v1/ready` endpoints returned HTTP 200 with `status: ok` and `status: ready`.
+- The live Edge Function is still version 10. It has not yet been redeployed with the PR #97 CORS helper and the atomic decline RPC caller. Do not claim the new decline path or Vercel CORS is live until the reviewed source is deployed and rechecked.
+
+### Backup and account controls
+
+- The dedicated `rideforge_backup` role remains `NOLOGIN` and passwordless. It must stay disabled until the owner securely sets a password and provisions GitHub Actions secrets `RIDEFORGE_BACKUP_DATABASE_URL` and `RIDEFORGE_BACKUP_PASSPHRASE`.
+- PR #97 adds a GPG-encrypted `pg_dump --schema=public` workflow and a disposable PostgreSQL 17 restore drill. This is a schema-only backup, not a full Supabase Auth/Storage/Functions/secrets/platform backup. No successful backup artifact or restore drill is yet evidenced.
+- Supabase Auth Site URL and redirect allowlist need an owner-side update to `https://smart-bike-taxi-platform.vercel.app` and `https://smart-bike-taxi-platform.vercel.app/**`. The production Auth redirect configuration could not be read or changed through the connected Supabase tools; do not claim this setting is complete.
+- No staging project/branch exists. Supabase branching can incur hourly compute charges and requires explicit cost approval; do not create one or place test identities in production without authorization.
+- The GitHub repository has no repository rulesets configured, and the earlier branch-protection audit reported `main` unprotected. The available GitHub connector has no ruleset/branch-protection mutation action. An owner must enable a required-check ruleset and verify it with a test PR.
+- The Vercel account UI displayed an Enable 2FA prompt. Enable account MFA/2FA before relying on this account for production administration.
+
+### Commercial and jurisdictional release boundary
+
+RideForge remains an academic/portfolio MVP, not an authorized transport operator. A secondary legal analysis reports that the Uttar Pradesh Motor Vehicle (Thirty-third Amendment) (Aggregator and Delivery Services Provider) Rules, 2026 were notified on 22 May 2026 and require a State Transport Authority licence before new aggregator operations, along with extensive driver, vehicle, insurance, training, app-security, control-room, grievance and fare obligations. Obtain the final Gazette and written legal/STA confirmation before any real ride: [Argus legal analysis](https://www.argus-p.com/updates/updates/overview-of-the-uttar-pradesh-motor-vehicle-thirty-third-amendment-aggregator-and-delivery-services-provider-rules-2026/). The official [CAQM Direction 94 amendment dated 23 December 2025](https://caqm.nic.in/FileUploadDomain/WebsiteDocument/Advisories%20and%20Direction/Directions/Amendment%2023122025bea783db-8767-4617-8be6-bfa4ad62c6e4.pdf) restricts induction of conventional petrol/diesel two-wheelers from 1 January 2026 while allowing BS-VI two-wheelers in existing fleets through 31 December 2026. Do not onboard vehicles or accept fares until these rules are validated against the intended operating model.
+
+### Current verdict
+
+**CI-verified academic/portfolio MVP with a live Vercel frontend and live Supabase backend; not yet hosted-journey verified and not commercially launch-ready.** The remaining gates are: merge PR #97 after all exact-head checks pass; deploy and verify the matching Edge Function; complete Supabase Auth URL configuration and first-admin bootstrap; provision the backup credentials and complete a real backup/restore drill; create a separately approved staging environment and test passenger/driver/admin journeys; enable GitHub branch protection and account MFA; and complete the legal, vehicle, safety, privacy, accessibility, device and load reviews.

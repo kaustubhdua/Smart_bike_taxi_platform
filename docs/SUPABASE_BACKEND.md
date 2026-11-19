@@ -32,7 +32,7 @@ npm test
 
 ## Supabase Auth URL configuration
 
-In Supabase Dashboard → Authentication → URL Configuration, set the Site URL to `https://rideforge-web.onrender.com` and add `https://rideforge-web.onrender.com/**` plus `http://localhost:5173/**` to the allowed redirect URLs. The Edge Function sends signup verification links back to the Render static frontend by default; override `RIDEFORGE_AUTH_REDIRECT_URL` only if the frontend domain changes.
+In Supabase Dashboard → Authentication → URL Configuration, set the Site URL to `https://smart-bike-taxi-platform.vercel.app` and add `https://smart-bike-taxi-platform.vercel.app/**` plus `http://localhost:5173/**` to the allowed redirect URLs. Set the Edge Function secret `RIDEFORGE_AUTH_REDIRECT_URL` to `https://smart-bike-taxi-platform.vercel.app` (the code fallback is the same). The `rideforge-api` CORS policy always allows this exact production Vercel origin and additionally accepts exact origins listed in `RIDEFORGE_ALLOWED_ORIGINS`; unknown browser origins receive no `Access-Control-Allow-Origin` header. Do not use wildcard origins for browser sessions.
 
 ## Initial administrator bootstrap
 
@@ -77,4 +77,4 @@ CLI v3 runs local database commands locally by default and requires explicit `--
 
 The live migrations `016_supabase_native_backend` through `024_retire_legacy_outbox_trigger` establish the Auth bridge, participant-scoped RLS, Realtime publication, transactional ride RPCs, bounded sequential dispatch with one active offer per ride, per-IP quote rate limits, serialized Nominatim requests, driver approval/location revalidation, and retirement of the legacy outbox notification trigger.
 
-The Render static site continues serving the built React app. PR #79 is now merged into main. The Render API services are not used by the Supabase-native application and should be retired after PR #82 is merged, the static site has deployed the resulting main commit, Auth URL configuration and first-admin bootstrap are complete, and browser booking/dispatch acceptance tests pass. Keep the static site; remove only the three legacy API services.
+The Vercel project `smart-bike-taxi-platform` serves the built React app from `web/`; the production browser API base is `https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api`. The Render static site is a legacy deployment and the old Render API services are not part of the active Supabase-native architecture. Do not delete legacy resources until the Vercel production domain, Auth redirect allowlist, first-admin bootstrap, driver onboarding, and external browser booking/dispatch acceptance tests are complete.

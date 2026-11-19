@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type User } from "npm:@supabase/supabase-js@2.119.0";
 import { getRateLimitClientIp } from "./client_ip.ts";
+import { createCorsHeaders } from "./cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -8,16 +9,10 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 const publicAuth = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
-const corsHeaders = (origin: string | null) => {
-  const allowed = (Deno.env.get("RIDEFORGE_ALLOWED_ORIGINS") ?? "https://rideforge-web.onrender.com,http://localhost:5173,http://127.0.0.1:5173").split(",").map(v => v.trim()).filter(Boolean);
-  const allowOrigin = origin ? (allowed.includes(origin) ? origin : allowed[0]) : "*";
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Headers": "authorization, apikey, content-type, idempotency-key, last-event-id, x-client-info",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
-    "Vary": "Origin",
-  };
-};
+const corsHeaders = (origin: string | null) => createCorsHeaders(
+  origin,
+  (Deno.env.get("RIDEFORGE_ALLOWED_ORIGINS") ?? "").split(","),
+);
 const json = (data: unknown, status = 200, origin: string | null = null) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders(origin), "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const fail = (message: string, status = 400, origin: string | null = null) => json({ error: message }, status, origin);
@@ -161,7 +156,7 @@ async function handle(req: Request): Promise<Response> {
     const password = typeof body.password === "string" ? body.password : "";
     const displayName = clean(body.displayName, 120);
     if (!email.includes("@") || password.length < 12 || password.length > 128 || !displayName) return fail("Enter a valid email, display name and password of at least 12 characters.", 422, origin);
-    const emailRedirectTo = Deno.env.get("RIDEFORGE_AUTH_REDIRECT_URL") ?? "https://rideforge-web.onrender.com";
+    const emailRedirectTo = Deno.env.get("RIDEFORGE_AUTH_REDIRECT_URL") ?? "https://smart-bike-taxi-platform.vercel.app";
     const { data, error } = await publicAuth.auth.signUp({
       email, password,
       options: { data: { display_name: displayName }, emailRedirectTo },
