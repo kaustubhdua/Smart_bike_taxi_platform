@@ -24,7 +24,7 @@ A passing CI run proves the tested commit and test environment. It does not prov
 ### Supabase — read-only live inspection
 
 - Project status: `ACTIVE_HEALTHY`; PostgreSQL 17.11; region `ap-south-1`.
-- Edge Function `rideforge-api`: `ACTIVE`, version 9, with platform JWT verification disabled. The function performs application-level authentication itself; this requires continued review and negative authorization tests.
+- Edge Function `rideforge-api`: `ACTIVE`, version 10, deployed during this work from the exact `main` source. The deployed bundle now imports `npm:@supabase/supabase-js@2.119.0`, matching the repository (version 9 was still using 2.49.1). Platform JWT verification remains disabled because the handler performs application-level authentication itself. The hosted `/api/v1/ready` endpoint returned `{\"status\":\"ready\",\"backend\":\"supabase\"}` in the GitHub Edge API smoke job after deployment.
 - The live public schema contains 14 tables; all 14 report RLS enabled.
 - The live migration history contains 26 entries.
 - Security Advisor: zero findings. Health Advisor: zero findings.
@@ -36,9 +36,9 @@ The empty production identity and ride tables mean no real signup/login or passe
 ### Render — read-only live inspection
 
 - `rideforge-web` is live at https://rideforge-web.onrender.com.
-- Its latest recorded deployment is commit `670e946f2b290ec7081d712a073edad6a697f1cb`, while GitHub `main` is `66a37b91512ed5a03e5341a358eb20a36edb7994`.
+- During this work, the static site was redeployed successfully on commit `66a37b91512ed5a03e5341a358eb20a36edb7994`, matching GitHub `main`. Render reported the deployment as `live`.
 - Three historical API service objects remain: `rideforge-api-final`, `rideforge-api-v2`, and `rideforge-api`. The inspected `rideforge-api-final` deployments failed on 13 November. They are not the intended active backend in the Supabase-native architecture.
-- Do not delete these legacy services until the current static frontend is deployed and the external browser acceptance suite passes. After that, remove them deliberately and verify the Render inventory again.
+- Do not delete these legacy services until the external browser acceptance suite passes. After that, remove them deliberately and verify the Render inventory again.
 
 ## 2. Critical backup gate
 
@@ -99,7 +99,18 @@ The current Edge Function defaults to public Nominatim and OSRM endpoints. These
 - Treat persisted ride events and idempotent REST recovery as the correctness path; live event streams are a latency optimization and must tolerate reconnects, duplicate delivery and replay.
 - Do not remove indexes merely because an empty database reports them unused. Revisit query plans and index utility after representative workload data exists.
 
-## 6. Final release decision
+
+### Open-source architecture research
+
+The review used open-source ride-hailing implementations as architecture references, not as code to copy blindly:
+
+- [OpenRide](https://github.com/adam-nelson/openride) documents a modular rider/driver/operator workflow, dispatch, routing, payments, compliance and incident handling. Its repository declares Apache-2.0; review the exact upstream license and attribution before reusing any implementation.
+- [Autofleet Locomotion](https://github.com/Autofleet/locomotion) is an MIT-licensed rider app, but its README describes a dependency on the Autofleet backend ride engine. It is useful as a client/workflow reference, not a drop-in self-hosted backend.
+- [WNCC UberClone](https://github.com/wncc/Hello-FOSS-26_UberClone) describes India-focused route/matching workflows and an end-to-end rider/driver test harness. Treat it as a design reference only unless its license is independently verified.
+
+The strongest transferable patterns for RideForge are: explicit rider/driver state machines, a single transactional winner for competing offers, server-side fare snapshots, restart-safe dispatch, real end-to-end tests across two identities, and a hard separation between a demo fare and real payment/settlement. RideForge already implements parts of these patterns; its missing evidence is called out in the release gates above.
+
+## 7. Final release decision
 
 **Current classification: CI-verified academic/portfolio MVP; not yet end-to-end verified in the hosted environment.**
 
