@@ -2,13 +2,13 @@
 
 # 🏍️ RideForge — Smart Bike Taxi Platform
 
-**A React/Vite + Supabase-backed bike-taxi web platform, with a retained C++17 DSA simulator, transactional bookings, and driver/admin workspaces.**
+**A Noida-focused bike-ride planning and booking preview built with React, Vite and Supabase, with passenger, driver and operator workspaces.**
 
 Shortest-path routing · Durable 45-second driver offers · Automatic expiry/redispatch · Transactional bookings
 
 ![Release readiness](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
-![Project](https://img.shields.io/badge/status-portfolio%20MVP%20in%20progress-blue)
+![Project](https://img.shields.io/badge/status-live%20preview-orange)
 
 </div>
 
