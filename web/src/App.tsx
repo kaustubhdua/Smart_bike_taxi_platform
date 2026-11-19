@@ -583,7 +583,7 @@ export default function App() {
 
   return (
     <div className="app-shell rideforge-app">
-      <div className="app-announcement" role="status" aria-live="polite">
+      <div className="app-announcement" role="region" aria-label="Service connection status" aria-live="polite">
         <span className="status-indicator" data-state={apiHealth} />
         <span>{apiHealth === "online" ? "RIDEFORGE API CONNECTED" : apiHealth === "checking" ? "CHECKING RIDEFORGE SERVICES" : "SERVICE CONNECTION UNAVAILABLE"}</span>
         <span className="announcement-divider" />
@@ -778,7 +778,7 @@ export default function App() {
         <div className="footer-links"><a href="#booking">Book a ride</a><a href="#how-it-works">How it works</a><a href="/driver">Driver portal</a><a href="/admin">Admin portal</a><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">GitHub</a></div>
         <span className="copyright">© 2026 RIDEFORGE</span>
       </footer>
-      <div className="mobile-bottom-bar"><span><small>ESTIMATED FARE</small><strong>{fare === null ? "—" : `₹${fare}`}</strong></span><button onClick={scrollToBooking}>Book a ride <ArrowRight size={16} /></button></div>
+      <div className="mobile-bottom-bar" role="region" aria-label="Quick booking summary"><span><small>ESTIMATED FARE</small><strong>{fare === null ? "—" : `₹${fare}`}</strong></span><button onClick={scrollToBooking}>Book a ride <ArrowRight size={16} /></button></div>
     </div>
   );
 }
