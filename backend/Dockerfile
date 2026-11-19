@@ -1,7 +1,14 @@
 FROM ubuntu:24.04 AS build
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates cmake g++ make libboost-dev libcurl4-openssl-dev libpq-dev libssl-dev nlohmann-json3-dev \
+RUN set -eu; \
+    for attempt in 1 2 3 4 5; do \
+      rm -rf /var/lib/apt/lists/*; \
+      if apt-get update; then break; fi; \
+      if [ "$attempt" -eq 5 ]; then exit 1; fi; \
+      sleep "$((attempt * 8))"; \
+    done; \
+    apt-get install -y --no-install-recommends \
+      ca-certificates cmake g++ make libboost-dev libcurl4-openssl-dev libpq-dev libssl-dev nlohmann-json3-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src/backend
 COPY backend/ ./
@@ -9,8 +16,16 @@ RUN cmake -S . -B /build -DCMAKE_BUILD_TYPE=Release && cmake --build /build --ta
 
 FROM ubuntu:24.04 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    ca-certificates curl libcurl4 libpq5 libssl3 bash postgresql-client \
+RUN set -eu; \
+    for attempt in 1 2 3 4 5; do \
+      rm -rf /var/lib/apt/lists/*; \
+      if apt-get update; then break; fi; \
+      if [ "$attempt" -eq 5 ]; then exit 1; fi; \
+      sleep "$((attempt * 8))"; \
+    done; \
+    apt-get upgrade -y; \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl libcurl4 libpq5 libssl3 bash postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --create-home rideforge
 COPY --from=build /build/rideforge_api /usr/local/bin/rideforge_api
