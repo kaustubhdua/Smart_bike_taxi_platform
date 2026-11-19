@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type User } from "npm:@supabase/supabase-js@2.119.0";
+import { getRateLimitClientIp } from "./client_ip.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -70,10 +71,12 @@ async function quoteRoute(body: Record<string, unknown>, req: Request) {
   if (pickupLabel.length < 3 || destinationLabel.length < 3 || pickupLabel.toLowerCase() === destinationLabel.toLowerCase()) {
     return { error: "Enter two different pickup and destination locations.", status: 422 };
   }
-  const clientIp = req.headers.get("cf-connecting-ip") ??
-    req.headers.get("x-real-ip") ??
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    "unknown";
+  // On hosted Supabase ingress, only Cloudflare's overwritten client-IP
+  // header is trusted. Caller-supplied X-Forwarded-For/X-Real-IP are local-dev
+  // fallbacks only; missing hosted identity fails closed rather than bypassing
+  // the distributed quote limiter.
+  const clientIp = getRateLimitClientIp(req.headers, SUPABASE_URL);
+  if (!clientIp) return { error: "Quote service is temporarily unavailable.", status: 503 };
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clientIp));
   const rateKey = Array.from(new Uint8Array(digest)).map(value => value.toString(16).padStart(2, "0")).join("");
   const { data: withinLimit, error: rateError } = await db.rpc("rideforge_consume_rate_limit", {
@@ -96,16 +99,26 @@ async function quoteRoute(body: Record<string, unknown>, req: Request) {
     url.searchParams.set("q", label + ", Noida, Uttar Pradesh, India");
     url.searchParams.set("format", "jsonv2");
     url.searchParams.set("limit", "1");
-    const response = await fetch(url, { headers: { "User-Agent": userAgent, "Accept": "application/json" } });
+    const response = await fetch(url, {
+      headers: { "User-Agent": userAgent, "Accept": "application/json" },
+      signal: AbortSignal.timeout(8_000),
+    });
     if (!response.ok) throw new Error("Geocoding provider unavailable.");
     const results = await response.json();
     if (!Array.isArray(results) || !results[0]) throw new Error("Location could not be found.");
-    return { lat: Number(results[0].lat), lon: Number(results[0].lon) };
+    const lat = Number(results[0].lat), lon = Number(results[0].lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      throw new Error("Geocoding provider returned invalid coordinates.");
+    }
+    return { lat, lon };
   };
   try {
     const p = await geocode(pickupLabel);
     const d = await geocode(destinationLabel);
-    const response = await fetch(routeUrl + "/" + p.lon + "," + p.lat + ";" + d.lon + "," + d.lat + "?overview=full&geometries=geojson&steps=false", { headers: { "Accept": "application/json", "User-Agent": userAgent } });
+    const response = await fetch(routeUrl + "/" + p.lon + "," + p.lat + ";" + d.lon + "," + d.lat + "?overview=full&geometries=geojson&steps=false", {
+      headers: { "Accept": "application/json", "User-Agent": userAgent },
+      signal: AbortSignal.timeout(8_000),
+    });
     if (!response.ok) throw new Error("Routing provider unavailable.");
     const result = await response.json();
     const route = result?.routes?.[0];
