@@ -147,7 +147,7 @@ body{background:var(--rf-paper);color:var(--rf-ink)}
 .text-link{display:inline-flex;align-items:center;gap:10px;color:#416c50;font-size:11px;font-weight:800;margin-top:9px}
 .text-link:hover{gap:14px}
 .booking-card-primary{padding:clamp(22px,3vw,34px);border:1px solid #e5ebe5;border-radius:26px;background:#fff;box-shadow:var(--rf-shadow);position:relative;overflow:hidden}
-.booking-card-primary:before{content:"";position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,var(--rf-lime-deep),#8db99b 65%,#d4e5d8)}
+.booking-card-primary:before{content:"";position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,#e8821b 0 33.3%,#fffbf3 33.3% 66.6%,#0f6e3a 66.6% 100%)}
 .booking-card-heading{align-items:flex-start;margin-bottom:25px}
 .booking-card-heading h2{font-size:25px;letter-spacing:-1px;margin:7px 0 5px;color:var(--rf-ink)}
 .booking-card-heading p{font-size:11px;color:var(--rf-muted);margin:0}
