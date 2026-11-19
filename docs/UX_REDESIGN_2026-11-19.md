@@ -97,7 +97,7 @@ Do not describe the project as a licensed live taxi service or claim that real r
 - If Photon cannot resolve either address, the UI shows a recoverable error and does not invent a route or price. Browser-side lookup is still subject to the public provider's availability and fair-use limits.
 
 ### Visual system
-- Applied the Nirdhoom visual language: warm cream and parchment surfaces, navy ink, forest-green actions, saffron accents, DM Sans / Plus Jakarta Sans / DM Mono typography, softer shadows and restrained motion.
+- Applied the Nirdhoom visual language: warm cream and parchment surfaces, navy ink, forest-green actions, saffron accents, DM Sans / Plus Jakarta Sans / JetBrains Mono typography, softer shadows and restrained motion.
 - Kept RideForge's own identity, content, booking flow and map treatment; no Nirdhoom domain assets or copy were transplanted.
 - Existing keyboard focus, reduced-motion, mobile layout and explicit academic-demo disclosures remain.
 
