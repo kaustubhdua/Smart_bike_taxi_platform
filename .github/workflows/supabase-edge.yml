@@ -34,6 +34,8 @@ jobs:
           deno-version: v2.x
       - name: Type-check Supabase Edge Function
         run: deno check supabase/functions/rideforge-api/index.ts
+      - name: Test hosted client-IP trust boundary
+        run: deno test supabase/functions/rideforge-api/client_ip_test.ts
       - uses: actions/setup-node@v4
         with:
           node-version: 22
