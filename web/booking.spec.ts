@@ -67,6 +67,7 @@ test("rejects a server quote whose fare breakdown does not add up", async ({ pag
     }) });
   });
   await page.goto("/live");
+  await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".inline-notice")).toContainText(/invalid quote or route/i);
   await expect(page.locator(".fare-amount")).toContainText("—");
@@ -136,6 +137,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   });
 
   await page.goto("/live");
+  await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.getByRole("heading", { name: "Where to?" })).toBeVisible();
   await page.getByLabel("Your name").fill("Test Rider");
@@ -200,6 +202,7 @@ test("passenger ride status refreshes from persisted API state", async ({ page }
   });
 
   await page.goto("/live");
+  await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await page.getByLabel("Your name").fill("Polling Rider");
   await page.locator('.auth-panel input[type="email"]').first().fill("polling@example.test");
@@ -229,6 +232,7 @@ test("rejects expired or invalid quotes without showing a fare", async ({ page }
     });
   });
   await page.goto("/live");
+  await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".inline-notice")).toContainText(/invalid quote or route/i);
   await expect(page.locator(".fare-amount")).toContainText("—");
@@ -240,6 +244,7 @@ test("route failures are honest and do not show a route or fare", async ({ page 
     await route.fulfill({ status: 422, contentType: "application/json", body: JSON.stringify({ error: "Location could not be found" }) });
   });
   await page.goto("/live");
+  await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".quote-details").getByText(/could not be routed/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeEnabled();
@@ -250,6 +255,7 @@ test("booking page has no automated WCAG 2.2 AA violations", async ({ page }) =>
   await page.emulateMedia({ reducedMotion: "reduce" });
   await blockMapTiles(page);
   await page.goto("/live");
+  await fillRideLocations(page);
   await expect(page.getByRole("heading", { name: "Where to?" })).toBeVisible();
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   expect(results.violations).toEqual([]);
@@ -261,6 +267,7 @@ test("quote rate limits are surfaced without pretending a booking succeeded", as
     await route.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ error: "rate_limited" }) });
   });
   await page.goto("/live");
+  await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".inline-notice")).toContainText(/too many quote requests/i);
   await expect(page.locator(".fare-amount")).toContainText("—");
@@ -270,6 +277,7 @@ test("mobile booking layout has no horizontal page overflow", async ({ page }, t
   test.skip(testInfo.project.name !== "mobile-chromium", "Mobile-only viewport assertion");
   await blockMapTiles(page);
   await page.goto("/live");
+  await fillRideLocations(page);
   await expect(page.getByRole("heading", { name: "Where to?" })).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
@@ -319,6 +327,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
   });
 
   await page.goto("/live");
+  await fillRideLocations(page);
   const openDriverNav = page.getByRole("button", { name: "Open navigation" });
   if ((page.viewportSize()?.width ?? 1024) <= 768) await openDriverNav.click();
   await page.getByRole("link", { name: "Drive with us" }).click();
@@ -358,6 +367,7 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
     }) });
   });
   await page.goto("/live");
+  await fillRideLocations(page);
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
   if ((page.viewportSize()?.width ?? 1024) <= 768) await openAdminNav.click();
   await page.getByRole("link", { name: "Admin console" }).click();
@@ -459,6 +469,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   });
 
   await page.goto("/live");
+  await fillRideLocations(page);
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
   if ((page.viewportSize()?.width ?? 1024) <= 768) await openAdminNav.click();
   await page.getByRole("button", { name: "Admin console" }).click();
@@ -533,6 +544,7 @@ test("driver refreshes a controlled browser location and goes offline on sign-ou
   });
 
   await page.goto("/live");
+  await fillRideLocations(page);
   const openDriverNav = page.getByRole("button", { name: "Open navigation" });
   if ((page.viewportSize()?.width ?? 1024) <= 768) await openDriverNav.click();
   await page.getByRole("button", { name: "Drive with us" }).click();
@@ -598,6 +610,7 @@ test("passenger applies authenticated server-sent ride events without waiting fo
   });
 
   await page.goto("/live");
+  await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await page.getByLabel("Your name").fill("SSE Rider");
   await page.locator('.auth-panel input[type="email"]').first().fill("sse@example.test");
@@ -630,6 +643,7 @@ test("does not geocode while typing; calculates a route only after an explicit q
   await blockMapTiles(page);
 
   await page.goto("/live");
+  await fillRideLocations(page);
   const pickup = page.getByRole("combobox", { name: "Pickup point" });
   const destination = page.getByRole("combobox", { name: "Drop-off point" });
   await pickup.fill("Sector 62");
@@ -655,6 +669,7 @@ test("rejects malformed road-route coordinates instead of drawing them", async (
     }) });
   });
   await page.goto("/live");
+  await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".quote-details").getByText(/invalid quote or route/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("application", { name: /Interactive road map from/ })).toHaveCount(0);
@@ -691,6 +706,7 @@ test("route calculations are not triggered by typing", async ({ page }) => {
   await blockMapTiles(page);
 
   await page.goto("/live");
+  await fillRideLocations(page);
   await page.getByRole("combobox", { name: "Pickup point" }).fill("Sector 62");
   await page.getByRole("combobox", { name: "Drop-off point" }).fill("Sector 18 Market");
   await page.waitForTimeout(1500);
