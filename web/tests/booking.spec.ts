@@ -73,7 +73,7 @@ test("geocodes only on quote request and sends coordinates for server-side fare 
   expect(geocodingRequests).toBe(0);
 
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
-  await expect(page.locator(".fare-amount")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".fare-amount")).toContainText("₹127.28", { timeout: 15_000 });
   await expect(page.getByText("Route found")).toBeVisible();
   await expect(page.getByText("Base fare")).toBeVisible();
   await expect(page.getByText("₹20.00")).toBeVisible();
@@ -139,7 +139,7 @@ test("uses GPS coordinates even if reverse address lookup is unavailable", async
   await expect(page.getByRole("combobox", { name: "Pickup point" })).toHaveValue("Current GPS location");
   await page.getByRole("combobox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
-  await expect(page.getByText("₹127.28")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".fare-amount")).toContainText("₹127.28", { timeout: 15_000 });
   expect(quotePayload?.pickup).toMatchObject({
     latitude: 28.5193178,
     longitude: 77.3659633,
