@@ -53,7 +53,7 @@ The database migration intentionally creates `rideforge_backup` as `NOLOGIN BYPA
    ```sql
    ALTER ROLE rideforge_backup LOGIN BYPASSRLS;
    ```
-   Then use the `psql` meta-command `\\password rideforge_backup` to set a randomly generated password without putting the plaintext password in SQL history or logs. Do not paste the password into chat, source control, a workflow file, or a shell command line.
+   Then use the `psql` meta-command `\password rideforge_backup` to set a randomly generated password without putting the plaintext password in SQL history or logs. Do not paste the password into chat, source control, a workflow file, or a shell command line.
 3. In GitHub repository Settings → Secrets and variables → Actions, create:
    - `RIDEFORGE_BACKUP_DATABASE_URL`: the copied Session pooler URI, with username `rideforge_backup.ghcufcegfvvjhsnqnrzr`, port `5432`, `sslmode=require`, and the newly provisioned password URI-encoded.
    - `RIDEFORGE_BACKUP_PASSPHRASE`: a separate high-entropy encryption passphrase. Store it independently from the database password.
