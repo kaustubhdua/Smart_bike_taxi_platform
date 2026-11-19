@@ -17,7 +17,7 @@ const quoteResponse = {
     pricingModel: "demo_base_plus_distance",
   },
   currency: "INR",
-  expiresAt: new Date(Date.now() + 120_000).toISOString(),
+  expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
   geometry: [[77.3659633, 28.5193178], [77.35, 28.54], [77.3228443, 28.5702711]],
 };
 
@@ -120,7 +120,7 @@ test("uses GPS coordinates even if reverse address lookup is unavailable", async
   await page.grantPermissions(["geolocation"]);
   await page.setGeolocation({ latitude: 28.5193178, longitude: 77.3659633 });
   await mockHealth(page);
-  await page.route("https://photon.komoot.io/reverse?**", route =>
+  await page.route("https://photon.komoot.io/reverse**", route =>
     route.fulfill({ status: 503, headers: corsHeaders, contentType: "application/json", body: JSON.stringify({ error: true }) }),
   );
   await mockPhotonSearch(page);
