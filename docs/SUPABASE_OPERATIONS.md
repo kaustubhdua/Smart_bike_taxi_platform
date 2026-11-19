@@ -1,6 +1,6 @@
 # Supabase-native RideForge operations
 
-> **Operational refresh (19 November 2026):** Vercel production is deployed on main commit `facfd623b03097816705ec5fb4b09a44a5878376` and its `VITE_API_BASE_URL` points to the Supabase Edge Function. PRs #100 and #101 are merged; the full release-readiness suite passed 15/15 on the exact PR #101 head. The live `rideforge-api` Edge Function is deployed at version 12 from the merged source. Route quoting now defaults to Photon with Nominatim fallback; both providers are throttled and the client accepts both response formats. A one-time `[verify-live-quote]` main-push smoke test is added in this update to validate a real Noida quote against the deployed Edge Function. Backup credentials, Auth URL allowlist and hosted passenger/driver/admin acceptance remain outstanding.
+> **Operational refresh (19 November 2026):** Vercel production is deployed on main commit `facfd623b03097816705ec5fb4b09a44a5878376` and its `VITE_API_BASE_URL` points to the Supabase Edge Function. PRs #100 and #101 are merged; the full release-readiness suite passed 15/15 on the exact PR #101 head. The live `rideforge-api` Edge Function is deployed at version 12 from the merged source. The production quote smoke proved server-side OSRM routing and fare calculation work when validated coordinates are supplied. Public Photon/Nominatim requests from Supabase Edge egress return HTTP 403, so PR #105 moves address lookup to the passenger browser (Photon) and sends validated coordinates to the Edge Function. The Edge Function remains authoritative for route distance, duration, fare calculation and quote persistence. The one-time `[verify-live-quote]` main-push smoke validates the real server-side quote using fixed Noida test coordinates. Backup credentials, Auth URL allowlist and hosted passenger/driver/admin acceptance remain outstanding.
 
 **Scope:** current academic/portfolio MVP deployment as of 19 November 2026. This is the active operations guide. It does not authorize real passenger transport, payments, or commercial operation.
 
@@ -127,7 +127,15 @@ RideForge is an academic/portfolio MVP, not a licensed transport operator. The c
 
 The final Uttar Pradesh Thirty-third Amendment aggregator rules were notified on 22 May 2026. New aggregators need the applicable STA licence and must meet driver, vehicle, insurance, training, control-room, grievance, app-security and data-retention requirements. Noida is in the NCR and CAQM Direction 94 restricts further induction of conventional petrol/diesel two-wheelers; the transitional BS-VI exception for existing fleets expires 31 December 2026. Do not offer real rides or accept money until the exact legal/vehicle class is confirmed in writing and all statutory controls are operational.
 
-## 8. External service and cost boundaries
+## 8. Browser geocoding and route quote contract
+
+- The passenger web client resolves one location only after the user requests a quote; it does not send address queries on every keystroke.
+- Photon requests are throttled to at least 1.1 seconds apart within a browser tab and biased toward Noida.
+- If reverse geocoding fails after GPS permission, the client still sends validated GPS coordinates and labels the pickup as a current GPS location.
+- The Edge Function accepts coordinate pairs only after latitude/longitude range validation, then calls OSRM itself. It never trusts a client-supplied fare, distance, duration or route geometry.
+- Server-side geocoding remains as a compatibility fallback for non-browser callers, but public Photon/Nominatim requests are blocked from the current Supabase Edge egress region; production web traffic should send coordinates.
+
+## 9. External service and cost boundaries
 
 - Public Photon/Nominatim and OSRM endpoints are evaluation defaults, not a production service contract. Do not submit personal/confidential pickup addresses to public Nominatim. Select a contracted or self-hosted geocoder/router before real-world use.
 - Supabase Free has limited compute, database, log and backup capabilities. Measure actual workload and plan capacity before any public pilot.
