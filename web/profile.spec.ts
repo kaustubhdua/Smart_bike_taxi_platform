@@ -64,6 +64,7 @@ test("passenger can read the authenticated profile and update their display name
   await page.getByRole("button", { name: "Create passenger account" }).click();
 
   await expect(page.locator(".tool-disclosure summary", { hasText: "My profile" })).toBeVisible();
+  await page.locator(".tool-disclosure summary", { hasText: "My profile" }).click();
   await expect(page.getByLabel("Display name")).toHaveValue("Profile Rider");
   await page.getByLabel("Display name").fill("Updated Profile Rider");
   await page.getByRole("button", { name: "Save profile" }).click();
