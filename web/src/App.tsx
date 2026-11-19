@@ -54,12 +54,6 @@ export default function App() {
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const [rideDriverLocation, setRideDriverLocation] = useState<{ latitude: number; longitude: number; updatedAt: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
-  const [driverOnline, setDriverOnline] = useState(false);
-  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [driverQueue, setDriverQueue] = useState<Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number; offerExpiresAt?: string }>>([]);
-  const [clockNow, setClockNow] = useState(() => Date.now());
-  const [driverRide, setDriverRide] = useState<{ rideId: string; status: string } | null>(null);
-  const [adminMetrics, setAdminMetrics] = useState<{ onlineDrivers: number; ridesByStatus: Record<string, number> } | null>(null);
   const [supportCategory, setSupportCategory] = useState("technical");
   const [supportDescription, setSupportDescription] = useState("");
   const [supportReports, setSupportReports] = useState<Array<{ id: string; rideId: string | null; category: string; description: string; status: string; resolutionNote: string; createdAt: string }>>([]);
@@ -100,81 +94,6 @@ export default function App() {
     }, Math.min(remaining, 2_147_000_000));
     return () => clearTimeout(timer);
   }, [quote?.expiresAt]);
-
-  useEffect(() => {
-    if (account?.role === "driver") void refreshDriverQueue();
-    if (account?.role === "admin") void loadAdminMetrics();
-  }, [account?.role]);
-
-  // Keep driver coordinates fresh while online; the API excludes stale locations
-  // from dispatch, and this effect stops immediately on logout/offline.
-  useEffect(() => {
-    if (!account || account.role !== "driver" || !driverOnline || !navigator.geolocation) return;
-    let disposed = false;
-    let inFlight = false;
-    let lastSentAt = 0;
-    let lastSentCoords: { latitude: number; longitude: number } | null = null;
-    let latestCoords: { latitude: number; longitude: number } | null = driverLocation;
-    let activeController: AbortController | null = null;
-
-    const distanceMeters = (a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) => {
-      const radians = Math.PI / 180;
-      const lat1 = a.latitude * radians;
-      const lat2 = b.latitude * radians;
-      const dLat = (b.latitude - a.latitude) * radians;
-      const dLon = (b.longitude - a.longitude) * radians;
-      const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-      return 6_371_000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
-    };
-
-    const sendLocation = async (coords: { latitude: number; longitude: number }) => {
-      const now = Date.now();
-      if (disposed || inFlight ||
-          (lastSentCoords !== null && now - lastSentAt < 15_000 && distanceMeters(lastSentCoords, coords) < 50)) return;
-      inFlight = true;
-      const controller = new AbortController();
-      activeController = controller;
-      const timeout = window.setTimeout(() => controller.abort(), 8000);
-      try {
-        const response = await fetch(apiUrl(import.meta.env.VITE_API_BASE_URL as string, "/api/v1/driver/availability"), {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + account.token },
-          body: JSON.stringify({ online: true, ...coords }),
-          signal: controller.signal,
-        });
-        const data = await response.json() as { error?: string };
-        if (!response.ok) throw new Error(data.error || "Could not refresh your driver location.");
-        lastSentAt = Date.now();
-        lastSentCoords = coords;
-        if (!disposed) setDriverLocation(coords);
-      } catch (error) {
-        if (!disposed && !(error instanceof DOMException && error.name === "AbortError")) {
-          setNotice(error instanceof Error ? error.message : "Driver location update failed.");
-        }
-      } finally {
-        window.clearTimeout(timeout);
-        if (activeController === controller) activeController = null;
-        inFlight = false;
-      }
-    };
-
-    const watchId = navigator.geolocation.watchPosition(position => {
-      latestCoords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
-      void sendLocation(latestCoords);
-    }, () => {
-      if (!disposed) setNotice("Driver location updates are unavailable. Allow location access to remain eligible for dispatch.");
-    }, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 5_000 });
-    const heartbeat = window.setInterval(() => {
-      if (latestCoords) void sendLocation(latestCoords);
-    }, 30_000);
-
-    return () => {
-      disposed = true;
-      navigator.geolocation.clearWatch(watchId);
-      window.clearInterval(heartbeat);
-      activeController?.abort();
-    };
-  }, [account?.token, account?.role, driverOnline]);
 
   useEffect(() => {
     setRideDriverLocation(null);
@@ -322,15 +241,6 @@ export default function App() {
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-
-  // Keep the driver's queue fresh without polling in a hidden tab or while offline.
-  useEffect(() => {
-    if (account?.role !== "driver" || !driverOnline) return;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") void refreshDriverQueue();
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [account?.token, account?.role, driverOnline]);
 
   async function requestRide() {
     setNotice("");
@@ -558,140 +468,6 @@ export default function App() {
       setNotice("Ride request cancelled.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not cancel this ride request.");
-    }
-  }
-
-  async function refreshDriverQueue() {
-    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (base === undefined || !account || account.role !== "driver") return;
-    try {
-      const response = await fetch(apiUrl(base, "/api/v1/driver/rides"), {
-        headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
-      });
-      const data = await response.json() as { rides?: Array<{ rideId: string; pickup: string; destination: string; distanceMeters: number; farePaise: number; offerExpiresAt?: string }>; error?: string };
-      if (!response.ok || !data.rides) throw new Error(data.error || "Could not load the driver queue.");
-      setDriverQueue(data.rides);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not load the driver queue.");
-    }
-  }
-
-  async function toggleDriverAvailability() {
-    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (base === undefined || !account || account.role !== "driver") return;
-    const sendAvailability = async (coords: { latitude: number; longitude: number }, online: boolean) => {
-      const response = await fetch(apiUrl(base, "/api/v1/driver/availability"), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + account.token },
-        body: JSON.stringify(online ? { online: true, ...coords } : { online: false }),
-        signal: AbortSignal.timeout(8000),
-      });
-      const data = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(data.error || "Could not update availability.");
-      setDriverOnline(online);
-      setDriverLocation(coords);
-      setNotice(online ? "You are online and can accept ride requests." : "You are now offline.");
-      if (online) await refreshDriverQueue();
-    };
-    if (driverOnline) {
-      try { await sendAvailability(driverLocation ?? { latitude: 0, longitude: 0 }, false); }
-      catch (error) { setNotice(error instanceof Error ? error.message : "Could not update availability."); }
-      return;
-    }
-    if (!navigator.geolocation) {
-      setNotice("This browser does not support location access.");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(async position => {
-      const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
-      try { await sendAvailability(coords, true); }
-      catch (error) { setNotice(error instanceof Error ? error.message : "Could not update availability."); }
-    }, () => setNotice("Allow location access to go online as a driver."), {
-      enableHighAccuracy: true, timeout: 10000, maximumAge: 15000,
-    });
-  }
-
-  async function signOutDriver() {
-    const currentAccount = account;
-    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    // Stop the geolocation watcher before requesting server-side offline status.
-    setDriverOnline(false);
-    setDriverLocation(null);
-    let offlineConfirmed = false;
-    if (currentAccount?.role === "driver" && base) {
-      try {
-        const response = await fetch(apiUrl(base, "/api/v1/driver/availability"), {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + currentAccount.token },
-          body: JSON.stringify({ online: false }),
-          signal: AbortSignal.timeout(8000),
-        });
-        if (!response.ok) throw new Error("The server did not confirm offline status.");
-        offlineConfirmed = true;
-      } catch {
-        // Local sign-out still proceeds; the server's stale-location guard prevents dispatch.
-      }
-    }
-    setAccount(null);
-    setSupportReports([]);
-    setPassengerHistory([]);
-    setReceiptRideId(null);
-    setDriverQueue([]);
-    setDriverRide(null);
-    setNotice(offlineConfirmed
-      ? "Signed out and confirmed offline. Driver coordinates were cleared."
-      : "Signed out locally, but offline status was not confirmed. The server will exclude this driver when the last location becomes stale.");
-  }
-
-  async function acceptDriverRide(rideId: string) {
-    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (base === undefined || !account) return;
-    try {
-      const response = await fetch(apiUrl(base, "/api/v1/driver/rides/" + encodeURIComponent(rideId) + "/accept"), {
-        method: "POST", headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
-      });
-      const data = await response.json() as { rideId?: string; status?: string; error?: string };
-      if (!response.ok || !data.rideId || !data.status) throw new Error(data.error || "This ride is no longer available.");
-      setDriverRide({ rideId: data.rideId, status: data.status });
-      setDriverQueue(current => current.filter(item => item.rideId !== rideId));
-      setNotice("Ride accepted. Follow the required ride-state transitions.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not accept the ride.");
-      await refreshDriverQueue();
-    }
-  }
-
-  async function advanceDriverRide(nextStatus: "driver_arriving" | "in_progress" | "completed") {
-    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (base === undefined || !account || !driverRide) return;
-    try {
-      const response = await fetch(apiUrl(base, "/api/v1/driver/rides/" + encodeURIComponent(driverRide.rideId) + "/status"), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + account.token },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      const data = await response.json() as { status?: string; error?: string };
-      if (!response.ok || !data.status) throw new Error(data.error || "Could not update ride status.");
-      setDriverRide({ ...driverRide, status: nextStatus });
-      setNotice("Ride status updated to " + nextStatus + ".");
-      await refreshDriverQueue();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not update ride status.");
-    }
-  }
-
-  async function loadAdminMetrics() {
-    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    if (base === undefined || !account || account.role !== "admin") return;
-    try {
-      const response = await fetch(apiUrl(base, "/api/v1/admin/metrics"), {
-        headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
-      });
-      const data = await response.json() as { onlineDrivers?: number; ridesByStatus?: Record<string, number>; error?: string };
-      if (!response.ok || typeof data.onlineDrivers !== "number" || !data.ridesByStatus) throw new Error(data.error || "Could not load admin metrics.");
-      setAdminMetrics({ onlineDrivers: data.onlineDrivers, ridesByStatus: data.ridesByStatus });
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not load admin metrics.");
     }
   }
 
