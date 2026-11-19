@@ -583,7 +583,7 @@ export default function App() {
 
   return (
     <div className="app-shell rideforge-app">
-      <div className="app-announcement">
+      <div className="app-announcement" role="status" aria-live="polite">
         <span className="status-indicator" data-state={apiHealth} />
         <span>{apiHealth === "online" ? "RIDEFORGE API CONNECTED" : apiHealth === "checking" ? "CHECKING RIDEFORGE SERVICES" : "SERVICE CONNECTION UNAVAILABLE"}</span>
         <span className="announcement-divider" />
@@ -596,15 +596,15 @@ export default function App() {
           <span className="brand-mark"><Bike size={22} strokeWidth={2.2} /></span>
           <span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span>
         </a>
-        <nav className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
-          <a className="nav-link active" href="#booking" onClick={() => setMenuOpen(false)}>Book a ride</a>
+        <nav id="rideforge-primary-navigation" className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
+          <a className="nav-link active" aria-current="page" href="#booking" onClick={() => setMenuOpen(false)}>Book a ride</a>
           <a className="nav-link" href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a>
           <a className="nav-link" href="/driver">Drive with us</a>
           <a className="nav-link" href="/admin">Admin console</a>
         </nav>
         <div className="header-actions">
           <a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety & support</a>
-          <button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
+          <button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} aria-controls="rideforge-primary-navigation">{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
           <button className="header-cta" onClick={scrollToBooking}>Start booking <ArrowRight size={16} /></button>
         </div>
       </header>
