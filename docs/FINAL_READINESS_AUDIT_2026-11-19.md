@@ -202,3 +202,11 @@ RideForge remains an academic/portfolio MVP, not an authorized transport operato
 - PR #106 consolidates browser-side Photon geocoding with a per-tab 1.1-second request throttle, direct GPS-coordinate fallback, and a one-time live passenger browser acceptance test after the production build is ready.
 - The Nirdhoom-inspired RideForge visual system is applied to passenger, driver and admin workspaces in this PR.
 - Commercial launch gates remain unchanged: staging identities, encrypted backup/restore, legal/vehicle/insurance requirements, payments, emergency operations and independent security/load review are not represented as complete.
+
+
+### 2026-11-19 production hosting fallback
+
+- Render static service `rideforge-web` is live at [https://rideforge-web.onrender.com](https://rideforge-web.onrender.com), serving main commit `d60dbc2305b22d728a39fea6ff8f85e1a87b0bfc` with the production Supabase API URL and publishable key configured.
+- Vercel's free daily deployment API quota was exhausted during rollout; the Vercel production alias remains on its previous build. Render is the active demo frontend until Vercel quota resets or the plan changes.
+- The one-time `[verify-live-quote]` production browser acceptance now targets Render and checks the deployed build marker, Photon address lookup and real Supabase route quote.
+- Supabase Auth URL Configuration still needs the Render origin added to its allowed redirect URLs before real email-confirmation sign-in can be demonstrated. Quote-only acceptance does not require sign-in.
