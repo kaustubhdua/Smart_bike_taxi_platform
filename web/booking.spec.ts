@@ -646,6 +646,30 @@ test("passenger applies authenticated server-sent ride events without waiting fo
   await expect(page.locator(".ride-confirmation")).toContainText("Status: assigned");
 });
 
+test("sets the current pickup from Photon reverse geocoding after explicit permission", async ({ page }) => {
+  await page.context().grantPermissions(["geolocation"]);
+  await page.context().setGeolocation({ latitude: 28.5355, longitude: 77.3910 });
+  let quoteRequests = 0;
+  await page.route("https://photon.komoot.io/reverse?**", async route => {
+    await route.fulfill({
+      status: 200, contentType: "application/geo+json",
+      body: JSON.stringify({ type: "FeatureCollection", features: [{
+        type: "Feature", geometry: { type: "Point", coordinates: [77.3910, 28.5355] },
+        properties: { name: "JIIT Sector 128", city: "Noida", state: "Uttar Pradesh", country: "India" },
+      }] }),
+    });
+  });
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    quoteRequests += 1;
+    await route.abort();
+  });
+  await blockMapTiles(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: /Use my current location/ }).click();
+  await expect(page.getByRole("textbox", { name: "Pickup point" })).toHaveValue("JIIT Sector 128, Noida, Uttar Pradesh, India");
+  expect(quoteRequests).toBe(0);
+});
+
 test("does not geocode while typing; calculates a route only after an explicit quote request", async ({ page }) => {
   let quoteRequests = 0;
   let browserGeocodingRequests = 0;
