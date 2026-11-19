@@ -299,10 +299,8 @@ async function handle(req: Request): Promise<Response> {
       return error ? fail("This offer is expired or no longer available.", 409, origin) : json(data, 200, origin);
     }
     if (action === "decline" && method === "POST") {
-      const { error: offerError } = await db.from("ride_offers").update({ status: "declined", responded_at: new Date().toISOString() }).eq("ride_id", rideId).eq("driver_id", accountId).eq("status", "offered");
-      if (offerError) return fail("Could not decline ride.", 500, origin);
-      const { error } = await db.from("driver_ride_declines").upsert({ ride_id: rideId, driver_id: accountId }, { onConflict: "ride_id,driver_id" });
-      return error ? fail("Could not save decline.", 500, origin) : json({ rideId, status: "declined" }, 200, origin);
+      const { data, error } = await db.rpc("rideforge_decline_offer", { p_driver_id: accountId, p_ride_id: rideId });
+      return error ? fail("This offer is expired or no longer available.", 409, origin) : json(data, 200, origin);
     }
     if (action === "status" && method === "PUT") {
       const status = clean(body.status, 32);

@@ -14,7 +14,7 @@ Shortest-path routing · Durable 45-second driver offers · Automatic expiry/red
 
 ---
 
-> **Latest evidence snapshot — 19 November 2026:** main `66a37b91512ed5a03e5341a358eb20a36edb7994` passed the 13-job release-readiness workflow. The Render frontend and Supabase Edge Function have since been aligned to this revision. Backup credentials and a hosted restore drill are still outstanding; real passenger/driver/admin journeys remain unverified. See the [current final-readiness audit](docs/FINAL_READINESS_AUDIT_2026-11-19.md) before describing project status.
+> **Latest evidence snapshot — 19 November 2026:** `main` is `7bad02b20aded723aaab1fcd3882da4ca3f7dc4f`. PR #87's NGINX security patch is merged after all 15 jobs in exact-head run [#707](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44500919071) passed, including Trivy. Mainline PR [#90](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/90) adds atomic Supabase offer transitions and an accept-vs-decline race test; PR [#91](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/91) hardens quote rate limiting and provider timeouts; PR [#94](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/94) adds an isolated encrypted public-schema restore drill. Render's static frontend remains on older commit `66a37b9`. Owner-provisioned backup credentials, hosted account journeys, main branch protection and manual device/load verification remain open. The production Supabase project has no Auth users/accounts/rides. See the [current final-readiness audit](docs/FINAL_READINESS_AUDIT_2026-11-19.md).
 
 ## Run the complete verification suite
 
