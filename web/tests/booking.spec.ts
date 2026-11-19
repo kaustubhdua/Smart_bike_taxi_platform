@@ -1,139 +1,132 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-const routeFixture = {
-  code: "Ok",
-  routes: [{
-    distance: 5200,
-    duration: 840,
-    geometry: {
-      type: "LineString",
-      coordinates: [[77.33, 28.53], [77.34, 28.54], [77.35, 28.55]],
-    },
-  }],
+const quoteResponse = {
+  quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
+  distanceKm: 9.753,
+  durationMinutes: 15,
+  farePaise: 12728,
+  fareBreakdown: {
+    baseFarePaise: 2000,
+    distanceFarePaise: 10728,
+    pricingModel: "demo_base_plus_distance",
+  },
+  currency: "INR",
+  expiresAt: new Date(Date.now() + 120_000).toISOString(),
+  geometry: [[77.3659633, 28.5193178], [77.35, 28.54], [77.3228443, 28.5702711]],
 };
 
-async function mockRouting(page: import("@playwright/test").Page) {
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    const url = new URL(route.request().url());
-    const query = url.searchParams.get("q") ?? "";
-    const lat = query.includes("JIIT") ? "28.535" : query.includes("Botanical") ? "28.564" : "28.55";
-    const lon = query.includes("JIIT") ? "77.35" : query.includes("Botanical") ? "77.334" : "77.34";
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([{ lat, lon, display_name: query }]),
-    });
-  });
-  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(routeFixture) });
-  });
-  await page.route("https://{s}.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://a.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://b.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
+async function mockHealth(page: Page) {
+  await page.route("http://api.test/api/v1/health", route =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "ok", backend: "supabase" }) }),
+  );
 }
 
-test("calculates road route and only shows a fare after a valid server quote", async ({ page }) => {
-  await mockRouting(page);
-  await page.route("http://api.test/api/v1/routes/quote", async route => {
+async function mockPhotonSearch(page: Page, onRequest?: (query: string) => void) {
+  await page.route("https://photon.komoot.io/api/**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    onRequest?.(query);
+    const pickup = query.toLowerCase().includes("jiit");
+    const coordinates = pickup ? [77.3659633, 28.5193178] : [77.3228443, 28.5702711];
+    const properties = pickup
+      ? { name: "JIIT Sector 128", city: "Noida", state: "Uttar Pradesh", country: "India" }
+      : { name: "Sector 18 Market", city: "Noida", state: "Uttar Pradesh", country: "India" };
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
-        distanceKm: 5.2,
-        durationMinutes: 14,
-        farePaise: 4750,
-        fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 2750, pricingModel: "demo_base_plus_distance" },
-        currency: "INR",
-        expiresAt: new Date(Date.now() + 120_000).toISOString(),
+        type: "FeatureCollection",
+        features: [{ type: "Feature", properties, geometry: { type: "Point", coordinates } }],
       }),
     });
   });
+}
+
+async function fillJourney(page: Page) {
+  await page.getByRole("textbox", { name: "Pickup point" }).fill("JIIT Sector 128, Noida");
+  await page.getByRole("textbox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
+}
+
+test("geocodes only on quote request and sends coordinates for server-side fare calculation", async ({ page }) => {
+  let geocodingRequests = 0;
+  let quotePayload: Record<string, any> | undefined;
+  await mockHealth(page);
+  await mockPhotonSearch(page, () => { geocodingRequests += 1; });
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    quotePayload = route.request().postDataJSON() as Record<string, any>;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(quoteResponse) });
+  });
+  await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
+
   await page.goto("/");
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("No invented price")).toBeVisible();
-  await expect(page.getByText("₹4750")).toHaveCount(0);
+  await fillJourney(page);
+  expect(geocodingRequests).toBe(0);
+
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
-  await expect(page.getByText("₹47.50")).toBeVisible();
+  await expect(page.getByText("₹127.28")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Route found")).toBeVisible();
   await expect(page.getByText("Base fare")).toBeVisible();
   await expect(page.getByText("₹20.00")).toBeVisible();
-  await expect(page.getByText("₹27.50")).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("This checks the quote only");
+  await expect(page.getByText("₹107.28")).toBeVisible();
+  await expect.poll(() => geocodingRequests).toBe(2);
+
+  expect(quotePayload?.pickup).toMatchObject({
+    label: "JIIT Sector 128, Noida",
+    latitude: 28.5193178,
+    longitude: 77.3659633,
+  });
+  expect(quotePayload?.destination).toMatchObject({
+    label: "Sector 18 Market, Noida",
+    latitude: 28.5702711,
+    longitude: 77.3228443,
+  });
+  expect(quotePayload).not.toHaveProperty("farePaise");
+  expect(quotePayload).not.toHaveProperty("distanceKm");
 });
 
-test("rejects expired and malformed server quotes without showing a fare", async ({ page }) => {
-  await mockRouting(page);
+test("does not display a fare when browser geocoding fails", async ({ page }) => {
+  let quoteRequests = 0;
+  await mockHealth(page);
+  await page.route("https://photon.komoot.io/api/**", route =>
+    route.fulfill({ status: 403, contentType: "text/plain", body: "Forbidden" }),
+  );
   await page.route("http://api.test/api/v1/routes/quote", async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        quoteId: "old-quote-id",
-        distanceKm: 5.2,
-        durationMinutes: 14,
-        farePaise: -1,
-        currency: "INR",
-        expiresAt: new Date(Date.now() - 60_000).toISOString(),
-      }),
-    });
+    quoteRequests += 1;
+    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "unexpected" }) });
   });
+  await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
+
   await page.goto("/");
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  await fillJourney(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
-  await expect(page.getByRole("status")).toContainText(/invalid or expired quote/i);
+
+  await expect(page.getByText(/Address lookup is temporarily unavailable/)).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(".fare-amount")).toContainText("—");
+  expect(quoteRequests).toBe(0);
 });
 
-test("shows route failures honestly and never enables quoting without a route", async ({ page }) => {
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+test("uses GPS coordinates even if reverse address lookup is unavailable", async ({ page }) => {
+  let quotePayload: Record<string, any> | undefined;
+  await page.grantPermissions(["geolocation"]);
+  await page.setGeolocation({ latitude: 28.5193178, longitude: 77.3659633 });
+  await mockHealth(page);
+  await page.route("https://photon.komoot.io/reverse?**", route =>
+    route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: true }) }),
+  );
+  await mockPhotonSearch(page);
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    quotePayload = route.request().postDataJSON() as Record<string, any>;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(quoteResponse) });
   });
-  await page.goto("/");
-  await expect(page.getByText(/couldn't find/i)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeDisabled();
-  await expect(page.locator(".fare-amount")).toContainText("—");
-});
-
-
-test("debounces location edits instead of geocoding every keystroke", async ({ page }) => {
-  let geocodingRequests = 0;
-  let routeRequests = 0;
-  await page.route("https://nominatim.openstreetmap.org/search?**", async route => {
-    geocodingRequests += 1;
-    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([{ lat: "28.55", lon: "77.34", display_name: query }]),
-    });
-  });
-  await page.route("https://router.project-osrm.org/route/v1/driving/**", async route => {
-    routeRequests += 1;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(routeFixture) });
-  });
-  await page.route("https://{s}.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://a.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://b.tile.openstreetmap.org/**", route => route.abort());
-  await page.route("https://c.tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
 
   await page.goto("/");
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => geocodingRequests).toBe(2);
-  await expect.poll(() => routeRequests).toBe(1);
-
-  const pickup = page.getByRole("textbox", { name: "Pickup point" });
-  await pickup.fill("Sec");
-  await page.waitForTimeout(400);
-  await expect.poll(() => geocodingRequests).toBe(2);
-  await expect.poll(() => routeRequests).toBe(1);
-
-  await pickup.fill("Sector 62");
-  await page.waitForTimeout(500);
-  await expect.poll(() => geocodingRequests).toBe(2);
-  await expect.poll(() => routeRequests).toBe(1);
-
-  await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => geocodingRequests).toBe(3);
-  await expect.poll(() => routeRequests).toBe(2);
+  await page.getByRole("button", { name: /Use my current location/ }).click();
+  await expect(page.getByRole("textbox", { name: "Pickup point" })).toHaveValue("Current GPS location");
+  await page.getByRole("textbox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.getByText("₹127.28")).toBeVisible({ timeout: 15_000 });
+  expect(quotePayload?.pickup).toMatchObject({
+    latitude: 28.5193178,
+    longitude: 77.3659633,
+  });
 });
