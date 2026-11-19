@@ -123,6 +123,14 @@ The PR #86 exact-head release run [#704](https://github.com/kaustubhdua/Smart_bi
 
 PR #86 was merged while its exact-head workflow was still in progress and before the container scan completed successfully. This is further evidence that branch protection and required status checks are not enforced on `main`; issue #17 remains a release-governance blocker. The merge does not convert the failed/incomplete run into a pass.
 
+
+Current follow-up snapshot after PR #86 merged:
+
+- PR #86 merged as `b3e94b7fad0a8891c9c2cdb98e70000a9f627a4b`, but exact-head run #704 did not pass cleanly: its 20 km API smoke and most other jobs passed, its 5 km API smoke remained in progress at the latest inspection, and its container vulnerability scan failed on the NGINX findings above.
+- Render's latest live static-site deployment is still commit `66a37b91512ed5a03e5341a358eb20a36edb7994`; the merged commit has not been deployed. The service is configured to deploy only after checks pass.
+- PR #87 contains the NGINX base-image patch and this audit update. Its exact-head Full release readiness run #706 is running; do not merge or deploy until all jobs, especially Trivy, pass.
+- A fresh live Supabase read-only check confirms 14 public base tables and 14 with RLS enabled, zero Auth users/accounts/rides, zero Security Advisor findings, zero Health Advisor findings, and 16 informational unused-index notices. Do not remove those indexes on an empty database.
+
 ## 7. Final release decision
 
 **Current classification: CI-verified academic/portfolio MVP; not yet end-to-end verified in the hosted environment.**
