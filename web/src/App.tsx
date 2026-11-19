@@ -236,12 +236,6 @@ export default function App() {
     };
   }, [account?.token, account?.role, ride?.rideId]);
 
-  // Keep offer countdowns synchronized with the browser clock; server-side expiry remains authoritative.
-  useEffect(() => {
-    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
   async function requestRide() {
     setNotice("");
     setApiState("checking");
