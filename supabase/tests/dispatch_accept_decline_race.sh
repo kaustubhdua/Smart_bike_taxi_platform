@@ -23,8 +23,8 @@ SQL
 }
 trap cleanup EXIT
 
-read -r passenger_id driver_id ride_id offer_id < <(
-  psql "$DB_URL" -X -At -F ' ' -c "SELECT gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid()"
+read -r passenger_id driver_id ride_id < <(
+  psql "$DB_URL" -X -At -F ' ' -c "SELECT gen_random_uuid(),gen_random_uuid(),gen_random_uuid()"
 )
 
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
@@ -41,9 +41,8 @@ INSERT INTO public.rides(id,passenger_id,status,pickup_label,pickup_latitude,pic
 VALUES('$ride_id','$passenger_id','matching','Race pickup',28.6139,77.2090,
   'Race destination',28.6200,77.2150,1000,3100,'race-'||substr('$ride_id',1,8));
 
-INSERT INTO public.ride_offers(id,ride_id,driver_id,status,offered_at,expires_at)
-VALUES('$offer_id','$ride_id','$driver_id','offered',now(),now()+interval '45 seconds');
 SQL
+offer_id="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "INSERT INTO public.ride_offers(ride_id,driver_id,status,offered_at,expires_at) VALUES('$ride_id','$driver_id','offered',now(),now()+interval '45 seconds') RETURNING id")"
 
 set +e
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "SELECT public.rideforge_accept_offer('$driver_id','$ride_id')" >"$workdir/accept.log" 2>&1 &
@@ -64,8 +63,14 @@ if [[ "$success_count" -ne 1 ]]; then
 fi
 
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 -v ride_id="$ride_id" -v offer_id="$offer_id" -v driver_id="$driver_id" <<'SQL'
+SELECT set_config('rideforge.test.ride_id', :'ride_id', false);
+SELECT set_config('rideforge.test.offer_id', :'offer_id', false);
+SELECT set_config('rideforge.test.driver_id', :'driver_id', false);
 DO $verify$
 DECLARE
+  v_ride_id uuid := current_setting('rideforge.test.ride_id')::uuid;
+  v_offer_id bigint := current_setting('rideforge.test.offer_id')::bigint;
+  v_driver_id uuid := current_setting('rideforge.test.driver_id')::uuid;
   ride_status text;
   assigned_driver uuid;
   offer_status text;
@@ -73,14 +78,14 @@ DECLARE
   online boolean;
 BEGIN
   SELECT status::text,driver_id INTO ride_status,assigned_driver
-  FROM public.rides WHERE id=:'ride_id';
-  SELECT status INTO offer_status FROM public.ride_offers WHERE id=:'offer_id';
+  FROM public.rides WHERE id=v_ride_id;
+  SELECT status INTO offer_status FROM public.ride_offers WHERE id=v_offer_id;
   SELECT count(*) INTO declined_count FROM public.driver_ride_declines
-  WHERE ride_id=:'ride_id' AND driver_id=:'driver_id';
-  SELECT is_online INTO online FROM public.driver_profiles WHERE account_id=:'driver_id';
+  WHERE ride_id=v_ride_id AND driver_id=v_driver_id;
+  SELECT is_online INTO online FROM public.driver_profiles WHERE account_id=v_driver_id;
 
   IF offer_status='accepted' THEN
-    IF ride_status<>'assigned' OR assigned_driver IS DISTINCT FROM :'driver_id'::uuid OR declined_count<>0 OR online THEN
+    IF ride_status<>'assigned' OR assigned_driver IS DISTINCT FROM v_driver_id OR declined_count<>0 OR online THEN
       RAISE EXCEPTION 'accept winner left inconsistent state';
     END IF;
   ELSIF offer_status='declined' THEN
