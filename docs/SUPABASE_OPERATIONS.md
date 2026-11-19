@@ -1,5 +1,7 @@
 # Supabase-native RideForge operations
 
+> **Operational refresh (19 November 2026):** The live Edge Function is now version 10, deployed from the current `main` source; the static frontend is live on main SHA `66a37b9`. Backup credentials and hosted restore evidence remain outstanding. See [FINAL_READINESS_AUDIT_2026-11-19.md](FINAL_READINESS_AUDIT_2026-11-19.md) for current status and the backup provisioning runbook.
+
 **Scope:** current academic/portfolio MVP deployment as of 14 November 2026. This is the active operations guide. It does not authorize real passenger transport, payments, or commercial operation.
 
 ## 1. Active architecture and inventory
