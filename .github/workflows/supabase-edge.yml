@@ -27,6 +27,8 @@ jobs:
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/ci_invariants.sql
       - name: Exercise atomic driver offer transitions
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/dispatch_offer_transactions.sql
+      - name: Race accept and decline for the same driver offer
+        run: bash supabase/tests/dispatch_accept_decline_race.sh
   edge-api:
     runs-on: ubuntu-latest
     steps:
