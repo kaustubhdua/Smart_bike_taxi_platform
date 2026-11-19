@@ -730,3 +730,9 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
  .rideforge-app .route-card-large,.rideforge-app .how-grid article{animation:none!important}
  .rideforge-app .how-grid article{transition:none!important}
 }
+
+/* Safety panel uses a light surface, so its copy must switch from the old dark-panel palette. */
+.rideforge-app .safety-section{color:var(--rf-ink)}
+.rideforge-app .safety-section h2{color:var(--rf-ink)}
+.rideforge-app .safety-section p{color:var(--rf-muted)}
+.rideforge-app .safety-section .section-kicker{color:var(--rf-green)}
