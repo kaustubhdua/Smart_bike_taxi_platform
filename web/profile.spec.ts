@@ -55,8 +55,8 @@ test("passenger can read the authenticated profile and update their display name
   });
 
   await page.goto("/live");
-  await page.getByRole("textbox", { name: "Pickup point" }).fill("JIIT Sector 128, Noida");
-  await page.getByRole("textbox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
+  await page.getByLabel("Pickup point").fill("JIIT Sector 128, Noida");
+  await page.getByLabel("Drop-off point").fill("Sector 18 Market, Noida");
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await page.getByLabel("Your name").fill("Profile Rider");
   await page.locator('.auth-panel input[type="email"]').first().fill("profile@example.test");
