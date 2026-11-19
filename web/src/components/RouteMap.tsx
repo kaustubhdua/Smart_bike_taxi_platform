@@ -27,12 +27,12 @@ export default function RouteMap({ geometry, pickup, destination, driverLocation
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
     mapRef.current = map;
-    const route = L.polyline(points, { color: "#335cff", weight: 5, opacity: 0.95 }).addTo(map);
+    const route = L.polyline(points, { color: "#0f6e3a", weight: 5, opacity: 0.95, className: "rideforge-route-line" }).addTo(map);
     const start = L.circleMarker(points[0], {
-      radius: 7, color: "#17211d", weight: 2, fillColor: "#b9f65b", fillOpacity: 1,
+      radius: 7, color: "#14213d", weight: 2, fillColor: "#e8821b", fillOpacity: 1, className: "rideforge-pickup-marker",
     }).bindTooltip(`Pickup: ${pickup}`).addTo(map);
     L.circleMarker(points[points.length - 1], {
-      radius: 7, color: "#ffffff", weight: 2, fillColor: "#335cff", fillOpacity: 1,
+      radius: 7, color: "#ffffff", weight: 2, fillColor: "#0f6e3a", fillOpacity: 1, className: "rideforge-drop-marker",
     }).bindTooltip(`Destination: ${destination}`).addTo(map);
     map.fitBounds(route.getBounds(), { padding: [28, 28], maxZoom: 15 });
     start.openTooltip();
@@ -51,7 +51,7 @@ export default function RouteMap({ geometry, pickup, destination, driverLocation
     const point = L.latLng(driverLocation.latitude, driverLocation.longitude);
     if (!driverMarkerRef.current) {
       driverMarkerRef.current = L.circleMarker(point, {
-        radius: 9, color: "#ffffff", weight: 3, fillColor: "#f97316", fillOpacity: 1,
+        radius: 9, color: "#ffffff", weight: 3, fillColor: "#e8821b", fillOpacity: 1, className: "rideforge-driver-marker",
       }).bindTooltip("Driver's latest reported location · " + new Date(driverLocation.updatedAt).toLocaleTimeString()).addTo(map);
     } else {
       driverMarkerRef.current.setLatLng(point);
