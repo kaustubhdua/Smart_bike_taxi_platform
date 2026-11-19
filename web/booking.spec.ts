@@ -1,6 +1,47 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+const photonCorsHeaders = { "Access-Control-Allow-Origin": "*" };
+
+async function mockPhoton(page: import("@playwright/test").Page) {
+  await page.route("https://photon.komoot.io/api/**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    const pickup = /jiit|sector 62/i.test(query);
+    const coordinates = pickup ? [77.3659633, 28.5193178] : [77.3228443, 28.5702711];
+    const properties = pickup
+      ? { name: "JIIT Sector 128", city: "Noida", state: "Uttar Pradesh", country: "India" }
+      : { name: "Sector 18 Market", city: "Noida", state: "Uttar Pradesh", country: "India" };
+    await route.fulfill({
+      status: 200,
+      headers: photonCorsHeaders,
+      contentType: "application/json",
+      body: JSON.stringify({
+        type: "FeatureCollection",
+        features: [{ type: "Feature", properties, geometry: { type: "Point", coordinates } }],
+      }),
+    });
+  });
+  await page.route("https://photon.komoot.io/reverse**", async route => {
+    await route.fulfill({
+      status: 200,
+      headers: photonCorsHeaders,
+      contentType: "application/json",
+      body: JSON.stringify({
+        type: "FeatureCollection",
+        features: [{
+          type: "Feature",
+          properties: { name: "JIIT Sector 128", city: "Noida", state: "Uttar Pradesh", country: "India" },
+          geometry: { type: "Point", coordinates: [77.3659633, 28.5193178] },
+        }],
+      }),
+    });
+  });
+}
+
+test.beforeEach(async ({ page }) => {
+  await mockPhoton(page);
+});
+
 
 
 
@@ -627,9 +668,23 @@ test("passenger applies authenticated server-sent ride events without waiting fo
 test("does not geocode while typing; calculates a route only after an explicit quote request", async ({ page }) => {
   let quoteRequests = 0;
   let browserGeocodingRequests = 0;
-  await page.route("https://nominatim.openstreetmap.org/**", async route => {
+  await page.route("https://photon.komoot.io/api/**", async route => {
     browserGeocodingRequests += 1;
-    await route.abort();
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    const pickup = /sector 62/i.test(query);
+    await route.fulfill({
+      status: 200,
+      headers: photonCorsHeaders,
+      contentType: "application/json",
+      body: JSON.stringify({
+        type: "FeatureCollection",
+        features: [{
+          type: "Feature",
+          properties: { name: pickup ? "Sector 62" : "Sector 18 Market", city: "Noida", state: "Uttar Pradesh", country: "India" },
+          geometry: { type: "Point", coordinates: pickup ? [77.3659633, 28.5193178] : [77.3228443, 28.5702711] },
+        }],
+      }),
+    });
   });
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     quoteRequests += 1;
@@ -654,7 +709,7 @@ test("does not geocode while typing; calculates a route only after an explicit q
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   expect(quoteRequests).toBe(1);
-  expect(browserGeocodingRequests).toBe(0);
+  expect(browserGeocodingRequests).toBe(2);
 });
 
 
