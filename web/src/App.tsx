@@ -64,6 +64,29 @@ async function resolveLocationInBrowser(label: string): Promise<ResolvedLocation
   return { longitude: coordinates[0], latitude: coordinates[1] };
 }
 
+async function reverseGeocodeInBrowser(latitude: number, longitude: number): Promise<string> {
+  const query = new URLSearchParams({ lat: String(latitude), lon: String(longitude), lang: "en" });
+  const response = await fetch("https://photon.komoot.io/reverse?" + query.toString(), {
+    headers: { Accept: "application/geo+json, application/json" },
+    signal: AbortSignal.timeout(9000),
+  });
+  if (!response.ok) throw new Error("Address lookup is temporarily unavailable. Enter your pickup manually.");
+  const data = await response.json() as {
+    features?: Array<{ properties?: { name?: string; street?: string; housenumber?: string; district?: string; city?: string; state?: string; country?: string } }>;
+  };
+  const properties = data.features?.[0]?.properties;
+  if (!properties) throw new Error("We could not identify an address at your location. Enter it manually.");
+  if (properties.country && !/india/i.test(properties.country)) {
+    throw new Error("Current-location pickup is limited to India in this Noida-focused demo.");
+  }
+  const street = [properties.street, properties.housenumber].filter(Boolean).join(" ");
+  const parts = [properties.name, street, properties.district, properties.city, properties.state, properties.country]
+    .filter((part): part is string => Boolean(part?.trim()));
+  const unique = parts.filter((part, index) => parts.findIndex(value => value.toLowerCase() === part.toLowerCase()) === index);
+  if (unique.length === 0) throw new Error("We could not identify an address at your location. Enter it manually.");
+  return unique.join(", ");
+}
+
 export default function App() {
   const reduceMotion = useReducedMotion();
   const [pickup, setPickup] = useState("");
@@ -587,21 +610,8 @@ export default function App() {
     setNotice("Finding your current location…");
     navigator.geolocation.getCurrentPosition(async position => {
       try {
-        const params = new URLSearchParams({
-          format: "jsonv2",
-          lat: String(position.coords.latitude),
-          lon: String(position.coords.longitude),
-          zoom: "18",
-          addressdetails: "1",
-        });
-        const response = await fetch("https://nominatim.openstreetmap.org/reverse?" + params.toString(), {
-          headers: { Accept: "application/json" },
-          signal: AbortSignal.timeout(8000),
-        });
-        if (!response.ok) throw new Error("Address lookup is temporarily unavailable.");
-        const data = await response.json() as { display_name?: string };
-        if (!data.display_name) throw new Error("We could not identify an address at your location. Enter it manually.");
-        setPickup(data.display_name);
+        const address = await reverseGeocodeInBrowser(position.coords.latitude, position.coords.longitude);
+        setPickup(address);
         setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null);
         setNotice("Pickup set to your current location. Review the address before requesting a quote.");
       } catch (error) {
