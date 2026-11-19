@@ -55,13 +55,16 @@ test("passenger can read the authenticated profile and update their display name
   });
 
   await page.goto("/live");
+  await page.getByLabel("Pickup point").fill("JIIT Sector 128, Noida");
+  await page.getByLabel("Drop-off point").fill("Sector 18 Market, Noida");
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await page.getByLabel("Your name").fill("Profile Rider");
   await page.locator('.auth-panel input[type="email"]').first().fill("profile@example.test");
   await page.locator('.auth-panel input[type="password"]').first().fill("a-long-profile-password-123");
   await page.getByRole("button", { name: "Create passenger account" }).click();
 
-  await expect(page.getByRole("heading", { name: "Your profile" })).toBeVisible();
+  await expect(page.locator(".tool-disclosure summary", { hasText: "My profile" })).toBeVisible();
+  await page.locator(".tool-disclosure summary", { hasText: "My profile" }).click();
   await expect(page.getByLabel("Display name")).toHaveValue("Profile Rider");
   await page.getByLabel("Display name").fill("Updated Profile Rider");
   await page.getByRole("button", { name: "Save profile" }).click();

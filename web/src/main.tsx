@@ -15,9 +15,23 @@ const isLiveApiView = pathname === "/live";
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     {isDriverPortal
-      ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API and real credentials.</div><OperationsWorkspace mode="driver" /></>
+      ? <div className="app-shell role-workspace">
+          <header className="role-header">
+            <a className="brand" href="/"><span className="brand-mark">R</span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
+            <nav aria-label="Role navigation"><a href="/">Book a ride</a><a href="/driver" aria-current="page">Driver workspace</a><a href="/admin">Admin console</a></nav>
+          </header>
+          <div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API and real driver credentials.</div>
+          <OperationsWorkspace mode="driver" />
+        </div>
       : isAdminPortal
-        ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API and administrator credentials.</div><OperationsWorkspace mode="admin" /></>
+        ? <div className="app-shell role-workspace">
+            <header className="role-header">
+              <a className="brand" href="/"><span className="brand-mark">R</span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
+              <nav aria-label="Role navigation"><a href="/">Book a ride</a><a href="/driver">Driver workspace</a><a href="/admin" aria-current="page">Admin console</a></nav>
+            </header>
+            <div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API and administrator credentials.</div>
+            <OperationsWorkspace mode="admin" />
+          </div>
         : isLiveApiView
           ? <><div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API. Not a live transport service.</div><App /></>
           : <App />}
