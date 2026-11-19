@@ -4,6 +4,28 @@ import { expect, test } from "@playwright/test";
 
 
 
+test.beforeEach(async ({ page }) => {
+  await page.route("https://photon.komoot.io/api/**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    const pickup = /JIIT/i.test(query);
+    const botanical = /Botanical/i.test(query);
+    const latitude = pickup ? 28.535 : botanical ? 28.564 : 28.55;
+    const longitude = pickup ? 77.365 : botanical ? 77.334 : 77.34;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/geo+json",
+      body: JSON.stringify({
+        type: "FeatureCollection",
+        features: [{
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [longitude, latitude] },
+          properties: { name: query, city: "Noida", state: "Uttar Pradesh", country: "India" },
+        }],
+      }),
+    });
+  });
+});
+
 async function blockMapTiles(page: import("@playwright/test").Page) {
   const tileHosts: string[] = [];
   page.on("request", request => {
@@ -627,9 +649,17 @@ test("passenger applies authenticated server-sent ride events without waiting fo
 test("does not geocode while typing; calculates a route only after an explicit quote request", async ({ page }) => {
   let quoteRequests = 0;
   let browserGeocodingRequests = 0;
-  await page.route("https://nominatim.openstreetmap.org/**", async route => {
+  await page.unroute("https://photon.komoot.io/api/**");
+  await page.route("https://photon.komoot.io/api/**", async route => {
     browserGeocodingRequests += 1;
-    await route.abort();
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    await route.fulfill({
+      status: 200, contentType: "application/geo+json",
+      body: JSON.stringify({ type: "FeatureCollection", features: [{
+        type: "Feature", geometry: { type: "Point", coordinates: [77.35, 28.53] },
+        properties: { name: query, city: "Noida", country: "India" },
+      }] }),
+    });
   });
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     quoteRequests += 1;
