@@ -1,6 +1,6 @@
 # Supabase-native RideForge operations
 
-> **Operational refresh (19 November 2026):** PR #106 is merged to `main` with the Nirdhoom-inspired UI, browser Photon forward/reverse geocoding, a 1.1-second public-request throttle, GPS-coordinate fallback, and server-authoritative routing/fare calculation. The deployed Supabase `rideforge-api` remains the backend. The existing Render static site `rideforge-web` (`https://rideforge-web.onrender.com`) is the active frontend deployment because Vercel's free daily deployment API limit was exhausted; the Vercel production alias remains on the previous build until its quota resets or the account plan changes. Render is configured with `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, and the Supabase publishable key. The main-push browser acceptance test now targets Render and verifies a real passenger route quote. Backup credentials, Auth URL allowlist for the Render domain, and hosted passenger/driver/admin acceptance remain outstanding.
+> **Operational refresh (19 November 2026):** PR #106 is merged to `main` with the Nirdhoom-inspired UI, browser Photon forward/reverse geocoding, a 1.1-second public-request throttle, GPS-coordinate fallback, and server-authoritative routing/fare calculation. The deployed Supabase `rideforge-api` remains the backend. The existing Render static site `rideforge-web` (`https://rideforge-web.onrender.com`) is the active frontend deployment because Vercel's free daily deployment API limit was exhausted; the Vercel production alias remains on the previous build until its quota resets or the account plan changes. Render is configured with `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, and the Supabase publishable key. Edge Function v15 explicitly allows `https://rideforge-web.onrender.com` in CORS. The main-push browser acceptance test now targets Render and verifies a real passenger route quote. Backup credentials, Auth URL allowlist for the Render domain, and hosted passenger/driver/admin acceptance remain outstanding.
 
 **Scope:** current academic/portfolio MVP deployment as of 19 November 2026. This is the active operations guide. It does not authorize real passenger transport, payments, or commercial operation.
 
@@ -8,7 +8,7 @@
 
 - GitHub repository: [kaustubhdua/Smart_bike_taxi_platform](https://github.com/kaustubhdua/Smart_bike_taxi_platform).
 - Supabase project: `ghcufcegfvvjhsnqnrzr`, Mumbai region, PostgreSQL 17.11, Free plan.
-- Edge Function: `rideforge-api`, deployed and ACTIVE at version 12 (last observed 19 November 2026).
+- Edge Function: `rideforge-api`, deployed and ACTIVE at version 15 (last observed 19 November 2026).
 - Active frontend: Render static site `rideforge-web` at [rideforge-web.onrender.com](https://rideforge-web.onrender.com), connected to `main`, building `web` and publishing `web/dist`.
 - Production browser API base: `https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api` (Render static-site environment variable `VITE_API_BASE_URL`).
 - Render `rideforge-web` is the active static frontend fallback. Legacy Render API services are not used; keep them stopped and do not point the frontend back to a Render backend.
