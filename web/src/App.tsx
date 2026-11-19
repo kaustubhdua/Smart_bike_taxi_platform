@@ -319,6 +319,7 @@ export default function App() {
       });
       setBookingKey(`rideforge-${crypto.randomUUID()}`);
       setNotice(`Server quote received: ${data.distanceKm} km · ₹${((data.farePaise as number) / 100).toFixed(2)}. This checks the quote only; it does not create a ride.`);
+      setApiHealth("online");
       setApiState("idle");
     } catch (error) {
       setApiState("offline");
@@ -329,6 +330,7 @@ export default function App() {
           : "We could not reach the quote service. Check the API and try again.";
       setRoute(null);
       setRouteError(message);
+      setApiHealth("offline");
       setNotice(message);
     } finally {
       setRouteLoading(false);
