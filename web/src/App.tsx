@@ -541,7 +541,7 @@ export default function App() {
       if (response.status === 429) throw new Error("You've reached the five-report hourly limit. Try again later.");
       if (!response.ok || !data.id) throw new Error(data.error || "Could not submit support report.");
       setSupportDescription("");
-      setNotice("Support report submitted. Reference: " + data.id + ". This demo does not contact emergency services.");
+      setNotice("Support report submitted. Reference: " + data.id + ". Support reports are recorded for review; they do not contact emergency services.");
       await loadSupportReports();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not submit support report.");
@@ -720,21 +720,21 @@ export default function App() {
                 <details className="tool-disclosure"><summary>My profile</summary>
                   <label className="auth-field"><span>Display name</span><input value={profileName} onChange={event => setProfileName(event.target.value)} maxLength={120} autoComplete="name" /></label>
                   <button className="outline-button" onClick={saveProfile} disabled={profileBusy || !profileName.trim()}>{profileBusy ? "Saving…" : "Save profile"}</button>
-                  <p className="auth-caption">Phone verification and notification preferences are not configured in this demo.</p>
+                  <p className="auth-caption">Phone verification and notification preferences are not connected in preview.</p>
                 </details>
                 <details className="tool-disclosure"><summary>My trip history</summary>
                   <button className="outline-button" onClick={loadPassengerHistory} disabled={historyBusy}>{historyBusy ? "Loading…" : "Refresh trip history"}</button>
                   {passengerHistory.length === 0 ? <p className="auth-caption">Your saved trips will appear here after you refresh.</p> : passengerHistory.map(item => <article className="ride-confirmation history-item" key={item.rideId}>
                     <div><strong>{item.pickup} → {item.destination}</strong><span>{item.status.replaceAll("_", " ")} · ₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()}</small></div>
-                    {item.status === "completed" && <button className="text-action" onClick={() => setReceiptRideId(item.rideId)}>View demo receipt</button>}
+                    {item.status === "completed" && <button className="text-action" onClick={() => setReceiptRideId(item.rideId)}>View trip record</button>}
                   </article>)}
                   {receiptRideId && passengerHistory.find(item => item.rideId === receiptRideId && item.status === "completed") && (() => {
                     const item = passengerHistory.find(entry => entry.rideId === receiptRideId)!;
-                    return <div className="print-receipt"><div className="card-heading"><div><span className="card-eyebrow">RIDEFORGE · DEMO RECEIPT</span><h3>Trip receipt</h3></div><button className="outline-button" onClick={() => window.print()}>Print receipt</button></div><p><strong>Trip reference</strong><br />{item.rideId}</p><p><strong>Pickup</strong><br />{item.pickup}</p><p><strong>Destination</strong><br />{item.destination}</p><p><strong>Completed</strong><br />{item.completedAt ? new Date(item.completedAt).toLocaleString() : new Date(item.createdAt).toLocaleString()}</p><p><strong>Final fare</strong><br />₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)} {item.currency}</p><p className="auth-caption">Demo trip record only. Not a tax invoice, proof of payment, or driver payout statement.</p></div>;
+                    return <div className="print-receipt"><div className="card-heading"><div><span className="card-eyebrow">RIDEFORGE · TRIP RECORD</span><h3>Trip receipt</h3></div><button className="outline-button" onClick={() => window.print()}>Print receipt</button></div><p><strong>Trip reference</strong><br />{item.rideId}</p><p><strong>Pickup</strong><br />{item.pickup}</p><p><strong>Destination</strong><br />{item.destination}</p><p><strong>Completed</strong><br />{item.completedAt ? new Date(item.completedAt).toLocaleString() : new Date(item.createdAt).toLocaleString()}</p><p><strong>Final fare</strong><br />₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)} {item.currency}</p><p className="auth-caption">Trip record only. Not a tax invoice, proof of payment, or driver payout statement.</p></div>;
                   })()}
                 </details>
                 <details className="tool-disclosure"><summary>Help & support</summary>
-                  <p className="auth-caption">Reports are sent to authorized administrators for review. This demo does not contact emergency services.</p>
+                  <p className="auth-caption">Reports are sent to authorized administrators for review. They do not contact emergency services.</p>
                   <form className="auth-panel support-form" onSubmit={submitSupportReport}>
                     <label className="auth-field"><span>What is this about?</span><select value={supportCategory} onChange={event => setSupportCategory(event.target.value)}><option value="booking">Booking or trip status</option><option value="driver">Driver or vehicle</option><option value="payment">Fare or payment</option><option value="safety">Safety concern</option><option value="technical">Technical issue</option><option value="other">Other</option></select></label>
                     <label className="auth-field"><span>Describe the issue (10–2,000 characters)</span><textarea className="support-description" minLength={10} maxLength={2000} required value={supportDescription} onChange={event => setSupportDescription(event.target.value)} placeholder="Tell us what happened and what should be reviewed." rows={4} /></label>
@@ -748,7 +748,7 @@ export default function App() {
             )}
 
             <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
-            <div className="card-footnote"><ShieldCheck size={14} /><span>Your fare and ride status come from the RideForge API. This is an academic demonstration: no live transport service, emergency response or payment processing is provided.</span></div>
+            <div className="card-footnote"><ShieldCheck size={14} /><span>Your fare and ride status come from the RideForge API. RideForge is in preview: no active driver fleet, emergency-response integration or payment processing is connected.</span></div>
           </div>
         </section>
 
