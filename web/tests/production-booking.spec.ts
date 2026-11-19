@@ -6,8 +6,12 @@ test("production passenger can receive a real Noida route quote", async ({ page 
   const productionUrl = "https://smart-bike-taxi-platform.vercel.app/";
 
   await expect.poll(async () => {
-    await page.goto(productionUrl, { waitUntil: "domcontentloaded" });
-    return page.locator('meta[name="rideforge-geocoding-mode"]').getAttribute("content");
+    try {
+      await page.goto(productionUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
+    } catch {
+      // Vercel may still be promoting the deployment; retry until the build marker is served.
+    }
+    return page.locator('meta[name="rideforge-geocoding-mode"]').getAttribute("content").catch(() => null);
   }, { timeout: 180_000, intervals: [1_000, 2_000, 5_000, 10_000] }).toBe("browser-photon-v1");
 
   await page.getByRole("textbox", { name: "Pickup point" }).fill("JIIT Sector 128, Noida");
