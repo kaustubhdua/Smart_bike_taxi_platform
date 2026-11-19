@@ -260,6 +260,7 @@ export default function App() {
       setRouteLoading(false);
       return;
     }
+    let serverResponded = false;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10_000);
@@ -274,6 +275,7 @@ export default function App() {
       } finally {
         clearTimeout(timeout);
       }
+      serverResponded = true;
       if (!response.ok) {
         if (response.status === 429) throw new Error("Too many quote requests. Wait a moment and try again.");
         if (response.status === 503) throw new Error("Routing is temporarily unavailable. Please try again shortly.");
@@ -330,7 +332,7 @@ export default function App() {
           : "We could not reach the quote service. Check the API and try again.";
       setRoute(null);
       setRouteError(message);
-      setApiHealth("offline");
+      setApiHealth(serverResponded ? "online" : "offline");
       setNotice(message);
     } finally {
       setRouteLoading(false);
@@ -648,7 +650,7 @@ export default function App() {
               <button className="location-action" type="button" onClick={() => void useCurrentLocation()} disabled={locationBusy || routeLoading}>
                 <LocateFixed size={15} /> {locationBusy ? "Finding your location…" : "Use my current location"}
               </button>
-              <span>Suggestions are focused on Noida. You can also type a full address.</span>
+              <span>Suggestions are focused on Noida. You can type a full address. Address lookup uses OpenStreetMap when you request it.</span>
             </div>
 
             <div className="quote-row">
