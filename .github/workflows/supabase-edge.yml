@@ -98,12 +98,17 @@ jobs:
           const breakdown = data.fareBreakdown;
           if (typeof data.quoteId !== "string" || data.quoteId.length < 8 ||
               !Number.isSafeInteger(data.farePaise) || data.farePaise <= 0 ||
-              !breakdown || breakdown.pricingModel !== "demo_base_plus_distance" ||
+              !breakdown || !Number.isSafeInteger(breakdown.baseFarePaise) ||
+              !Number.isSafeInteger(breakdown.distanceFarePaise) ||
+              breakdown.pricingModel !== "demo_base_plus_distance" ||
               breakdown.baseFarePaise + breakdown.distanceFarePaise !== data.farePaise ||
-              typeof data.distanceKm !== "number" || data.distanceKm <= 0 ||
+              typeof data.distanceKm !== "number" || !Number.isFinite(data.distanceKm) || data.distanceKm <= 0 ||
               !Number.isSafeInteger(data.durationMinutes) || data.durationMinutes <= 0 ||
-              data.currency !== "INR" || Date.parse(data.expiresAt) <= Date.now() ||
-              !Array.isArray(data.geometry) || data.geometry.length < 2) {
+              data.currency !== "INR" || !Number.isFinite(Date.parse(data.expiresAt)) || Date.parse(data.expiresAt) <= Date.now() ||
+              !Array.isArray(data.geometry) || data.geometry.length < 2 ||
+              !data.geometry.every(point => Array.isArray(point) && point.length === 2 &&
+                Number.isFinite(point[0]) && Number.isFinite(point[1]) &&
+                point[0] >= -180 && point[0] <= 180 && point[1] >= -90 && point[1] <= 90)) {
             throw new Error("Live route quote response failed schema/fare/geometry validation.");
           }
           console.log(JSON.stringify({
