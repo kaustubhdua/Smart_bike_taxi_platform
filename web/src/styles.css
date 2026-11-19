@@ -387,3 +387,46 @@ body{background:var(--rf-paper);color:var(--rf-ink)}
  .role-header .brand{font-size:20px}
  .role-workspace .booking-section{padding:30px 14px 55px}
 }
+
+
+/* Keep secondary copy readable at WCAG AA contrast, including compact labels. */
+.rideforge-app .brand small,
+.rideforge-app .eyebrow,
+.rideforge-app .hero-description,
+.rideforge-app .hero-benefits small,
+.rideforge-app .app-header .nav-link,
+.rideforge-app .app-header .safety-link,
+.rideforge-app .card-eyebrow,
+.rideforge-app .section-kicker,
+.rideforge-app .fare-label,
+.rideforge-app .card-step span,
+.rideforge-app .location-field>span,
+.rideforge-app .booking-quick-actions>span,
+.rideforge-app .quote-details span,
+.rideforge-app .fare-amount span,
+.rideforge-app .fare-note,
+.rideforge-app .fare-note small,
+.rideforge-app .fare-breakdown p,
+.rideforge-app .form-hint,
+.rideforge-app .auth-panel-heading p,
+.rideforge-app .auth-caption,
+.rideforge-app .ride-status-copy>span,
+.rideforge-app .ride-status-copy>small,
+.rideforge-app .tool-disclosure summary,
+.rideforge-app .route-section-heading>p,
+.rideforge-app .route-live-badge,
+.rideforge-app .route-map-empty,
+.rideforge-app .route-map-empty span,
+.rideforge-app .route-map-empty strong,
+.rideforge-app .route-stats span,
+.rideforge-app .route-stats strong small,
+.rideforge-app .route-disclaimer,
+.rideforge-app .how-grid p,
+.rideforge-app .safety-section p,
+.rideforge-app .footer-note,
+.rideforge-app .footer-links a,
+.rideforge-app .copyright{color:#53675d}
+.rideforge-app .field-control input::placeholder,
+.rideforge-app .auth-field input::placeholder{color:#5c7063;opacity:1}
+.rideforge-app .announcement-right{color:#c5d1c9}
+.rideforge-app :is(a,button,input,select,textarea,summary):focus-visible{outline:3px solid #416d4d!important;outline-offset:3px}
