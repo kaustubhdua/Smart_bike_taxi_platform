@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION public.rideforge_accept_offer(p_driver_id uuid,p_ride
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public
+SET search_path = ''
 AS $function$
 DECLARE
   r public.rides%ROWTYPE;
@@ -79,7 +79,7 @@ CREATE OR REPLACE FUNCTION public.rideforge_decline_offer(p_driver_id uuid,p_rid
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public
+SET search_path = ''
 AS $function$
 DECLARE
   r public.rides%ROWTYPE;
