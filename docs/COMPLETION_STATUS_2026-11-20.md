@@ -11,7 +11,8 @@ This is an evidence-based status snapshot. A green build, a route quote, or a he
 | Area | Evidence observed | Status |
 |---|---|---|
 | GitHub main | Latest source/documentation changes committed to `main` | Verified |
-| Vercel | Production deployment READY; alias `https://smart-bike-taxi-platform.vercel.app`; deployed SHA `2c4a87f93e978f454923cab20bcbe650376a4230` | Verified |
+| Vercel | Production deployment READY; alias `https://smart-bike-taxi-platform.vercel.app`; deployed SHA `eb942c6e3eba61690c49f52fe0dfd9280f380528` | Verified |
+| Public access | Production SSO protection changed to preview-only; production homepage and JS/CSS/map assets return HTTP 200; preview deployments remain SSO-protected | Verified |
 | Frontend design | Nirdhoom-inspired design-system port is in main | Implemented; manual visual/device QA still needed |
 | Frontend API config | Vercel production `VITE_API_BASE_URL` points to the Supabase `rideforge-api` Edge Function | Verified |
 | Supabase project | `ACTIVE_HEALTHY` | Verified |
