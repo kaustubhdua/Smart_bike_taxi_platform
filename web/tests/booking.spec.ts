@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization,content-type,idempotency-key,last-event-id",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,OPTIONS",
+};
+
 const quoteResponse = {
   quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
   distanceKm: 9.753,
@@ -17,7 +23,7 @@ const quoteResponse = {
 
 async function mockHealth(page: Page) {
   await page.route("http://api.test/api/v1/health", route =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "ok", backend: "supabase" }) }),
+    route.fulfill({ status: 200, headers: corsHeaders, contentType: "application/json", body: JSON.stringify({ status: "ok", backend: "supabase" }) }),
   );
 }
 
@@ -32,6 +38,7 @@ async function mockPhotonSearch(page: Page, onRequest?: (query: string) => void)
       : { name: "Sector 18 Market", city: "Noida", state: "Uttar Pradesh", country: "India" };
     await route.fulfill({
       status: 200,
+      headers: corsHeaders,
       contentType: "application/json",
       body: JSON.stringify({
         type: "FeatureCollection",
@@ -52,8 +59,12 @@ test("geocodes only on quote request and sends coordinates for server-side fare 
   await mockHealth(page);
   await mockPhotonSearch(page, () => { geocodingRequests += 1; });
   await page.route("http://api.test/api/v1/routes/quote", async route => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: corsHeaders, body: "" });
+      return;
+    }
     quotePayload = route.request().postDataJSON() as Record<string, any>;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(quoteResponse) });
+    await route.fulfill({ status: 200, headers: corsHeaders, contentType: "application/json", body: JSON.stringify(quoteResponse) });
   });
   await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
 
@@ -87,11 +98,11 @@ test("does not display a fare when browser geocoding fails", async ({ page }) =>
   let quoteRequests = 0;
   await mockHealth(page);
   await page.route("https://photon.komoot.io/api/**", route =>
-    route.fulfill({ status: 403, contentType: "text/plain", body: "Forbidden" }),
+    route.fulfill({ status: 403, headers: corsHeaders, contentType: "text/plain", body: "Forbidden" }),
   );
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     quoteRequests += 1;
-    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "unexpected" }) });
+    await route.fulfill({ status: 500, headers: corsHeaders, contentType: "application/json", body: JSON.stringify({ error: "unexpected" }) });
   });
   await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
 
@@ -110,12 +121,16 @@ test("uses GPS coordinates even if reverse address lookup is unavailable", async
   await page.setGeolocation({ latitude: 28.5193178, longitude: 77.3659633 });
   await mockHealth(page);
   await page.route("https://photon.komoot.io/reverse?**", route =>
-    route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: true }) }),
+    route.fulfill({ status: 503, headers: corsHeaders, contentType: "application/json", body: JSON.stringify({ error: true }) }),
   );
   await mockPhotonSearch(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: corsHeaders, body: "" });
+      return;
+    }
     quotePayload = route.request().postDataJSON() as Record<string, any>;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(quoteResponse) });
+    await route.fulfill({ status: 200, headers: corsHeaders, contentType: "application/json", body: JSON.stringify(quoteResponse) });
   });
   await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
 
