@@ -285,3 +285,12 @@ Built as a C++17 DSA academic project.
 
 
 PostgreSQL recovery helpers: `backend/scripts/backup.sh` and `backend/scripts/restore.sh`. Read the [operations runbook](docs/OPERATIONS_RUNBOOK.md#backup-and-restore) before use. CI configuration includes a disposable-database restore smoke test; this does not replace scheduled encrypted production backups.
+
+
+## Latest implementation notes (19 November 2026)
+
+- RideForge now uses a Nirdhoom-inspired cream / forest-green / saffron / navy design language while retaining a distinct ride-booking identity.
+- Address lookup is performed in the rider's browser on explicit quote submission (Photon, Noida-biased); validated coordinates are sent to the Supabase Edge API.
+- Route geometry, distance, duration, quote expiry and demo fare remain server-generated. The client cannot supply its own fare or route.
+- The product remains an academic demonstration. Do not represent it as a licensed transport service or claim that payments, emergency response, or real commercial rides are available.
+- See [UX design system](docs/UX_DESIGN_SYSTEM.md), [UX redesign notes](docs/UX_REDESIGN_2026-11-19.md), and [final readiness audit](docs/FINAL_READINESS_AUDIT_2026-11-19.md).
