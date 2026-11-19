@@ -720,7 +720,7 @@ export default function App() {
                 <details className="tool-disclosure"><summary>My profile</summary>
                   <label className="auth-field"><span>Display name</span><input value={profileName} onChange={event => setProfileName(event.target.value)} maxLength={120} autoComplete="name" /></label>
                   <button className="outline-button" onClick={saveProfile} disabled={profileBusy || !profileName.trim()}>{profileBusy ? "Saving…" : "Save profile"}</button>
-                  <p className="auth-caption">Phone verification and notification preferences are not connected in preview.</p>
+                  <p className="auth-caption">Phone verification and notification preferences are not configured in preview.</p>
                 </details>
                 <details className="tool-disclosure"><summary>My trip history</summary>
                   <button className="outline-button" onClick={loadPassengerHistory} disabled={historyBusy}>{historyBusy ? "Loading…" : "Refresh trip history"}</button>
