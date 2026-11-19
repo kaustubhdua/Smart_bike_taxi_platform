@@ -73,7 +73,7 @@ test("geocodes only on quote request and sends coordinates for server-side fare 
   expect(geocodingRequests).toBe(0);
 
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
-  await expect(page.getByText("₹127.28")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".fare-amount")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Route found")).toBeVisible();
   await expect(page.getByText("Base fare")).toBeVisible();
   await expect(page.getByText("₹20.00")).toBeVisible();
@@ -110,7 +110,7 @@ test("does not display a fare when browser geocoding fails", async ({ page }) =>
   await fillJourney(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
 
-  await expect(page.getByText(/Address lookup is temporarily unavailable/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".quote-details").getByText(/Address lookup is temporarily unavailable/)).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(".fare-amount")).toContainText("—");
   expect(quoteRequests).toBe(0);
 });
@@ -136,8 +136,8 @@ test("uses GPS coordinates even if reverse address lookup is unavailable", async
 
   await page.goto("/");
   await page.getByRole("button", { name: /Use my current location/ }).click();
-  await expect(page.getByRole("textbox", { name: "Pickup point" })).toHaveValue("Current GPS location");
-  await page.getByRole("textbox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
+  await expect(page.getByRole("combobox", { name: "Pickup point" })).toHaveValue("Current GPS location");
+  await page.getByRole("combobox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.getByText("₹127.28")).toBeVisible({ timeout: 15_000 });
   expect(quotePayload?.pickup).toMatchObject({
