@@ -12,6 +12,7 @@ DECLARE
   r public.rides%ROWTYPE;
   d public.driver_profiles%ROWTYPE;
   o public.ride_offers%ROWTYPE;
+  old_status public.ride_status;
 BEGIN
   -- Every ride transition locks the ride first. This matches dispatch/expiry
   -- and cancellation, preventing offer->ride vs ride->offer deadlock cycles.
@@ -23,6 +24,7 @@ BEGIN
   IF NOT FOUND OR r.status NOT IN ('requested','matching') OR r.driver_id IS NOT NULL THEN
     RAISE EXCEPTION 'ride is no longer available' USING ERRCODE='P0001';
   END IF;
+  old_status := r.status;
 
   -- Revalidate and lock the driver so going offline/suspension cannot race
   -- between eligibility validation and assignment.
@@ -67,7 +69,7 @@ BEGIN
   UPDATE public.driver_profiles SET is_online=false WHERE account_id=p_driver_id;
 
   INSERT INTO public.ride_events(ride_id,actor_id,previous_status,new_status,details)
-  VALUES(p_ride_id,p_driver_id,r.status,'assigned','{"source":"driver_accept"}'::jsonb);
+  VALUES(p_ride_id,p_driver_id,old_status,'assigned','{"source":"driver_accept"}'::jsonb);
 
   RETURN jsonb_build_object('rideId',r.id,'status',r.status);
 END;
