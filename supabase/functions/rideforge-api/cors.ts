@@ -1,5 +1,6 @@
 const FIXED_ORIGINS = [
   "https://smart-bike-taxi-platform.vercel.app",
+  "https://rideforge-web.onrender.com",
 ] as const;
 
 const ALLOW_HEADERS = "authorization, apikey, content-type, idempotency-key, last-event-id, x-client-info";
