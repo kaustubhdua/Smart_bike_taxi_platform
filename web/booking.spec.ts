@@ -691,6 +691,36 @@ test("does not geocode while typing; calculates a route only after an explicit q
 });
 
 
+test("does not invent a route or fare when Photon cannot resolve an address", async ({ page }) => {
+  let quoteRequests = 0;
+  await page.unroute("https://photon.komoot.io/api/**");
+  await page.route("https://photon.komoot.io/api/**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    if (/Sector 18/i.test(query)) {
+      await route.fulfill({ status: 200, contentType: "application/geo+json", body: JSON.stringify({ type: "FeatureCollection", features: [] }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/geo+json", body: JSON.stringify({
+      type: "FeatureCollection", features: [{
+        type: "Feature", geometry: { type: "Point", coordinates: [77.35, 28.53] },
+        properties: { name: query, city: "Noida", country: "India" },
+      }],
+    }) });
+  });
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    quoteRequests += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+  });
+  await blockMapTiles(page);
+  await page.goto("/live");
+  await fillRideLocations(page);
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.locator(".inline-notice")).toContainText(/couldn't find that address/i);
+  expect(quoteRequests).toBe(0);
+  await expect(page.locator(".fare-amount")).toContainText("—");
+  await expect(page.getByRole("application", { name: /Interactive road map from/ })).toHaveCount(0);
+});
+
 test("rejects malformed road-route coordinates instead of drawing them", async ({ page }) => {
   await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
