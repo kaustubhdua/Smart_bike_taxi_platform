@@ -75,7 +75,7 @@ test("calculates road route and shows a fare only after a valid server quote", a
   await page.goto("/live");
   await fillRideLocations(page);
   await expect(page.getByText(/LIVE API WORKSPACE/)).toBeVisible();
-  await expect(page.locator(".quote-details")).toContainText(/request a server quote/i);
+  await expect(page.locator(".quote-details")).toContainText(/request a quote/i);
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeEnabled();
   await expect(page.getByText("No invented price")).toBeVisible();
   await expect(page.locator(".fare-amount")).toContainText("—");
