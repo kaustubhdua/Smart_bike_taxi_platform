@@ -2,6 +2,9 @@
 
 # 🏍️ RideForge — Smart Bike Taxi Platform
 
+> **Current completion evidence (20 November 2026):** See [docs/COMPLETION_STATUS_2026-11-20.md](docs/COMPLETION_STATUS_2026-11-20.md) for the live deployment, verified infrastructure, outstanding owner actions, backup/restore blockers, and Noida/NCR operating restrictions. This is a deployed academic/portfolio MVP, not authorization for real rides or commercial operation.
+
+
 **A Noida-focused bike-ride planning and booking preview built with React, Vite and Supabase, with passenger, driver and operator workspaces.**
 
 Shortest-path routing · Durable 45-second driver offers · Automatic expiry/redispatch · Transactional bookings
