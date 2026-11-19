@@ -627,7 +627,7 @@ export default function App() {
 
           <div className="booking-card booking-card-primary">
             <div className="card-heading booking-card-heading">
-              <div><span className="card-eyebrow">01 / PLAN YOUR JOURNEY</span><h2>Where are you going?</h2><p>Choose a pickup and drop-off to get started.</p></div>
+              <div><span className="card-eyebrow">01 / PLAN YOUR JOURNEY</span><h2>Where to?</h2><p>Choose a pickup and drop-off to get started.</p></div>
               <span className="card-step">01 <span>/ 03</span></span>
             </div>
 
@@ -651,13 +651,13 @@ export default function App() {
 
             <div className="quote-row">
               <div className="quote-icon"><Route size={18} /></div>
-              <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Enter both locations and request a quote. No price is shown until the server confirms it."}</span></div>
+              <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Enter both locations, then request a server quote. No price appears until the API responds."}</span></div>
               <button className="text-action help-button" onClick={() => setNotice("RideForge uses server-side geocoding and road routing. Fare is a demo estimate, not a commercial price commitment.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
             </div>
 
             <div className="fare-row">
               <div><span className="fare-label">YOUR ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? "No quote yet" : "Server estimate"}</span></div></div>
-              <div className="fare-note"><span className="fare-check"><Check size={13} /></span><span>{quote ? "Quote verified" : "No made-up prices"}<small>{quote?.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Price appears after a valid API response."}</small></span></div>
+              <div className="fare-note"><span className="fare-check"><Check size={13} /></span><span>{quote ? "Quote verified" : "No invented price"}<small>{quote?.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Price appears after a valid API response."}</small></span></div>
             </div>
             {quote && <div className="fare-breakdown" aria-label="Fare breakdown">
               <div><span>Base fare</span><strong>₹{(quote.baseFarePaise / 100).toFixed(2)}</strong></div>
@@ -665,11 +665,11 @@ export default function App() {
               <p>Demo tariff only. This is not a commercial fare commitment or a payment request.</p>
             </div>}
 
-            <button className="book-button quote-button" onClick={requestRide} disabled={!valid || apiState === "checking" || apiHealth === "offline"}>
+            <button aria-label="Get server fare quote" className="book-button quote-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>
               {apiState === "checking" ? <><span className="button-spinner" /> Calculating route & fare…</> : <>Get fare estimate <ArrowRight size={17} /></>}
             </button>
             {!pickup.trim() || !destination.trim() ? <p className="form-hint">Add both locations to continue. Try “JIIT Sector 128, Noida” and “Botanical Garden Metro, Noida”.</p> : !valid ? <p className="form-hint">Pickup and drop-off must be different locations.</p> : null}
-            {apiHealth === "offline" && <div className="service-warning" role="status">The RideForge API is not responding. Booking is disabled until the service is reachable. Please try again later.</div>}
+            {apiHealth === "offline" && <div className="service-warning" role="status">The RideForge API did not respond to the last health check. You can still try a quote; the result will show whether booking services are available.</div>}
 
             {((quote && !ride) || account) && account?.role !== "driver" && account?.role !== "admin" && (
               <div className="auth-panel booking-auth-panel">
