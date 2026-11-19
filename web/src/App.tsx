@@ -1,10 +1,9 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 const RouteMap = lazy(() => import("./components/RouteMap"));
-import OperationsWorkspace from "./components/OperationsWorkspace";
 import {
   ArrowLeft, ArrowRight, Bike, Check, CircleHelp, Clock3, Crosshair,
-  LocateFixed, MapPin, Menu, Route, ShieldCheck, X,
+  Gauge, LocateFixed, MapPin, Menu, Route, ShieldCheck, Wallet, X,
 } from "lucide-react";
 
 const locations = [
@@ -34,19 +33,12 @@ function isRouteGeometry(value: unknown): value is Array<[number, number]> {
 
 export default function App() {
   const reduceMotion = useReducedMotion();
-  const hostname = window.location.hostname.toLowerCase();
-  const isDriverHost = hostname.startsWith("driver.");
-  const isAdminPath = window.location.pathname.replace(/\/+$/, "") === "/admin";
-  const isRoleWorkspaceHost = isDriverHost || isAdminPath;
-  const showInternalWorkspaces = hostname === "localhost" || hostname === "127.0.0.1";
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState("");
   const [locationBusy, setLocationBusy] = useState(false);
   const [apiHealth, setApiHealth] = useState<"checking" | "online" | "offline">("checking");
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
-  const [mode, setMode] = useState<"ride" | "driver" | "admin" | "insights">(() =>
-    isDriverHost ? "driver" : isAdminPath ? "admin" : "ride");
   const [apiState, setApiState] = useState<"idle" | "checking" | "offline">("idle");
   const [route, setRoute] = useState<{ km: number; mins: number; path: string; geometry: Array<[number, number]>; provider: string } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
