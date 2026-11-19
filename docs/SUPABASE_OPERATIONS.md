@@ -2,16 +2,16 @@
 
 > **Operational refresh (20 November 2026):** The Nirdhoom-inspired passenger/driver/admin UI, browser Photon geocoding, GPS-coordinate fallback, and server-authoritative route/fare quotes are in `main`. Vercel production is **READY** on main commit `a91e8408271cccfb1e422e0a76c42b634c03c754`; the production alias is `https://smart-bike-taxi-platform.vercel.app`. The Vercel production `VITE_API_BASE_URL` was verified to point to the Supabase `rideforge-api` Edge Function. Render `rideforge-web` remains a fallback frontend, not the primary demo URL. Supabase `rideforge-api` is ACTIVE at version 15, and its deployed `index.ts` exactly matches the repository source. All 14 public application tables have RLS enabled; Security and Health Advisors currently report no findings. The verified hosted demo is a real Noida route quote; production still has zero Auth users, application accounts and rides. Verify the Vercel Auth redirect allowlist before relying on signup. Backup credentials/hosted restore and real passenger/driver/admin lifecycle acceptance remain outstanding.
 
-**Scope:** current academic/portfolio MVP deployment as of 19 November 2026. This is the active operations guide. It does not authorize real passenger transport, payments, or commercial operation.
+**Scope:** current academic/portfolio MVP deployment as of 20 November 2026. This is not authorization to operate a passenger transport service. This is the active operations guide. It does not authorize real passenger transport, payments, or commercial operation.
 
 ## 1. Active architecture and inventory
 
 - GitHub repository: [kaustubhdua/Smart_bike_taxi_platform](https://github.com/kaustubhdua/Smart_bike_taxi_platform).
 - Supabase project: `ghcufcegfvvjhsnqnrzr`, Mumbai region, PostgreSQL 17.11, Free plan.
 - Edge Function: `rideforge-api`, deployed and ACTIVE at version 15 (last observed 19 November 2026).
-- Active frontend: Render static site `rideforge-web` at [rideforge-web.onrender.com](https://rideforge-web.onrender.com), connected to `main`, building `web` and publishing `web/dist`.
-- Production browser API base: `https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api` (Render static-site environment variable `VITE_API_BASE_URL`).
-- Render `rideforge-web` is the active static frontend fallback. Legacy Render API services are not used; keep them stopped and do not point the frontend back to a Render backend.
+- Active frontend: Vercel production project `smart-bike-taxi-platform`, deployed from `main`; production alias [smart-bike-taxi-platform.vercel.app](https://smart-bike-taxi-platform.vercel.app). Latest verified deployment commit is `9941e53bd0b7e004e55db5f2c5c23f6984903601`.
+- Production browser API base: `https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api` (`VITE_API_BASE_URL` verified in the Vercel production environment).
+- Render `rideforge-web` at [rideforge-web.onrender.com](https://rideforge-web.onrender.com) remains a fallback static frontend. Three historical Render API service objects are not part of the active architecture; do not point the app back to them.
 - The current React client uses authenticated SSE polling plus REST recovery. The database Realtime publication is enabled for `rides` and `ride_events`, but the browser does not currently subscribe to it directly.
 
 The Supabase database currently contains 14 public tables, all with RLS enabled. Migration `025_atomic_driver_offer_transitions` is applied; `rideforge_accept_offer` and `rideforge_decline_offer` exist, `service_role` can execute the decline RPC, and `anon`/`authenticated` cannot. The production database has zero Auth users, zero application accounts and zero rides at the latest audit. Do not claim that a live passenger/driver/admin journey has been proven until the first verified account and deployed E2E tests exist.
@@ -36,21 +36,22 @@ The normal release sequence is:
 
 1. Run [Full release readiness](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) on the exact PR head.
 2. Require every child job to pass, including the local Supabase migration rebuild/security-invariant test, Deno type-check, frontend type-check/build/Playwright, PostgreSQL migration/recovery, C++ tests, API smoke, CodeQL, dependency audit and container checks.
-3. Merge the integrated release PR #97 only after the exact-head Full release readiness and backup-workflow actionlint checks are green.
-4. Confirm Render `rideforge-web` deploys the merged `main` SHA and the production bundle embeds the Supabase Edge Function URL. Vercel can be re-enabled after its deployment quota resets.
+3. Merge only after exact-head Full release readiness and backup-workflow actionlint checks are green.
+4. Confirm Vercel production deploys the approved `main` SHA and its built bundle uses the Supabase Edge Function URL. The current Vercel deployment is READY; do not describe the old Render site as primary.
 5. Deploy the reviewed Edge Function source to Supabase with `verify_jwt=false` only because the function performs its own JWT validation; verify `/api/v1/health` and `/api/v1/ready` from an external runner.
 6. Complete the real browser acceptance checklist in section 5.
-7. Only then retire the legacy Render API services; keep `rideforge-web` as the active static host unless Vercel is restored.
+7. Only after external browser acceptance, remove legacy Render API services deliberately. Keep the Render static site as a rollback target until Vercel/Auth acceptance is complete.
 
 ## 3. Supabase Auth and administrator bootstrap
 
 Open [Supabase Auth URL configuration](https://supabase.com/dashboard/project/ghcufcegfvvjhsnqnrzr/auth/url-configuration) and set:
 
-- Site URL: `https://rideforge-web.onrender.com`
-- Additional redirect URL: `https://rideforge-web.onrender.com/**`
-- Additional redirect URL: `http://localhost:5173/**`
+- Site URL: `https://smart-bike-taxi-platform.vercel.app`
+- Additional redirect URL: `https://smart-bike-taxi-platform.vercel.app/**`
+- Additional redirect URL: `https://rideforge-web.onrender.com/**` (fallback only)
+- Additional redirect URL: `http://localhost:5173/**` (local development only)
 
-The Edge Function default signup verification redirect should target `https://rideforge-web.onrender.com`. Add the Render origin to Supabase Auth URL Configuration (Site URL and Additional Redirect URLs) before testing signup. Keep the Vercel URL as a secondary redirect until Vercel is restored. Do not disable email confirmation merely to make a demo signup appear successful.
+The Edge Function signup code falls back to `https://smart-bike-taxi-platform.vercel.app` for `emailRedirectTo`. The deployed Auth URL allowlist itself could not be read or changed with the available project connector, so an owner must verify these exact values in Supabase Dashboard → Authentication → URL Configuration before signup. Do not disable email confirmation merely to make a demo signup appear successful.
 
 There are currently no production Auth users. The first admin must be a real, verified account created through the app. Then a project owner must promote exactly that account once in the Supabase SQL Editor:
 
@@ -76,7 +77,7 @@ After a schema or function deployment:
 - Review Edge Function and Postgres logs for errors and unexpected traffic.
 - Confirm the deployed function's source matches the reviewed repository SHA.
 
-The latest advisor snapshot had zero Security findings and zero Health findings. The Performance Advisor reported 16 informational unused indexes on an empty production database; do not drop indexes without representative workload evidence.
+The latest live advisor snapshot has zero Security findings and zero Health findings. Performance Advisor currently reports 15 informational unused indexes. With zero rides and effectively empty production tables, do not drop indexes without representative workload evidence.
 
 ## 5. Required real browser acceptance
 
@@ -125,7 +126,7 @@ The new isolated restore workflow is added in PR #97, but it cannot run until th
 
 RideForge is an academic/portfolio MVP, not a licensed transport operator. The current demo fare is illustrative (₹20 base + ₹11/km), not a UP-notified commercial tariff. No real payment initiation, signed payment webhook, refunds, payout ledger, verified driver/vehicle KYC, staffed emergency response, or legal aggregator licence is implemented.
 
-The final Uttar Pradesh Thirty-third Amendment aggregator rules were notified on 22 May 2026. New aggregators need the applicable STA licence and must meet driver, vehicle, insurance, training, control-room, grievance, app-security and data-retention requirements. Noida is in the NCR and CAQM Direction 94 restricts further induction of conventional petrol/diesel two-wheelers; the transitional BS-VI exception for existing fleets expires 31 December 2026. Do not offer real rides or accept money until the exact legal/vehicle class is confirmed in writing and all statutory controls are operational.
+Uttar Pradesh has published a 2026 aggregator / delivery-service regulatory framework; the final applicable Gazette notification and STA licensing conditions must be confirmed with the Transport Department before any operation. Separately, CAQM Direction No. 94 (3 June 2025) states that no conventional petrol/diesel ICE two-wheelers shall be further inducted into aggregator/DSP fleets in NCR from 1 January 2026. Noida is in NCR. Do not onboard a new petrol/diesel two-wheeler fleet or offer real passenger rides until the vehicle class, licensing position and all statutory controls are confirmed in writing. Direction No. 94: https://caqm.nic.in/WriteReadData/LINKS/Direction%20No-94cd874424-d234-41f3-872a-e51267b5447e.pdf. The official UP notification currently located for the 2026 Chapter V-A framework is a draft notification dated 13 March 2026; obtain the final Gazette instrument and legal review rather than treating the draft as final law: https://upidadv.up.gov.in/upload/PublicationRequest/183241/SachivalyaLKO130326Notification639090236220551079.pdf.
 
 ## 8. Browser geocoding and route quote contract
 
