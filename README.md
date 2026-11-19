@@ -14,7 +14,7 @@ Shortest-path routing · Durable 45-second driver offers · Automatic expiry/red
 
 ---
 
-> **Latest evidence snapshot — 19 November 2026:** main ``66a37b91512ed5a03e5341a358eb20a36edb7994`` passed the 13-job release-readiness workflow. This is CI evidence, not hosted end-to-end or commercial readiness. The live frontend is behind main, backup credentials are not provisioned, and real passenger/driver/admin journeys remain unverified. See the [current final-readiness audit](docs/FINAL_READINESS_AUDIT_2026-11-19.md) before describing project status.
+> **Latest evidence snapshot — 19 November 2026:** main `66a37b91512ed5a03e5341a358eb20a36edb7994` passed the 13-job release-readiness workflow. The Render frontend and Supabase Edge Function have since been aligned to this revision. Backup credentials and a hosted restore drill are still outstanding; real passenger/driver/admin journeys remain unverified. See the [current final-readiness audit](docs/FINAL_READINESS_AUDIT_2026-11-19.md) before describing project status.
 
 ## Run the complete verification suite
 
