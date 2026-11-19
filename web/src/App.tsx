@@ -599,8 +599,8 @@ export default function App() {
         <span className="status-indicator" data-state={apiHealth} />
         <span>{apiHealth === "online" ? "RIDEFORGE API CONNECTED" : apiHealth === "checking" ? "CHECKING RIDEFORGE SERVICES" : "SERVICE CONNECTION UNAVAILABLE"}</span>
         <span className="announcement-divider" />
-        <span>NOIDA · BIKE RIDE DEMO</span>
-        <span className="announcement-right">ACADEMIC PROJECT · NO LIVE TRANSPORT SERVICE</span>
+        <span>NOIDA · RIDE PLANNING</span>
+        <span className="announcement-right">PREVIEW ENVIRONMENT · NO ACTIVE DRIVER FLEET</span>
       </div>
 
       <header className="site-header app-header">
@@ -624,7 +624,7 @@ export default function App() {
       <main id="top" className="app-main">
         <section className="booking-hero" id="booking">
           <div className="booking-hero-copy">
-            <div className="eyebrow"><span className="eyebrow-dot" /> SIMPLE CITY RIDES, BUILT AROUND YOU</div>
+            <div className="eyebrow"><span className="eyebrow-dot" /> NOIDA RIDE PLANNING · CLEAR BY DESIGN</div>
             <h1>Your ride.<br /><em>Your route.<br />No guesswork.</em></h1>
             <p className="hero-description">Set your pickup and destination, see a real road route and a server-calculated fare, then request a ride. Clear steps, clear status.</p>
             <div className="hero-benefits">
@@ -662,7 +662,7 @@ export default function App() {
             <div className="quote-row">
               <div className="quote-icon"><Route size={18} /></div>
               <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Address lookup runs only when you request a quote. The server calculates the route and fare; no price appears before it responds."}</span></div>
-              <button className="text-action help-button" onClick={() => setNotice("RideForge resolves locations in your browser after an explicit action. The server calculates road distance, duration and the demo fare.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
+              <button className="text-action help-button" onClick={() => setNotice("RideForge resolves locations in your browser after an explicit action. The server calculates road distance, duration and the preview fare.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
             </div>
 
             <div className="fare-row">
@@ -672,7 +672,7 @@ export default function App() {
             {quote && <div className="fare-breakdown" aria-label="Fare breakdown">
               <div><span>Base fare</span><strong>₹{(quote.baseFarePaise / 100).toFixed(2)}</strong></div>
               <div><span>Distance charge · {quote.distanceKm.toFixed(2)} km</span><strong>₹{(quote.distanceFarePaise / 100).toFixed(2)}</strong></div>
-              <p>Demo tariff only. This is not a commercial fare commitment or a payment request.</p>
+              <p>Preview tariff only. Not a commercial fare or a payment request.</p>
             </div>}
 
             <button aria-label="Get server fare quote — Get fare estimate" className="book-button quote-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>
@@ -772,21 +772,21 @@ export default function App() {
           <h2>Three clear steps.<br /><em>One less thing to worry about.</em></h2>
           <div className="how-grid">
             <article><span>01</span><MapPin size={21} /><h3>Choose your locations</h3><p>Enter your pickup and destination, or use your device location for pickup.</p></article>
-            <article><span>02</span><Route size={21} /><h3>Review your fare</h3><p>We request a road route and a transparent demo fare from the server before you confirm.</p></article>
+            <article><span>02</span><Route size={21} /><h3>Review your fare</h3><p>We request a real road route and a clearly labelled preview tariff from the server before you continue.</p></article>
             <article><span>03</span><Bike size={21} /><h3>Request and follow</h3><p>Sign in, request your ride and follow the status updates. Eligible drivers must be approved and online. The backend creates time-limited offers for eligible, approved drivers who are online with a fresh location.</p></article>
           </div>
         </section>
 
         <section className="safety-section" id="safety">
           <div className="safety-icon"><ShieldCheck size={24} /></div>
-          <div><span className="section-kicker">SAFETY & TRANSPARENCY</span><h2>Clear about what works — and what doesn't.</h2><p>RideForge is a portfolio and academic demo, not an operating taxi service. It does not process payments, verify identity documents, contact emergency services or guarantee a driver. Driver location is shared only while online; no historical GPS trail is retained. Do not use it to arrange real-world travel.</p></div>
+          <div><span className="section-kicker">SAFETY & TRANSPARENCY</span><h2>Clear about what works — and what doesn't.</h2><p>RideForge is currently in preview and has no active driver fleet. Payments, identity-document verification and emergency-response services are not connected. Driver location is shared only while a driver is online; no historical GPS trail is retained. Do not use this preview to arrange real-world travel.</p></div>
           <a href="/driver" className="outline-button">Driver workspace <ArrowRight size={15} /></a>
         </section>
       </main>
 
       <footer className="site-footer app-footer">
         <a className="brand footer-brand" href="#top"><span className="brand-mark"><Bike size={20} /></span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
-        <span className="footer-note">Built for learning. Designed for clear journeys.</span>
+        <span className="footer-note">Built around clear journeys and transparent estimates.</span>
         <div className="footer-links"><a href="#booking">Book a ride</a><a href="#how-it-works">How it works</a><a href="/driver">Driver portal</a><a href="/admin">Admin portal</a><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">GitHub</a></div>
         <span className="copyright">© 2026 RIDEFORGE</span>
       </footer>
