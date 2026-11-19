@@ -68,7 +68,7 @@ jobs:
             --header 'Access-Control-Request-Method: POST' \
             --header 'Access-Control-Request-Headers: authorization,content-type' \
             'https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api/api/v1/auth/login')"
-          test "$status" = "200"
+          test "$status" = "204"
           grep -Eiq '^access-control-allow-origin:[[:space:]]*https://smart-bike-taxi-platform\.vercel\.app[[:space:]]*$' "$headers"
           grep -Eiq '^access-control-allow-methods:.*POST' "$headers"
           echo "Production Vercel CORS preflight returned HTTP $status with the exact allowed origin."
