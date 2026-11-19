@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type User } from "npm:@supabase/supabase-js@2.119.0";
 import { getRateLimitClientIp } from "./client_ip.ts";
 import { createCorsHeaders } from "./cors.ts";
-import { buildGeocodingUrl, parseGeocodingCoordinates } from "./geocoding.ts";
+import { buildGeocodingUrl, parseCoordinatePair, parseGeocodingCoordinates } from "./geocoding.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -64,8 +64,17 @@ async function quoteRoute(body: Record<string, unknown>, req: Request) {
   const destination = body.destination && typeof body.destination === "object" ? body.destination as Record<string, unknown> : {};
   const pickupLabel = clean(pickup.label);
   const destinationLabel = clean(destination.label);
+  const pickupHasCoordinates = pickup.latitude !== undefined || pickup.longitude !== undefined;
+  const destinationHasCoordinates = destination.latitude !== undefined || destination.longitude !== undefined;
+  const pickupCoordinates = pickupHasCoordinates
+    ? parseCoordinatePair(pickup.latitude, pickup.longitude) : null;
+  const destinationCoordinates = destinationHasCoordinates
+    ? parseCoordinatePair(destination.latitude, destination.longitude) : null;
   if (pickupLabel.length < 3 || destinationLabel.length < 3 || pickupLabel.toLowerCase() === destinationLabel.toLowerCase()) {
     return { error: "Enter two different pickup and destination locations.", status: 422 };
+  }
+  if ((pickupHasCoordinates && !pickupCoordinates) || (destinationHasCoordinates && !destinationCoordinates)) {
+    return { error: "Provide valid latitude and longitude for both locations.", status: 422 };
   }
   // On hosted Supabase ingress, only Cloudflare's overwritten client-IP
   // header is trusted. Caller-supplied X-Forwarded-For/X-Real-IP are local-dev
@@ -130,8 +139,8 @@ async function quoteRoute(body: Record<string, unknown>, req: Request) {
     throw lastError;
   };
   try {
-    const p = await geocode(pickupLabel);
-    const d = await geocode(destinationLabel);
+    const p = pickupCoordinates ?? await geocode(pickupLabel);
+    const d = destinationCoordinates ?? await geocode(destinationLabel);
     const response = await fetch(routeUrl + "/" + p.lon + "," + p.lat + ";" + d.lon + "," + d.lat + "?overview=full&geometries=geojson&steps=false", {
       headers: { "Accept": "application/json", "User-Agent": userAgent },
       signal: AbortSignal.timeout(8_000),
