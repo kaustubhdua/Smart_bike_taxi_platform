@@ -1,5 +1,7 @@
 # RideForge 100-point completion matrix
 
+> **Current status notice (19 November 2026):** This 100-point matrix is a historical snapshot from 14 November 2026 and contains stale branch/PR/deployment claims. The current evidence is recorded in [FINAL_READINESS_AUDIT_2026-11-19.md](FINAL_READINESS_AUDIT_2026-11-19.md), audited against main SHA `66a37b91512ed5a03e5341a358eb20a36edb7994`. Do not use the dated counts below as the current completion score until each row is re-evaluated against the latest code and hosted environment.
+
 **Snapshot:** 2026-11-14  
 **Repository base SHA assessed:** `670e946f2b290ec7081d712a073edad6a697f1cb`  
 **Target:** L4 operationally ready software, with L5 commercial authorization separate.

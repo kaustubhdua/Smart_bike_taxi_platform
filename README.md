@@ -14,13 +14,15 @@ Shortest-path routing · Durable 45-second driver offers · Automatic expiry/red
 
 ---
 
+> **Latest evidence snapshot — 19 November 2026:** main `66a37b91512ed5a03e5341a358eb20a36edb7994` passed the 13-job release-readiness workflow. The Render frontend and Supabase Edge Function have since been aligned to this revision. Backup credentials and a hosted restore drill are still outstanding; real passenger/driver/admin journeys remain unverified. See the [current final-readiness audit](docs/FINAL_READINESS_AUDIT_2026-11-19.md) before describing project status.
+
 ## Run the complete verification suite
 
 The [Full release readiness workflow](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/workflows/release-readiness.yml) aggregates the C++/sanitizer/benchmark, API integration, PostgreSQL migration and recovery, web/Playwright/accessibility, and container/Compose suites. Durable driver offers and expiry/redispatch were merged in PR [#13](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/13). The bounded dispatch-attempt exhaustion fix was merged in PR [#15](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/15), after the full release-readiness workflow passed all 13 jobs on tested PR head `ec8780b20beef1470047f23f73f9705ac148f5a6`. See [the exact full-suite run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466789) and [API smoke run](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/40571466885). These results validate that tested revision, not a live deployment or production operations. The production-readiness evidence and release gates are documented in [`docs/RELEASE_READINESS_EVIDENCE.md`](docs/RELEASE_READINESS_EVIDENCE.md). Always verify fresh workflow runs on the exact release SHA before publishing.
 
 
 
-## Current release gate — 14 November 2026
+## Historical release gate — 14 November 2026 (superseded by the 19 November audit)
 
 PR [#82](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/82) is the current release candidate. It makes the API-backed app the homepage and adds a clean local Supabase migration/security-invariant check to the release workflow. Do not merge until the exact PR head has green checks. The deployed Render site is still on an older main commit; real signup, first-admin bootstrap, passenger/driver/admin browser journeys, encrypted backup/restore and legacy Render API cleanup remain unverified. RideForge is an academic portfolio demo only: it is not licensed to carry passengers or process real fares.
 

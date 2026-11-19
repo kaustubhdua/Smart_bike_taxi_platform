@@ -754,3 +754,11 @@ test("home page reports an unreachable API honestly and never invents a ride or 
   await expect(page.locator(".inline-notice").filter({ hasText: /./ }).first()).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(".fare-amount")).toContainText("—");
 });
+
+
+test("public landing page describes backend dispatch accurately", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/backend creates time-limited offers for eligible, approved drivers/i)).toBeVisible();
+  await expect(page.getByText(/no historical GPS trail is retained/i)).toBeVisible();
+  await expect(page.getByText(/no automated driver dispatch is provided/i)).toHaveCount(0);
+});
