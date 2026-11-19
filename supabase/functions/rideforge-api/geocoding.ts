@@ -1,8 +1,13 @@
 export type Coordinates = { lat: number; lon: number };
 
-function validCoordinates(lat: unknown, lon: unknown): Coordinates | null {
-  const latitude = typeof lat === "number" ? lat : Number(lat);
-  const longitude = typeof lon === "number" ? lon : Number(lon);
+export function parseCoordinatePair(lat: unknown, lon: unknown): Coordinates | null {
+  const toNumber = (value: unknown) => {
+    if (typeof value === "number") return value;
+    if (typeof value === "string" && value.trim().length > 0) return Number(value);
+    return Number.NaN;
+  };
+  const latitude = toNumber(lat);
+  const longitude = toNumber(lon);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
       latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
   return { lat: latitude, lon: longitude };
@@ -14,7 +19,7 @@ export function parseGeocodingCoordinates(payload: unknown): Coordinates | null 
     const first = payload[0];
     if (!first || typeof first !== "object") return null;
     const value = first as Record<string, unknown>;
-    return validCoordinates(value.lat, value.lon);
+    return parseCoordinatePair(value.lat, value.lon);
   }
   if (!payload || typeof payload !== "object") return null;
   const features = (payload as Record<string, unknown>).features;
@@ -24,7 +29,7 @@ export function parseGeocodingCoordinates(payload: unknown): Coordinates | null 
   const coordinates = (geometry as Record<string, unknown>).coordinates;
   if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
   // GeoJSON coordinates are [longitude, latitude].
-  return validCoordinates(coordinates[1], coordinates[0]);
+  return parseCoordinatePair(coordinates[1], coordinates[0]);
 }
 
 /** Builds requests for Photon or Nominatim-compatible geocoders. */
