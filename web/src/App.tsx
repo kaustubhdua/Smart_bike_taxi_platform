@@ -602,7 +602,7 @@ export default function App() {
           <a className="nav-link active" href="#booking" onClick={() => setMenuOpen(false)}>Book a ride</a>
           <a className="nav-link" href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a>
           <a className="nav-link" href="/driver">Drive with us</a>
-          <a className="nav-link" href="/admin">Admin</a>
+          <a className="nav-link" href="/admin">Admin console</a>
         </nav>
         <div className="header-actions">
           <a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety & support</a>
@@ -700,7 +700,7 @@ export default function App() {
               <div className="confirmation-icon"><Check size={16} /></div>
               <div className="ride-status-copy"><span className="card-eyebrow">03 / RIDE STATUS</span><strong>{ride.status === "failed" ? "No driver found" : ride.status === "matching" || ride.status === "requested" ? "Finding your driver" : "Your ride request is active"}</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status.replaceAll("_", " ")} · Updates refresh automatically while this page is open.</small></div>
               <div className="ride-status-actions">
-                {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && <button className="outline-button" onClick={cancelRide}>Cancel ride</button>}
+                {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && <button className="outline-button" onClick={cancelRide}>Cancel request</button>}
                 <button className="text-action" onClick={() => { setRide(null); setQuote(null); setBookingKey(null); setNotice("Your previous ride remains in trip history. You can plan another ride."); }}>New ride</button>
               </div>
             </div>}
@@ -716,7 +716,7 @@ export default function App() {
                   <button className="outline-button" onClick={loadPassengerHistory} disabled={historyBusy}>{historyBusy ? "Loading…" : "Refresh trip history"}</button>
                   {passengerHistory.length === 0 ? <p className="auth-caption">Your saved trips will appear here after you refresh.</p> : passengerHistory.map(item => <article className="ride-confirmation history-item" key={item.rideId}>
                     <div><strong>{item.pickup} → {item.destination}</strong><span>{item.status.replaceAll("_", " ")} · ₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()}</small></div>
-                    {item.status === "completed" && <button className="text-action" onClick={() => setReceiptRideId(item.rideId)}>View receipt</button>}
+                    {item.status === "completed" && <button className="text-action" onClick={() => setReceiptRideId(item.rideId)}>View demo receipt</button>}
                   </article>)}
                   {receiptRideId && passengerHistory.find(item => item.rideId === receiptRideId && item.status === "completed") && (() => {
                     const item = passengerHistory.find(entry => entry.rideId === receiptRideId)!;
@@ -729,7 +729,7 @@ export default function App() {
                     <label className="auth-field"><span>What is this about?</span><select value={supportCategory} onChange={event => setSupportCategory(event.target.value)}><option value="booking">Booking or trip status</option><option value="driver">Driver or vehicle</option><option value="payment">Fare or payment</option><option value="safety">Safety concern</option><option value="technical">Technical issue</option><option value="other">Other</option></select></label>
                     <label className="auth-field"><span>Describe the issue (10–2,000 characters)</span><textarea className="support-description" minLength={10} maxLength={2000} required value={supportDescription} onChange={event => setSupportDescription(event.target.value)} placeholder="Tell us what happened and what should be reviewed." rows={4} /></label>
                     {supportCategory === "safety" && <p className="support-disclaimer" role="note">This creates a report for review. It does not contact emergency services. If anyone is in immediate danger, contact local emergency services directly.</p>}
-                    <button className="book-button" type="submit" disabled={supportBusy || supportDescription.trim().length < 10}>{supportBusy ? "Sending report…" : "Submit report"} <ArrowRight size={16} /></button>
+                    <button className="book-button" type="submit" disabled={supportBusy || supportDescription.trim().length < 10}>{supportBusy ? "Sending report…" : "Submit support report"} <ArrowRight size={16} /></button>
                   </form>
                   <button className="outline-button" onClick={loadSupportReports}>Refresh my reports</button>
                   {supportReports.map(report => <article className="ride-confirmation history-item" key={report.id}><div><strong>#{report.id} · {report.category.replaceAll("_", " ")}</strong><span>{report.status.replaceAll("_", " ")}</span><small>{new Date(report.createdAt).toLocaleString()}</small></div></article>)}
@@ -763,13 +763,13 @@ export default function App() {
           <div className="how-grid">
             <article><span>01</span><MapPin size={21} /><h3>Choose your locations</h3><p>Enter your pickup and destination, or use your device location for pickup.</p></article>
             <article><span>02</span><Route size={21} /><h3>Review your fare</h3><p>We request a road route and a transparent demo fare from the server before you confirm.</p></article>
-            <article><span>03</span><Bike size={21} /><h3>Request and follow</h3><p>Sign in, request your ride and follow the status updates. Eligible drivers must be approved and online.</p></article>
+            <article><span>03</span><Bike size={21} /><h3>Request and follow</h3><p>Sign in, request your ride and follow the status updates. Eligible drivers must be approved and online. The backend creates time-limited offers for eligible, approved drivers who are online with a fresh location.</p></article>
           </div>
         </section>
 
         <section className="safety-section" id="safety">
           <div className="safety-icon"><ShieldCheck size={24} /></div>
-          <div><span className="section-kicker">SAFETY & TRANSPARENCY</span><h2>Clear about what works — and what doesn't.</h2><p>RideForge is a portfolio and academic demo, not an operating taxi service. It does not process payments, verify identity documents, contact emergency services or guarantee a driver. Do not use it to arrange real-world travel.</p></div>
+          <div><span className="section-kicker">SAFETY & TRANSPARENCY</span><h2>Clear about what works — and what doesn't.</h2><p>RideForge is a portfolio and academic demo, not an operating taxi service. It does not process payments, verify identity documents, contact emergency services or guarantee a driver. Driver location is shared only while online; no historical GPS trail is retained. Do not use it to arrange real-world travel.</p></div>
           <a href="/driver" className="outline-button">Driver workspace <ArrowRight size={15} /></a>
         </section>
       </main>
