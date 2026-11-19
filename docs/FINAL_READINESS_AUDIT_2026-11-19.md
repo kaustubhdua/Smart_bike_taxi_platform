@@ -2,7 +2,7 @@
 
 **Assessment date:** 2026-11-19  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Audited main SHA:** `66a37b91512ed5a03e5341a358eb20a36edb7994`  
+**Audited main SHA at last merge:** `b3e94b7fad0a8891c9c2cdb98e70000a9f627a4b`  
 **Supabase project:** `rideforge-production` (`ghcufcegfvvjhsnqnrzr`, ap-south-1)  
 **Decision:** **Not complete / not approved for public or commercial rides.** The repository has a strong, CI-verified academic MVP foundation. Several operator-controlled and real-environment acceptance gates remain open.
 
@@ -12,9 +12,12 @@ This report supersedes the dated status summaries in the README, `docs/COMPLETIO
 
 ### GitHub
 
-- `main` resolves to `66a37b91512ed5a03e5341a358eb20a36edb7994`.
-- Full release-readiness run [#695](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43706507082) completed successfully on that SHA. All 13 jobs passed, including C++ GCC/Clang and sanitizers, API smoke at 5 km and 20 km, PostgreSQL migration/recovery, web build and Playwright, Supabase migration/security invariants, CodeQL, dependency audit, and container checks.
-- No open pull requests were returned by the repository PR search at audit time.
+- `main` moved to `b3e94b7fad0a8891c9c2cdb98e70000a9f627a4b` when PR #86 merged.
+- PR #86's exact-head Full release readiness run #704 did **not** complete cleanly: the container vulnerability scan found 3 CRITICAL and 3 HIGH NGINX findings; at the latest follow-up inspection its 5 km API smoke and C++ CodeQL were still running.
+- PR [#87](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/87) updates the NGINX runtime image to `1.30.7-alpine3.24`. The official Docker Hub tag exists, but its exact-head scan must pass before merge.
+- PR [#88](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/88) adds atomic Supabase accept/decline RPCs, consistent ride-first locking, and rollback-only SQL integration tests. Its exact-head run #708 was queued at the time of this update.
+- The latest full release-readiness run #707 for PR #87 had passed web build/Playwright, dependency audit, JavaScript CodeQL, PostgreSQL migration/recovery, Supabase Edge API smoke, C++ GCC/Clang/sanitizers and benchmark jobs; container scan, both API smoke radii, C++ CodeQL and container build were still running.
+
 - GitHub issue [#17 — protect main](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/17) remains open. Main must be protected with required checks, PR-only changes, force-push protection, and deletion protection.
 - GitHub issue [#3 — deployed E2E, accessibility and deployment verification](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3) remains open.
 - GitHub issue [#10 — dispatch races and recovery](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/10) remains open for additional stress and deployed-journey evidence.
@@ -26,7 +29,7 @@ A passing CI run proves the tested commit and test environment. It does not prov
 - Project status: `ACTIVE_HEALTHY`; PostgreSQL 17.11; region `ap-south-1`.
 - Edge Function `rideforge-api`: `ACTIVE`, version 10, deployed during this work from the exact `main` source. The deployed bundle now imports `npm:@supabase/supabase-js@2.119.0`, matching the repository (version 9 was still using 2.49.1). Platform JWT verification remains disabled because the handler performs application-level authentication itself. The hosted `/api/v1/ready` endpoint returned `{\"status\":\"ready\",\"backend\":\"supabase\"}` in the GitHub Edge API smoke job after deployment.
 - The live public schema contains 14 tables; all 14 report RLS enabled.
-- The live migration history contains 26 entries.
+- The live application migration ledger contains 24 entries (001–024).
 - Security Advisor: zero findings. Health Advisor: zero findings.
 - Performance Advisor: 16 informational unused-index findings. The database is effectively empty, so these are not grounds for dropping indexes; reassess after representative traffic.
 - Live counts at audit time: 0 Auth users, 0 application accounts, 0 rides.
@@ -36,7 +39,7 @@ The empty production identity and ride tables mean no real signup/login or passe
 ### Render — read-only live inspection
 
 - `rideforge-web` is live at https://rideforge-web.onrender.com.
-- During this work, the static site was redeployed successfully on commit `66a37b91512ed5a03e5341a358eb20a36edb7994`, matching GitHub `main`. Render reported the deployment as `live`.
+- During this work, the static site was redeployed successfully on commit `66a37b91512ed5a03e5341a358eb20a36edb7994`. GitHub `main` has since advanced to `b3e94b7fad0a8891c9c2cdb98e70000a9f627a4b`; Render remains on the older commit until the checks on the new merge candidate pass.
 - Three historical API service objects remain: `rideforge-api-final`, `rideforge-api-v2`, and `rideforge-api`. The inspected `rideforge-api-final` deployments failed on 13 November. They are not the intended active backend in the Supabase-native architecture.
 - Do not delete these legacy services until the external browser acceptance suite passes. After that, remove them deliberately and verify the Render inventory again.
 
@@ -111,6 +114,21 @@ The review used open-source ride-hailing implementations as architecture referen
 - [WNCC UberClone](https://github.com/wncc/Hello-FOSS-26_UberClone) describes India-focused route/matching workflows and an end-to-end rider/driver test harness. Treat it as a design reference only unless its license is independently verified.
 
 The strongest transferable patterns for RideForge are: explicit rider/driver state machines, a single transactional winner for competing offers, server-side fare snapshots, restart-safe dispatch, real end-to-end tests across two identities, and a hard separation between a demo fare and real payment/settlement. RideForge already implements parts of these patterns; its missing evidence is called out in the release gates above.
+
+## 6. Follow-up source audit and remediation — 19 November 2026
+
+A deeper review of the active Supabase Edge Function found a concrete transaction-integrity issue: driver decline updated `ride_offers` and wrote `driver_ride_declines` in two separate database requests. A partial failure could persist one without the other. The accept RPC also locked the offer before the ride, while dispatch and cancellation lock the ride first, leaving an avoidable lock-order inversion.
+
+PR [#88](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/88) implements the remediation:
+- Add `rideforge_decline_offer` as a SECURITY DEFINER RPC with pinned search_path, explicit revokes from PUBLIC/anon/authenticated, and service_role-only execute.
+- Lock ride → driver profile → offer consistently for accept and decline.
+- Commit the declined offer and driver/ride exclusion row in one transaction, then attempt immediate redispatch before releasing the ride lock.
+- Preserve the prior ride status in the acceptance event.
+- Add a rollback-only SQL integration test for successful decline, successful acceptance, expired-offer rejection and no partial writes; execute it after a clean local Supabase migration rebuild in CI.
+
+No production migration or Edge Function redeploy is performed by the PR. Merge/deploy only after the exact-head suite passes and the migration test is green.
+
+Open-source reference: [OpenRide](https://github.com/adam-nelson/openride) (Apache-2.0) documents a modular rider/driver/operator lifecycle and dispatch architecture. It was used for design comparison only; no upstream source code was copied. See [the upstream project](https://github.com/adam-nelson/openride).
 
 ## 7. Final release decision
 
