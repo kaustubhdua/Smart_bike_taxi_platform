@@ -644,7 +644,7 @@ export default function App() {
               <button className="location-action" type="button" onClick={() => void useCurrentLocation()} disabled={locationBusy || routeLoading}>
                 <LocateFixed size={15} /> {locationBusy ? "Finding your location…" : "Use my current location"}
               </button>
-              <span>Suggestions are focused on Noida. You can type a full address. Address lookup uses OpenStreetMap when you request it.</span>
+              <span>Noida-focused suggestions. Address lookup uses OpenStreetMap only when you tap; © OpenStreetMap contributors.</span>
             </div>
 
             <div className="quote-row">
