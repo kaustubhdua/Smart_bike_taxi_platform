@@ -88,7 +88,7 @@ jobs:
           PGPASSWORD: restore-test-only
         run: |
           set -Eeuo pipefail
-          psql "postgresql://postgres:postgres@127.0.0.1:5432/rideforge_restore" -v ON_ERROR_STOP=1 <<'SQL'
+          psql "postgresql://postgres:restore-test-only@127.0.0.1:5432/rideforge_restore" -v ON_ERROR_STOP=1 <<'SQL'
           DO $roles$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
@@ -107,9 +107,7 @@ jobs:
           CREATE OR REPLACE FUNCTION auth.jwt()
           RETURNS jsonb LANGUAGE sql STABLE
           AS $$ SELECT COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
-          CREATE SCHEMA IF NOT EXISTS extensions;
-          CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
-          CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
+          CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
           SQL
 
       - name: Restore into disposable PostgreSQL
@@ -119,7 +117,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           pg_restore --exit-on-error --no-owner --no-acl \
-            --dbname="postgresql://postgres:postgres@127.0.0.1:5432/rideforge_restore" \
+            --dbname="postgresql://postgres:restore-test-only@127.0.0.1:5432/rideforge_restore" \
             "$DUMP_PATH"
           echo "Public-schema backup restored into disposable PostgreSQL."
 
@@ -128,7 +126,7 @@ jobs:
           PGPASSWORD: restore-test-only
         run: |
           set -Eeuo pipefail
-          psql "postgresql://postgres:postgres@127.0.0.1:5432/rideforge_restore" -v ON_ERROR_STOP=1 <<'SQL'
+          psql "postgresql://postgres:restore-test-only@127.0.0.1:5432/rideforge_restore" -v ON_ERROR_STOP=1 <<'SQL'
           DO $verify$
           DECLARE
             table_count integer;
