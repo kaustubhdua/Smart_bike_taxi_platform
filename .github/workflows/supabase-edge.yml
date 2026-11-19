@@ -76,3 +76,42 @@ jobs:
           echo "Production Vercel CORS preflight returned HTTP $status with the exact allowed origin."
       - name: Smoke-test live Supabase API readiness
         run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api/api/v1/ready
+      - name: Smoke-test live Noida route quote after verified deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[verify-live-quote]')
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          response="$(mktemp)"
+          status="$(curl --silent --show-error --output "$response" --write-out '%{http_code}' --max-time 35 \
+            --header 'Content-Type: application/json' \
+            --header 'Accept: application/json' \
+            --data-binary '{"pickup":{"label":"JIIT Sector 128, Noida"},"destination":{"label":"Sector 18 Market, Noida"}}' \
+            'https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api/api/v1/routes/quote')"
+          if [ "$status" != "200" ]; then
+            echo "Live route quote returned HTTP $status"
+            cat "$response"
+            exit 1
+          fi
+          node - "$response" <<'NODE'
+          const fs = require("node:fs");
+          const data = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          const breakdown = data.fareBreakdown;
+          if (typeof data.quoteId !== "string" || data.quoteId.length < 8 ||
+              !Number.isSafeInteger(data.farePaise) || data.farePaise <= 0 ||
+              !breakdown || breakdown.pricingModel !== "demo_base_plus_distance" ||
+              breakdown.baseFarePaise + breakdown.distanceFarePaise !== data.farePaise ||
+              typeof data.distanceKm !== "number" || data.distanceKm <= 0 ||
+              !Number.isSafeInteger(data.durationMinutes) || data.durationMinutes <= 0 ||
+              data.currency !== "INR" || Date.parse(data.expiresAt) <= Date.now() ||
+              !Array.isArray(data.geometry) || data.geometry.length < 2) {
+            throw new Error("Live route quote response failed schema/fare/geometry validation.");
+          }
+          console.log(JSON.stringify({
+            quoteId: data.quoteId,
+            fareINR: (data.farePaise / 100).toFixed(2),
+            distanceKm: data.distanceKm,
+            durationMinutes: data.durationMinutes,
+            geometryPoints: data.geometry.length,
+            currency: data.currency
+          }));
+          NODE
