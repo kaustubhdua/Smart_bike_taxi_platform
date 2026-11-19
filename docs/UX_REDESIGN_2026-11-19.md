@@ -86,3 +86,26 @@ This implementation borrows workflow principles from open-source projects and pu
 A polished UI does not create missing production prerequisites. The Supabase project currently has no passenger, driver or admin identities and no staging environment. A real passenger/driver/admin end-to-end journey still needs separately provisioned test identities in staging. Email verification/redirect configuration must be correct. The map/geocoding providers are public evaluation services and need a provider strategy and usage controls before real traffic. Payments, phone verification, emergency operations, licensing, vehicle compliance, insurance and commercial service authorization are outside this academic MVP.
 
 Do not describe the project as a licensed live taxi service or claim that real rides/payments/emergency response are available.
+
+
+## 2026-11-19 follow-up — address resolution and visual system
+
+### Address lookup reliability
+- The hosted Supabase Edge runtime received HTTP 403 from both public Photon and Nominatim geocoders. Sending an application User-Agent, Referer and Origin did not resolve that egress restriction.
+- The browser now resolves each manually entered pickup/drop-off address through Photon only when the rider presses **Get fare estimate**. It requests one result per address, biases the query to Noida, validates coordinate bounds and rejects an explicitly non-India result.
+- Only the resulting coordinates and the rider-entered labels are sent to the Edge API. The Edge API validates both coordinate pairs, calls the road-routing provider and calculates the fare server-side. Client-supplied fare, distance, duration and route geometry are never accepted as quote truth.
+- If Photon cannot resolve either address, the UI shows a recoverable error and does not invent a route or price. Browser-side lookup is still subject to the public provider's availability and fair-use limits.
+
+### Visual system
+- Applied the Nirdhoom visual language: warm cream and parchment surfaces, navy ink, forest-green actions, saffron accents, DM Sans / Plus Jakarta Sans / JetBrains Mono typography, softer shadows and restrained motion.
+- Kept RideForge's own identity, content, booking flow and map treatment; no Nirdhoom domain assets or copy were transplanted.
+- Existing keyboard focus, reduced-motion, mobile layout and explicit academic-demo disclosures remain.
+
+### Verification boundary
+The coordinate-based quote contract has passing exact-head release CI. The production route-quote smoke is the deciding hosted check for the server-side routing provider. A passing CI build is not a substitute for a successful live quote, a real authenticated passenger/driver lifecycle, or an isolated backup restore.
+
+
+### Final integration follow-up — PR #106
+- Browser Photon requests are serialized with a 1.1-second minimum interval to respect the public geocoder's fair-use posture.
+- The current-location flow uses browser GPS coordinates directly for the quote even if reverse-address lookup is unavailable; no fabricated address or route is substituted.
+- Playwright now runs the `web/tests` suite and includes a one-time post-merge live passenger quote acceptance test.

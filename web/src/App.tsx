@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
+import { geocodeNoidaLocation, reverseGeocodeNoidaLocation, type Coordinates } from "./geocoding";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 const RouteMap = lazy(() => import("./components/RouteMap"));
 import {
@@ -35,6 +36,8 @@ export default function App() {
   const reduceMotion = useReducedMotion();
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState("");
+  const [pickupCoordinates, setPickupCoordinates] = useState<Coordinates | null>(null);
+  const [destinationCoordinates, setDestinationCoordinates] = useState<Coordinates | null>(null);
   const [locationBusy, setLocationBusy] = useState(false);
   const [apiHealth, setApiHealth] = useState<"checking" | "online" | "offline">("checking");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -255,19 +258,30 @@ export default function App() {
       return;
     }
     let serverResponded = false;
+    let apiRequestStarted = false;
     try {
+      setNotice("Resolving pickup and drop-off locations…");
+      const pickupPoint = pickupCoordinates ?? await geocodeNoidaLocation(pickup);
+      if (!pickupCoordinates) setPickupCoordinates(pickupPoint);
+      const destinationPoint = destinationCoordinates ?? await geocodeNoidaLocation(destination);
+      if (!destinationCoordinates) setDestinationCoordinates(destinationPoint);
+
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10_000);
+      const timeout = window.setTimeout(() => controller.abort(), 10_000);
       let response: Response;
       try {
+        apiRequestStarted = true;
         response = await fetch(apiUrl(base, "/api/v1/routes/quote"), {
           method: "POST",
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
-          body: JSON.stringify({ pickup: { label: pickup }, destination: { label: destination } }),
+          body: JSON.stringify({
+            pickup: { label: pickup, latitude: pickupPoint.latitude, longitude: pickupPoint.longitude },
+            destination: { label: destination, latitude: destinationPoint.latitude, longitude: destinationPoint.longitude },
+          }),
           signal: controller.signal,
         });
       } finally {
-        clearTimeout(timeout);
+        window.clearTimeout(timeout);
       }
       serverResponded = true;
       if (!response.ok) {
@@ -318,15 +332,15 @@ export default function App() {
       setApiHealth("online");
       setApiState("idle");
     } catch (error) {
-      setApiState("offline");
       const message = error instanceof Error && error.name === "AbortError"
         ? "The quote service took too long to respond. Please try again."
         : error instanceof Error && error.message !== "Failed to fetch"
           ? error.message
           : "We could not reach the quote service. Check the API and try again.";
+      setApiState(apiRequestStarted && !serverResponded ? "offline" : "idle");
       setRoute(null);
       setRouteError(message);
-      setApiHealth(serverResponded ? "online" : "offline");
+      if (apiRequestStarted) setApiHealth(serverResponded ? "online" : "offline");
       setNotice(message);
     } finally {
       setRouteLoading(false);
@@ -544,27 +558,25 @@ export default function App() {
     setLocationBusy(true);
     setNotice("Finding your current location…");
     navigator.geolocation.getCurrentPosition(async position => {
+      const coordinates = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
       try {
-        const params = new URLSearchParams({
-          format: "jsonv2",
-          lat: String(position.coords.latitude),
-          lon: String(position.coords.longitude),
-          zoom: "18",
-          addressdetails: "1",
-        });
-        const response = await fetch("https://nominatim.openstreetmap.org/reverse?" + params.toString(), {
-          headers: { Accept: "application/json" },
-          signal: AbortSignal.timeout(8000),
-        });
-        if (!response.ok) throw new Error("Address lookup is temporarily unavailable.");
-        const data = await response.json() as { display_name?: string };
-        if (!data.display_name) throw new Error("We could not identify an address at your location. Enter it manually.");
-        setPickup(data.display_name);
+        let label = "Current GPS location";
+        try {
+          const reverse = await reverseGeocodeNoidaLocation(coordinates);
+          label = reverse.displayName;
+        } catch {
+          // GPS coordinates are still usable when reverse address lookup is unavailable.
+        }
+        setPickup(label);
+        setPickupCoordinates(coordinates);
         setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null);
-        setNotice("Pickup set to your current location. Review the address before requesting a quote.");
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not look up your current address.");
-      } finally { setLocationBusy(false); }
+        setNotice("Pickup set from your device location. Review it before requesting a quote.");
+      } finally {
+        setLocationBusy(false);
+      }
     }, error => {
       setLocationBusy(false);
       setNotice(error.code === error.PERMISSION_DENIED
@@ -632,11 +644,11 @@ export default function App() {
             <div className="location-fields">
               <div className="location-rail" aria-hidden="true"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
               <div className="field-stack">
-                <label className="location-field"><span>Pickup location</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); clearBookingState(); setNotice(""); }} aria-label="Pickup point" disabled={routeLoading} placeholder="Enter pickup address or landmark" autoComplete="street-address" /></div></label>
+                <label className="location-field"><span>Pickup location</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setPickupCoordinates(null); clearBookingState(); setNotice(""); }} aria-label="Pickup point" disabled={routeLoading} placeholder="Enter pickup address or landmark" autoComplete="street-address" /></div></label>
                 <div className="field-separator" />
-                <label className="location-field"><span>Drop-off location</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); clearBookingState(); setNotice(""); }} aria-label="Drop-off point" disabled={routeLoading} placeholder="Where do you want to go?" autoComplete="off" /></div></label>
+                <label className="location-field"><span>Drop-off location</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setDestinationCoordinates(null); clearBookingState(); setNotice(""); }} aria-label="Drop-off point" disabled={routeLoading} placeholder="Where do you want to go?" autoComplete="off" /></div></label>
               </div>
-              <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); clearBookingState(); setNotice(""); }} disabled={routeLoading || !pickup || !destination}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
+              <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setPickupCoordinates(destinationCoordinates); setDestinationCoordinates(pickupCoordinates); clearBookingState(); setNotice(""); }} disabled={routeLoading || !pickup || !destination}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
               <datalist id="rideforge-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
             </div>
 
@@ -644,13 +656,13 @@ export default function App() {
               <button className="location-action" type="button" onClick={() => void useCurrentLocation()} disabled={locationBusy || routeLoading}>
                 <LocateFixed size={15} /> {locationBusy ? "Finding your location…" : "Use my current location"}
               </button>
-              <span>Noida-focused suggestions. Address lookup uses OpenStreetMap only when you tap; © OpenStreetMap contributors.</span>
+              <span>Noida-focused suggestions. Address lookup runs only when you request a quote; road distance and fare are calculated by the server. © OpenStreetMap contributors.</span>
             </div>
 
             <div className="quote-row">
               <div className="quote-icon"><Route size={18} /></div>
-              <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Enter both locations, then request a server quote. No price appears until the API responds."}</span></div>
-              <button className="text-action help-button" onClick={() => setNotice("RideForge uses server-side geocoding and road routing. Fare is a demo estimate, not a commercial price commitment.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
+              <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Address lookup runs only when you request a quote. The server calculates the route and fare; no price appears before it responds."}</span></div>
+              <button className="text-action help-button" onClick={() => setNotice("RideForge resolves locations in your browser after an explicit action. The server calculates road distance, duration and the demo fare.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
             </div>
 
             <div className="fare-row">

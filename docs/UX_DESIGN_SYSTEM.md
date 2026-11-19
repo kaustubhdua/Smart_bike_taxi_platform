@@ -60,3 +60,16 @@
 - Touch targets meet WCAG 2.2 target-size guidance where applicable.
 - Motion respects `prefers-reduced-motion`.
 - Maps have a non-map text alternative for pickup, destination, route and distance.
+
+
+## 2026-11-19 visual system update — Nirdhoom-inspired RideForge
+
+RideForge adopts the visual language of the user's Nirdhoom project without reusing Nirdhoom's domain-specific copy, components or imagery:
+- Warm Indian cream canvas `#f7f0e1`, warm white surfaces `#fffbf3`, parchment borders `#e6dbc4`.
+- Navy ink `#14213d`, muted slate `#5b6377`.
+- Forest-green primary `#0f6e3a` / deep green `#0a4f29`; saffron accent `#e8821b`; restrained navy-blue informational accents.
+- DM Sans body, Plus Jakarta Sans display, DM Mono for technical labels and numeric metadata.
+- 16–24px card radii, low-contrast warm shadows, restrained gradients, 160–240ms transitions and reduced-motion fallbacks.
+- Booking remains the first task, with route and price only appearing after an API-backed response. The academic-demo status remains explicit.
+
+Source reference: `kaustubhdua/nihdhoom`, `src/styles/theme.css`, `src/styles/palette.css`, and `src/styles.css`. These are palette and design-language references; RideForge's implementation is independently authored.
