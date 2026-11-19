@@ -25,10 +25,7 @@ BEGIN
     (driver_three, 'dispatch-test-'||driver_three||'@example.invalid', 'Dispatch Test Driver Three', 'driver', 'test-only');
 
   INSERT INTO public.driver_profiles(account_id,vehicle_registration,is_approved,is_online,current_latitude,current_longitude,last_location_at)
-  VALUES
-    (driver_one,'TEST-'||substr(driver_one::text,1,8),true,true,28.6139,77.2090,now()),
-    (driver_two,'TEST-'||substr(driver_two::text,1,8),true,true,28.6140,77.2091,now()),
-    (driver_three,'TEST-'||substr(driver_three::text,1,8),true,true,28.6141,77.2092,now());
+  VALUES(driver_one,'TEST-'||substr(driver_one::text,1,8),true,true,28.6139,77.2090,now());
 
   INSERT INTO public.rides(id,passenger_id,status,pickup_label,pickup_latitude,pickup_longitude,
     destination_label,destination_latitude,destination_longitude,route_distance_m,quoted_fare_paise,idempotency_key)
@@ -54,6 +51,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.rides WHERE id=decline_ride AND driver_id IS NULL AND status IN ('requested','matching')) THEN
     RAISE EXCEPTION 'decline changed or assigned the passenger ride';
   END IF;
+
+  INSERT INTO public.driver_profiles(account_id,vehicle_registration,is_approved,is_online,current_latitude,current_longitude,last_location_at)
+  VALUES
+    (driver_two,'TEST-'||substr(driver_two::text,1,8),true,true,28.6140,77.2091,now()),
+    (driver_three,'TEST-'||substr(driver_three::text,1,8),true,true,28.6141,77.2092,now());
 
   INSERT INTO public.ride_offers(ride_id,driver_id,status,offered_at,expires_at)
   VALUES(accept_ride,driver_two,'offered',now(),now()+interval '45 seconds')
