@@ -186,3 +186,19 @@ RideForge remains an academic/portfolio MVP, not an authorized transport operato
 ### Current verdict
 
 **CI-verified academic/portfolio MVP with a live Vercel frontend and live Supabase backend; not yet hosted-journey verified and not commercially launch-ready.** The remaining gates are: merge PR #97 after all exact-head checks pass; deploy and verify the matching Edge Function; complete Supabase Auth URL configuration and first-admin bootstrap; provision the backup credentials and complete a real backup/restore drill; create a separately approved staging environment and test passenger/driver/admin journeys; enable GitHub branch protection and account MFA; and complete the legal, vehicle, safety, privacy, accessibility, device and load reviews.
+
+
+## 2026-11-19 implementation follow-up — coordinate quote and visual refresh
+
+- Main now includes PR #104 (coordinate-based route quoting). Exact-head release-readiness workflow run [#44581133519](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44581133519) passed all 15 jobs.
+- The post-merge hosted smoke [#44582005413](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44582005413) passed the deployed Supabase readiness, CORS and real route-quote checks. The JIIT Sector 128 → Sector 18 Market test returned HTTP 200, a server-generated INR 127.28 demo quote, 9.753 km road route, 15-minute duration and 181 geometry points.
+- The quote path now accepts validated coordinates, with server-owned route geometry, distance, duration, expiry and fare. Browser-side Photon address lookup is proposed in PR #106; until that PR passes and merges, the public UI may still not be able to supply coordinates to the production quote endpoint.
+- PR #106 introduces the Nirdhoom-inspired visual system and browser-side address resolution. It is under exact-head CI and has not yet been accepted into main at the time of this addendum.
+- This successful route smoke is not a real passenger booking. Production still has no provisioned passenger/driver/admin identities or staging environment. Backup credentials and isolated hosted restore remain operator gates. Payments, phone verification, emergency operations, transport licensing, vehicle compliance and insurance remain outside the academic MVP.
+- The fare is a demo tariff. Never present it as a real commercial fare or accept actual rides based on this project.
+
+
+### PR #106 integration status
+- PR #106 consolidates browser-side Photon geocoding with a per-tab 1.1-second request throttle, direct GPS-coordinate fallback, and a one-time live passenger browser acceptance test after the production build is ready.
+- The Nirdhoom-inspired RideForge visual system is applied to passenger, driver and admin workspaces in this PR.
+- Commercial launch gates remain unchanged: staging identities, encrypted backup/restore, legal/vehicle/insurance requirements, payments, emergency operations and independent security/load review are not represented as complete.
