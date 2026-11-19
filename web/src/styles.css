@@ -430,3 +430,8 @@ body{background:var(--rf-paper);color:var(--rf-ink)}
 .rideforge-app .auth-field input::placeholder{color:#5c7063;opacity:1}
 .rideforge-app .announcement-right{color:#c5d1c9}
 .rideforge-app :is(a,button,input,select,textarea,summary):focus-visible{outline:3px solid #416d4d!important;outline-offset:3px}
+
+
+.rideforge-app .how-grid article>span,
+.rideforge-app .card-footnote,
+.rideforge-app .mobile-bottom-bar small{color:#53675d}
