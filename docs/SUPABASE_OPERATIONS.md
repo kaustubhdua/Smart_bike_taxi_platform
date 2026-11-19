@@ -1,6 +1,6 @@
 # Supabase-native RideForge operations
 
-> **Operational refresh (19 November 2026):** The live Edge Function is now version 10, deployed from the current `main` source; the static frontend is live on main SHA `66a37b9`. Backup credentials and hosted restore evidence remain outstanding. See [FINAL_READINESS_AUDIT_2026-11-19.md](FINAL_READINESS_AUDIT_2026-11-19.md) for current status and the backup provisioning runbook.
+> **Operational refresh (19 November 2026):** The live Edge Function is version 10. The static frontend's latest live deployment remains `66a37b91512ed5a03e5341a358eb20a36edb7994`, while `main` has advanced to `7bad02b20aded723aaab1fcd3882da4ca3f7dc4f`; verify the new static deploy before calling the hosted app current. Backup credentials and hosted restore evidence remain outstanding. See [FINAL_READINESS_AUDIT_2026-11-19.md](FINAL_READINESS_AUDIT_2026-11-19.md) for current status and the backup provisioning runbook.
 
 **Scope:** current academic/portfolio MVP deployment as of 14 November 2026. This is the active operations guide. It does not authorize real passenger transport, payments, or commercial operation.
 
@@ -8,7 +8,7 @@
 
 - GitHub repository: [kaustubhdua/Smart_bike_taxi_platform](https://github.com/kaustubhdua/Smart_bike_taxi_platform).
 - Supabase project: `ghcufcegfvvjhsnqnrzr`, Mumbai region, PostgreSQL 17.11, Free plan.
-- Edge Function: `rideforge-api`, deployed and ACTIVE (production inventory last checked at version 9; update this version after the next verified deployment).
+- Edge Function: `rideforge-api`, deployed and ACTIVE at version 10 (last observed 19 November 2026).
 - Render static frontend: `rideforge-web` at [rideforge-web.onrender.com](https://rideforge-web.onrender.com).
 - Three historical Render API services are not part of the active architecture: `rideforge-api-final`, `rideforge-api-v2`, and `rideforge-api`. Keep the static site; delete the old API services only after the final frontend deployment and browser acceptance are verified.
 - The current React client uses authenticated SSE polling plus REST recovery. The database Realtime publication is enabled for `rides` and `ride_events`, but the browser does not currently subscribe to it directly.
