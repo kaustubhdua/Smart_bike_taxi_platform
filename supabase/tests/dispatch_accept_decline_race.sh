@@ -42,7 +42,7 @@ VALUES('$ride_id','$passenger_id','matching','Race pickup',28.6139,77.2090,
   'Race destination',28.6200,77.2150,1000,3100,'race-'||substr('$ride_id',1,8));
 
 SQL
-offer_id="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "INSERT INTO public.ride_offers(ride_id,driver_id,status,offered_at,expires_at) VALUES('$ride_id','$driver_id','offered',now(),now()+interval '45 seconds') RETURNING id")"
+offer_id="$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "INSERT INTO public.ride_offers(ride_id,driver_id,status,offered_at,expires_at) VALUES('$ride_id','$driver_id','offered',now(),now()+interval '45 seconds') RETURNING id")"
 
 set +e
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "SELECT public.rideforge_accept_offer('$driver_id','$ride_id')" >"$workdir/accept.log" 2>&1 &
