@@ -538,3 +538,28 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
 @media(prefers-reduced-motion:reduce){
  .rideforge-app *, .rideforge-app *::before,.rideforge-app *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
+
+
+/* Consistent Nirdhoom-inspired tokens across driver and admin workspaces. */
+.rideforge-app.role-workspace #operations{background:var(--rf-paper)}
+.rideforge-app.role-workspace .role-header{background:var(--rf-surface);border-color:var(--rf-line)}
+.rideforge-app.role-workspace .role-header .brand-mark{background:var(--rf-green);color:#fff;border-radius:12px}
+.rideforge-app.role-workspace .role-header nav a{color:var(--rf-muted)}
+.rideforge-app.role-workspace .role-header nav a[aria-current=page]{color:var(--rf-green);border-color:var(--rf-saffron)}
+.rideforge-app.role-workspace .demo-disclaimer{background:var(--rf-saffron-soft);color:#7f4113;border-color:#f6c98e}
+.rideforge-app.role-workspace .booking-card,
+.rideforge-app.role-workspace .driver-panel,
+.rideforge-app.role-workspace .admin-panel{background:var(--rf-surface);border:1px solid var(--rf-line);border-radius:18px;box-shadow:0 16px 38px -30px #14213d66}
+.rideforge-app.role-workspace .driver-online,
+.rideforge-app.role-workspace .driver-queue-item>button,
+.rideforge-app.role-workspace .outline-button{border-color:#b4d9bf;color:var(--rf-green);border-radius:10px}
+.rideforge-app.role-workspace .driver-online.online{background:var(--rf-green-soft);border-color:#b4d9bf;color:var(--rf-green)}
+.rideforge-app.role-workspace .driver-queue-item,
+.rideforge-app.role-workspace .driver-active-ride{background:#fbf5e9;border-color:var(--rf-line);border-radius:12px}
+.rideforge-app.role-workspace .driver-queue-item strong,
+.rideforge-app.role-workspace .driver-active-ride>strong,
+.rideforge-app.role-workspace .admin-metrics b{color:var(--rf-ink)}
+.rideforge-app.role-workspace .admin-metrics>strong{background:var(--rf-green-soft);color:var(--rf-green)}
+.rideforge-app.role-workspace .admin-metrics>span{background:#fbf5e9;color:var(--rf-muted)}
+.rideforge-app.role-workspace :is(input,select,textarea){background:#fffdf8;border-color:var(--rf-line);border-radius:10px;color:var(--rf-ink)}
+.rideforge-app.role-workspace :is(button,a,input,select,textarea):focus-visible{outline:3px solid var(--rf-saffron)!important;outline-offset:3px}
