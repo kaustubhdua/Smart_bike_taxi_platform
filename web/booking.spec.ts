@@ -149,10 +149,12 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await expect(page.locator(".ride-confirmation")).toBeVisible();
   await page.getByRole("button", { name: "Cancel request" }).click();
   await expect(page.getByText(/Ride request cancelled/)).toBeVisible();
+  await page.locator(".tool-disclosure summary", { hasText: "Help & support" }).click();
   await page.getByLabel(/Describe the issue/).fill(report.description);
   await page.getByRole("button", { name: /Submit support report/ }).click();
   await expect(page.locator(".inline-notice")).toContainText(/Support report submitted/);
   await expect(page.getByText("#42 · technical")).toBeVisible();
+  await page.locator(".tool-disclosure summary", { hasText: "My trip history" }).click();
   await page.getByRole("button", { name: /Refresh trip history/ }).click();
   await expect(page.getByText("Trip history refreshed from the API.")).toBeVisible();
   await expect(page.getByText("JIIT Sector 128 → Sector 18 Market")).toBeVisible();
