@@ -451,6 +451,12 @@ body{background:var(--rf-paper);color:var(--rf-ink)}
   --rf-green-soft:#e3f1e6;
   --rf-saffron:#e8821b;
   --rf-saffron-soft:#fdecd6;
+  --rf-lime:var(--rf-saffron);
+  --rf-lime-deep:var(--rf-green);
+  --rf-blue:var(--rf-green);
+  --rf-orange:var(--rf-saffron);
+  --rf-white:var(--rf-surface);
+  --rf-shadow:0 24px 48px -24px rgba(20,33,61,.28);
   --rf-navy:#2a3c8f;
   --ink:#14213d;
   --muted:#5b6377;
