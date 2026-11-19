@@ -661,8 +661,8 @@ export default function App() {
 
             <div className="quote-row">
               <div className="quote-icon"><Route size={18} /></div>
-              <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Enter both locations, then request a server quote. No price appears until the API responds."}</span></div>
-              <button className="text-action help-button" onClick={() => setNotice("RideForge resolves location coordinates in your browser and calculates road distance, duration and demo fare on the server.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
+              <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Address lookup runs only when you request a quote. The server calculates the route and fare; no price appears before it responds."}</span></div>
+              <button className="text-action help-button" onClick={() => setNotice("RideForge resolves locations in your browser after an explicit action. The server calculates road distance, duration and the demo fare.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
             </div>
 
             <div className="fare-row">
