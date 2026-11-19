@@ -2,7 +2,7 @@
 
 **Assessment date:** 2026-11-19  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
-**Audited main SHA:** `66a37b91512ed5a03e5341a358eb20a36edb7994`  
+**Audited main SHA:** `7bad02b20aded723aaab1fcd3882da4ca3f7dc4f`  
 **Supabase project:** `rideforge-production` (`ghcufcegfvvjhsnqnrzr`, ap-south-1)  
 **Decision:** **Not complete / not approved for public or commercial rides.** The repository has a strong, CI-verified academic MVP foundation. Several operator-controlled and real-environment acceptance gates remain open.
 
@@ -12,9 +12,11 @@ This report supersedes the dated status summaries in the README, `docs/COMPLETIO
 
 ### GitHub
 
-- `main` resolves to `66a37b91512ed5a03e5341a358eb20a36edb7994`.
-- Full release-readiness run [#695](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/43706507082) completed successfully on that SHA. All 13 jobs passed, including C++ GCC/Clang and sanitizers, API smoke at 5 km and 20 km, PostgreSQL migration/recovery, web build and Playwright, Supabase migration/security invariants, CodeQL, dependency audit, and container checks.
-- No open pull requests were returned by the repository PR search at audit time.
+- `main` resolves to `7bad02b20aded723aaab1fcd3882da4ca3f7dc4f` after PR #87 merged.
+- PR [#87](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/87) updated the web runtime to `nginx:1.30.7-alpine3.24`. Exact-head Full release readiness run [#707](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44500919071) passed all 15 jobs, including both API smoke radii, PostgreSQL migration/recovery, web/Playwright, Supabase migration/security checks, GCC/Clang/sanitizers, both CodeQL analyses, dependency audit, container validation and Trivy scan.
+- PR [#88](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/88) contains atomic Supabase accept/decline RPCs and rollback-only SQL integration tests. Its earlier run #712 was on the previous main base; it must be revalidated against the new mainline before merge.
+- PR [#89](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/89) adds trusted hosted client-IP extraction, 8-second geocoding/routing timeouts, coordinate validation and Deno unit tests. Its exact-head run #713 is in progress.
+
 - GitHub issue [#17 — protect main](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/17) remains open. Main must be protected with required checks, PR-only changes, force-push protection, and deletion protection.
 - GitHub issue [#3 — deployed E2E, accessibility and deployment verification](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/3) remains open.
 - GitHub issue [#10 — dispatch races and recovery](https://github.com/kaustubhdua/Smart_bike_taxi_platform/issues/10) remains open for additional stress and deployed-journey evidence.
@@ -26,7 +28,7 @@ A passing CI run proves the tested commit and test environment. It does not prov
 - Project status: `ACTIVE_HEALTHY`; PostgreSQL 17.11; region `ap-south-1`.
 - Edge Function `rideforge-api`: `ACTIVE`, version 10, deployed during this work from the exact `main` source. The deployed bundle now imports `npm:@supabase/supabase-js@2.119.0`, matching the repository (version 9 was still using 2.49.1). Platform JWT verification remains disabled because the handler performs application-level authentication itself. The hosted `/api/v1/ready` endpoint returned `{\"status\":\"ready\",\"backend\":\"supabase\"}` in the GitHub Edge API smoke job after deployment.
 - The live public schema contains 14 tables; all 14 report RLS enabled.
-- The live migration history contains 26 entries.
+- The live application migration ledger contains 24 entries (001–024).
 - Security Advisor: zero findings. Health Advisor: zero findings.
 - Performance Advisor: 16 informational unused-index findings. The database is effectively empty, so these are not grounds for dropping indexes; reassess after representative traffic.
 - Live counts at audit time: 0 Auth users, 0 application accounts, 0 rides.
@@ -36,7 +38,7 @@ The empty production identity and ride tables mean no real signup/login or passe
 ### Render — read-only live inspection
 
 - `rideforge-web` is live at https://rideforge-web.onrender.com.
-- During this work, the static site was redeployed successfully on commit `66a37b91512ed5a03e5341a358eb20a36edb7994`, matching GitHub `main`. Render reported the deployment as `live`.
+- The static site is live on commit `66a37b91512ed5a03e5341a358eb20a36edb7994`. GitHub `main` has advanced to `7bad02b20aded723aaab1fcd3882da4ca3f7dc4f`; the static frontend has not yet deployed the merged security fix or the PR #86 driver-dispatch disclosure correction.
 - Three historical API service objects remain: `rideforge-api-final`, `rideforge-api-v2`, and `rideforge-api`. The inspected `rideforge-api-final` deployments failed on 13 November. They are not the intended active backend in the Supabase-native architecture.
 - Do not delete these legacy services until the external browser acceptance suite passes. After that, remove them deliberately and verify the Render inventory again.
 
@@ -112,24 +114,25 @@ The review used open-source ride-hailing implementations as architecture referen
 
 The strongest transferable patterns for RideForge are: explicit rider/driver state machines, a single transactional winner for competing offers, server-side fare snapshots, restart-safe dispatch, real end-to-end tests across two identities, and a hard separation between a demo fare and real payment/settlement. RideForge already implements parts of these patterns; its missing evidence is called out in the release gates above.
 
-## 6. Follow-up exact-head container scan finding
+## 6. Follow-up remediation — 19 November 2026
 
-The PR #86 exact-head release run [#704](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44499391008) exposed a real container vulnerability finding that was not present in the earlier main run #695:
+### Container security
 
-- Trivy reported 6 fixed vulnerabilities in the web runtime image based on `nginx:1.30.6-alpine3.24`: 3 CRITICAL and 3 HIGH. The scan output identified the fixed NGINX package version as `1.30.7-r0`.
-- This was a genuine vulnerable base-image finding, not merely a transient scanner/database outage. The workflow's retry step reran the scan and correctly remained failed.
-- Follow-up commit `50befaf4ccb00e084d062d1ab6361790a0abbba3` updates the web runtime base image to the official `nginx:1.30.7-alpine3.24` tag. Docker Hub's official image tag listing confirms that exact tag exists: https://hub.docker.com/_/nginx/tags.
-- The follow-up image must be rebuilt and rescanned on its exact PR head. Do not mark the vulnerability resolved until Trivy reports no fixed CRITICAL/HIGH findings and all other release jobs pass.
+PR [#87](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/87) updates the web runtime from `nginx:1.30.6-alpine3.24` to `nginx:1.30.7-alpine3.24` after run #704 found 3 CRITICAL and 3 HIGH fixed NGINX vulnerabilities. The replacement was verified on the exact candidate: run [#707](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44500919071) passed all 15 jobs, including the container vulnerability scan. PR #87 was merged as `7bad02b20aded723aaab1fcd3882da4ca3f7dc4f`.
 
-PR #86 was merged while its exact-head workflow was still in progress and before the container scan completed successfully. This is further evidence that branch protection and required status checks are not enforced on `main`; issue #17 remains a release-governance blocker. The merge does not convert the failed/incomplete run into a pass.
+### Supabase offer state transitions
 
+Source review found the driver decline handler performed two separate database requests (offer status update, then decline-exclusion upsert), allowing partial state if the second request failed. The accept path also locked offer before ride while dispatch/cancellation lock the ride first.
 
-Current follow-up snapshot after PR #86 merged:
+PR #88 implements a service-role-only transactional decline RPC, atomic offer/exclusion writes, immediate redispatch, a ride-first lock order for acceptance, and rollback-only SQL integration tests. Its run #712 passed the local Supabase migration/security invariant job, including applying the new migration; the remaining jobs were still running when this snapshot was taken. The PR's base became stale after PR #87 merged, so the same changes are being carried on a new mainline branch/PR #90 for fresh exact-head verification.
 
-- PR #86 merged as `b3e94b7fad0a8891c9c2cdb98e70000a9f627a4b`, but exact-head run #704 did not pass cleanly: its 20 km API smoke and most other jobs passed, its 5 km API smoke remained in progress at the latest inspection, and its container vulnerability scan failed on the NGINX findings above.
-- Render's latest live static-site deployment is still commit `66a37b91512ed5a03e5341a358eb20a36edb7994`; the merged commit has not been deployed. The service is configured to deploy only after checks pass.
-- PR #87 contains the NGINX base-image patch and this audit update. Its exact-head Full release readiness run #706 is running; do not merge or deploy until all jobs, especially Trivy, pass.
-- A fresh live Supabase read-only check confirms 14 public base tables and 14 with RLS enabled, zero Auth users/accounts/rides, zero Security Advisor findings, zero Health Advisor findings, and 16 informational unused-index notices. Do not remove those indexes on an empty database.
+### Hosted quote endpoint
+
+PR #89 hardens public quote rate limiting by trusting only Supabase's Cloudflare-overwritten `CF-Connecting-IP` on hosted ingress and refusing caller-supplied forwarding headers; local gateway fallbacks are restricted to local Supabase URLs. It also adds 8-second upstream timeouts and coordinate validation, with Deno tests in CI. Exact-head run #713 is in progress. No production Edge Function redeploy has been made for these pending PRs.
+
+### Live data and deployment
+
+The live Supabase project remains ACTIVE_HEALTHY with 14 public tables, all 14 RLS-enabled, zero Security Advisor findings, zero Health Advisor findings, and 16 informational unused-index findings. The application ledger has 24 entries. It still has zero Auth users, zero application accounts and zero rides. The Render static frontend remains live on the older commit `66a37b91512ed5a03e5341a358eb20a36edb7994`; do not claim the hosted app is aligned to current main until a new live deployment is observed.
 
 ## 7. Final release decision
 
