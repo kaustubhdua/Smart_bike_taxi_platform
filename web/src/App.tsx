@@ -3,17 +3,21 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 const RouteMap = lazy(() => import("./components/RouteMap"));
 import OperationsWorkspace from "./components/OperationsWorkspace";
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bike, Check,
-  CircleHelp, Clock3, Compass, Crosshair, Gauge, LocateFixed,
-  MapPin, Menu, Navigation, Route, ShieldCheck, Sparkles, Wallet, X,
+  ArrowLeft, ArrowRight, Bike, Check, CircleHelp, Clock3, Crosshair,
+  LocateFixed, MapPin, Menu, Route, ShieldCheck, X,
 } from "lucide-react";
 
 const locations = [
-  "JIIT Sector 128",
-  "Botanical Garden Metro",
-  "Sector 18 Market",
-  "Noida City Centre",
-  "Sector 62",
+  "JIIT Sector 128, Noida",
+  "Botanical Garden Metro, Noida",
+  "Sector 18 Market, Noida",
+  "Noida City Centre, Noida",
+  "Sector 62, Noida",
+  "Sector 137 Metro Station, Noida",
+  "Advant Navis Business Park, Noida",
+  "Amity University, Noida",
+  "Jaypee Institute of Information Technology, Sector 128, Noida",
+  "Noida Sector 15 Metro Station",
 ];
 
 function apiUrl(base: string, path: string): string {
@@ -35,8 +39,10 @@ export default function App() {
   const isAdminPath = window.location.pathname.replace(/\/+$/, "") === "/admin";
   const isRoleWorkspaceHost = isDriverHost || isAdminPath;
   const showInternalWorkspaces = hostname === "localhost" || hostname === "127.0.0.1";
-  const [pickup, setPickup] = useState(locations[0]);
-  const [destination, setDestination] = useState(locations[2]);
+  const [pickup, setPickup] = useState("");
+  const [destination, setDestination] = useState("");
+  const [locationBusy, setLocationBusy] = useState(false);
+  const [apiHealth, setApiHealth] = useState<"checking" | "online" | "offline">("checking");
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [mode, setMode] = useState<"ride" | "driver" | "admin" | "insights">(() =>
@@ -72,6 +78,18 @@ export default function App() {
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup.trim().length >= 3 && destination.trim().length >= 3 &&
     pickup.trim().toLocaleLowerCase("en-US") !== destination.trim().toLocaleLowerCase("en-US") && !routeLoading;
+
+  useEffect(() => {
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base) { setApiHealth("offline"); return; }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 7000);
+    fetch(apiUrl(base, "/api/v1/health"), { headers: { Accept: "application/json" }, signal: controller.signal })
+      .then(response => { if (!response.ok) throw new Error("API unavailable"); setApiHealth("online"); })
+      .catch(() => setApiHealth("offline"))
+      .finally(() => window.clearTimeout(timeout));
+    return () => { controller.abort(); window.clearTimeout(timeout); };
+  }, []);
 
   useEffect(() => {
     if (!quote?.expiresAt) return;
@@ -752,255 +770,249 @@ export default function App() {
     }
   }
 
+  async function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setNotice("This browser does not support location access. Enter your pickup address instead.");
+      return;
+    }
+    setLocationBusy(true);
+    setNotice("Finding your current location…");
+    navigator.geolocation.getCurrentPosition(async position => {
+      try {
+        const params = new URLSearchParams({
+          format: "jsonv2",
+          lat: String(position.coords.latitude),
+          lon: String(position.coords.longitude),
+          zoom: "18",
+          addressdetails: "1",
+        });
+        const response = await fetch("https://nominatim.openstreetmap.org/reverse?" + params.toString(), {
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) throw new Error("Address lookup is temporarily unavailable.");
+        const data = await response.json() as { display_name?: string };
+        if (!data.display_name) throw new Error("We could not identify an address at your location. Enter it manually.");
+        setPickup(data.display_name);
+        setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null);
+        setNotice("Pickup set to your current location. Review the address before requesting a quote.");
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Could not look up your current address.");
+      } finally { setLocationBusy(false); }
+    }, error => {
+      setLocationBusy(false);
+      setNotice(error.code === error.PERMISSION_DENIED
+        ? "Location permission was denied. Enter your pickup address manually."
+        : "We could not get your location. Check device settings or enter your pickup manually.");
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 });
+  }
+
+  function clearBookingState() {
+    setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null);
+  }
+
   function scrollToBooking() {
     document.getElementById("booking")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }
 
   return (
-    <div className={isRoleWorkspaceHost ? "app-shell role-workspace" : "app-shell"}>
-      <div className="top-strip"><span className="pulse-dot" /> <span>THE BETTER WAY TO GET THERE</span><span className="strip-divider" /> Built for the city, designed around you</div>
-      <header className="site-header">
-        <a className="brand" href="#top">
-          <span className="brand-mark"><Bike size={22} strokeWidth={2.3} /></span>
-          <span>rideforge<span className="brand-period">.</span><small>URBAN MOBILITY</small></span>
+    <div className="app-shell rideforge-app">
+      <div className="app-announcement">
+        <span className="status-indicator" data-state={apiHealth} />
+        <span>{apiHealth === "online" ? "RIDEFORGE API CONNECTED" : apiHealth === "checking" ? "CHECKING RIDEFORGE SERVICES" : "SERVICE CONNECTION UNAVAILABLE"}</span>
+        <span className="announcement-divider" />
+        <span>NOIDA · BIKE RIDE DEMO</span>
+        <span className="announcement-right">ACADEMIC PROJECT · NO LIVE TRANSPORT SERVICE</span>
+      </div>
+
+      <header className="site-header app-header">
+        <a className="brand" href="#top" aria-label="RideForge home">
+          <span className="brand-mark"><Bike size={22} strokeWidth={2.2} /></span>
+          <span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span>
         </a>
-        {!isRoleWorkspaceHost && <nav className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
-          <button className={mode === "ride" ? "nav-link active" : "nav-link"} onClick={() => { setMode("ride"); setMenuOpen(false); }}>Book a ride</button>
-          {showInternalWorkspaces && <button className={mode === "driver" ? "nav-link active" : "nav-link"} onClick={() => { setMode("driver"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Drive with us</button>}
-          {showInternalWorkspaces && <button className={mode === "admin" ? "nav-link active" : "nav-link"} onClick={() => { setMode("admin"); setAuthMode("login"); setMenuOpen(false); setNotice(""); }}>Admin console</button>}
-          <button className={mode === "insights" ? "nav-link active" : "nav-link"} onClick={() => { setMode("insights"); setMenuOpen(false); setNotice(""); document.getElementById("lab")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); }}>How it works</button>
-        </nav>}
-        {!isRoleWorkspaceHost && <div className="header-actions"><a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety first</a><button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button><button className="header-cta" onClick={scrollToBooking}>Get moving <ArrowUpRight size={16} /></button></div>}
+        <nav className={menuOpen ? "main-nav nav-open" : "main-nav"} aria-label="Main navigation">
+          <a className="nav-link active" href="#booking" onClick={() => setMenuOpen(false)}>Book a ride</a>
+          <a className="nav-link" href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a>
+          <a className="nav-link" href="/driver">Drive with us</a>
+          <a className="nav-link" href="/admin">Admin</a>
+        </nav>
+        <div className="header-actions">
+          <a href="#safety" className="safety-link"><ShieldCheck size={16} /> Safety & support</a>
+          <button className="icon-button mobile-menu" onClick={() => setMenuOpen(v => !v)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
+          <button className="header-cta" onClick={scrollToBooking}>Start booking <ArrowRight size={16} /></button>
+        </div>
       </header>
 
-      <main id="top">
-        <section className="hero">
-          <div className="hero-copy">
-            <motion.div className="eyebrow" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}><span className="eyebrow-icon"><Sparkles size={14} /></span> YOUR CITY, WITHOUT THE FRICTION</motion.div>
-            <motion.h1 initial={reduceMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.06 }}>Small ride.<br /><span>Big city energy.</span></motion.h1>
-            <p className="hero-description">Skip the gridlock, keep your day moving. A smarter bike ride starts with a clearer plan — no surprises, just the essentials.</p>
-            <div className="hero-proof"><div className="proof-icon"><Clock3 size={17} /></div><div><strong>Made for the in-between</strong><span>Quick hops, daily commutes, last-mile links.</span></div></div>
-            <div className="hero-proof"><div className="proof-icon"><Wallet size={17} /></div><div><strong>Know before you go</strong><span>Transparent estimates, with the math shown.</span></div></div>
-            <button className="hero-link" onClick={scrollToBooking}>Plan your ride <span className="round-arrow"><ArrowDown size={16} /></span></button>
-          </div>
-          <div className="hero-art" aria-label="Illustration of a city bike route" role="img">
-            <div className="art-sun" /><div className="art-orbit orbit-one" /><div className="art-orbit orbit-two" />
-            <div className="city-grid">
-              <div className="building building-a"><i /><i /><i /><i /></div><div className="building building-b"><i /><i /><i /><i /><i /><i /></div><div className="building building-c"><i /><i /><i /></div><div className="building building-d"><i /><i /><i /><i /></div><div className="building building-e"><i /><i /><i /><i /><i /></div>
-              <svg className="route-drawing" viewBox="0 0 560 420" role="presentation" aria-hidden="true"><path d="M62 312 C112 300 102 236 178 236 S244 314 310 274 S358 150 420 176 S452 242 502 142" fill="none" stroke="#fff" strokeWidth="17" strokeLinecap="round"/><path d="M62 312 C112 300 102 236 178 236 S244 314 310 274 S358 150 420 176 S452 242 502 142" fill="none" stroke="#335cff" strokeWidth="4" strokeDasharray="8 9" strokeLinecap="round"/><circle cx="62" cy="312" r="10" fill="#b9f65b" stroke="#17211d" strokeWidth="3"/><circle cx="502" cy="142" r="11" fill="#335cff" stroke="#fff" strokeWidth="4"/></svg>
-              <div className="map-label label-start"><span className="label-dot" /> YOUR START</div><div className="map-label label-end"><MapPin size={13} /> THE GOOD PART</div>
-              <motion.div className="bike-token" animate={reduceMotion ? {} : { y: [0, -5, 0], rotate: [0, -2, 0] }} transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut" }}><Bike size={35} strokeWidth={1.8} /></motion.div>
-              <div className="art-sticker"><span>LESS WAITING</span><strong>MORE LIVING<span>↗</span></strong></div>
+      <main id="top" className="app-main">
+        <section className="booking-hero" id="booking">
+          <div className="booking-hero-copy">
+            <div className="eyebrow"><span className="eyebrow-dot" /> SIMPLE CITY RIDES, BUILT AROUND YOU</div>
+            <h1>Your ride.<br /><em>Your route.<br />No guesswork.</em></h1>
+            <p className="hero-description">Set your pickup and destination, see a real road route and a server-calculated fare, then request a ride. Clear steps, clear status.</p>
+            <div className="hero-benefits">
+              <div><span className="benefit-icon"><MapPin size={16} /></span><span><strong>Pickup that makes sense</strong><small>Use your location or enter an address.</small></span></div>
+              <div><span className="benefit-icon"><Wallet size={16} /></span><span><strong>Fare before confirmation</strong><small>Only show prices returned by the API.</small></span></div>
+              <div><span className="benefit-icon"><ShieldCheck size={16} /></span><span><strong>Ride status you can follow</strong><small>Live events with polling recovery.</small></span></div>
             </div>
-            <div className="art-caption"><span className="caption-mark"><Navigation size={15} /></span><span><strong>Take the scenic shortcut.</strong><small>Every minute has somewhere to be.</small></span><ArrowUpRight size={17} /></div>
+            <a className="text-link" href="#how-it-works">See how RideForge works <ArrowRight size={15} /></a>
           </div>
-          <div className="hero-index"><span>01</span><i /> A NEW KIND OF CITY RIDE</div>
-        </section>
 
-        {(mode === "driver" || mode === "admin") && <OperationsWorkspace mode={mode} />}
+          <div className="booking-card booking-card-primary">
+            <div className="card-heading booking-card-heading">
+              <div><span className="card-eyebrow">01 / PLAN YOUR JOURNEY</span><h2>Where are you going?</h2><p>Choose a pickup and drop-off to get started.</p></div>
+              <span className="card-step">01 <span>/ 03</span></span>
+            </div>
 
-        <section className="booking-section" id="booking">
-          <div className="section-intro"><span className="section-kicker">LET'S GET YOU THERE</span><h2>Your next stop<br className="mobile-break" /> is closer than you think.</h2><p>Two locations. One easy plan.</p></div>
-          <div className="booking-layout">
-            <div className="booking-card">
-              <div className="card-heading"><div><span className="card-eyebrow">RIDE PLANNER</span><h3>Where to?</h3></div><span className="demo-badge"><span /> PREVIEW</span></div>
-              <div className="location-fields">
-                <div className="location-rail"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
-                <div className="field-stack">
-                  <label className="location-field"><span>Pickup point</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Pickup point" disabled={apiState === "checking"} placeholder="Search pickup in Noida" autoComplete="off" /></div></label>
-                  <div className="field-separator" />
-                  <label className="location-field"><span>Drop-off point</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} aria-label="Drop-off point" disabled={apiState === "checking"} placeholder="Search destination in Noida" autoComplete="off" /></div></label>
-                </div>
-                <datalist id="rideforge-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
-                <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null); setNotice(""); }} disabled={apiState === "checking"}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
+            <div className="location-fields">
+              <div className="location-rail" aria-hidden="true"><span className="rail-origin" /><span className="rail-line" /><span className="rail-destination" /></div>
+              <div className="field-stack">
+                <label className="location-field"><span>Pickup location</span><div className="field-control"><MapPin size={17} /><input list="rideforge-location-suggestions" value={pickup} onChange={e => { setPickup(e.target.value); clearBookingState(); setNotice(""); }} aria-label="Pickup point" disabled={routeLoading} placeholder="Enter pickup address or landmark" autoComplete="street-address" /></div></label>
+                <div className="field-separator" />
+                <label className="location-field"><span>Drop-off location</span><div className="field-control"><Crosshair size={17} /><input list="rideforge-location-suggestions" value={destination} onChange={e => { setDestination(e.target.value); clearBookingState(); setNotice(""); }} aria-label="Drop-off point" disabled={routeLoading} placeholder="Where do you want to go?" autoComplete="off" /></div></label>
               </div>
-              <div className="quote-row"><div className="quote-icon"><Route size={17} /></div><div className="quote-details"><strong>Estimated route</strong><span>{routeLoading ? "Calculating route and fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · ${route.path}` : routeError || "Choose two locations and request a server quote to calculate a road route."}</span></div><button className="text-action" onClick={() => setNotice(route ? `Route calculated with ${route.provider}. Travel time is an estimate and may not include live traffic.` : "A route is not available yet. Check the locations or try again.")} aria-label="About route estimate"><CircleHelp size={17} /></button></div>
-              <div className="fare-row"><div><span className="fare-label">ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? " awaiting server quote" : " server quote"}</span></div></div><div className="fare-note"><Check size={14} /> {quote ? "Quote from API" : "No invented price"}<br /><small>{quote ? (quote.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Check quote expiry before booking") : "A fare appears only after the server responds."}</small></div></div>
-              {quote && <div className="fare-breakdown" aria-label="Fare breakdown">
-                <div><span>Base fare</span><strong>₹{(quote.baseFarePaise / 100).toFixed(2)}</strong></div>
-                <div><span>Distance charge · {quote.distanceKm.toFixed(2)} km</span><strong>₹{(quote.distanceFarePaise / 100).toFixed(2)}</strong></div>
-                <p>Demo tariff: ₹20 base + ₹11/km, rounded up to the next paise. This is not a commercial fare commitment.</p>
-              </div>}
-              <button className="book-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>{apiState === "checking" ? "Checking quote…" : "Get server fare quote"} <ArrowRight size={18} /></button>
-              {((quote && !ride) || mode !== "ride") && account?.role !== "driver" && account?.role !== "admin" && (
-                <div className="auth-panel">
-                  {account ? (
-                    <div className="auth-session">
-                      <span><Check size={15} /> Signed in as <strong>{account.email}</strong></span>
-                      <button className="text-action" onClick={() => { setAccount(null); setProfileName(""); setSupportReports([]); setPassengerHistory([]); setReceiptRideId(null); }}>Sign out</button>
-                      <button className="book-button" onClick={createBooking}>Confirm ride request <ArrowRight size={18} /></button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="auth-switch" role="group" aria-label="Account action">
-                        <button className={authMode === "register" ? "auth-tab selected" : "auth-tab"} onClick={() => setAuthMode("register")}>Create account</button>
-                        <button className={authMode === "login" ? "auth-tab selected" : "auth-tab"} onClick={() => setAuthMode("login")}>Sign in</button>
-                      </div>
-                      {authMode === "register" && (
-                        <label className="auth-field"><span>Your name</span><input value={authName} onChange={event => setAuthName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Full name" /></label>
-                      )}
-                      <label className="auth-field"><span>Email</span><input type="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></label>
-                      <label className="auth-field"><span>Password</span><input type="password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} maxLength={128} minLength={authMode === "register" ? 12 : 1} autoComplete={authMode === "register" ? "new-password" : "current-password"} placeholder={authMode === "register" ? "At least 12 characters" : "Your password"} /></label>
-                      <button className="book-button" onClick={authenticate}>{authMode === "register" ? "Create passenger account" : mode === "ride" ? "Sign in" : "Sign in securely"} <ArrowRight size={18} /></button>
-                      <p className="auth-caption">Your access token is kept in memory and cleared when you sign out or refresh.</p>
-                    </>
-                  )}
-                </div>
-              )}
-              {ride && (
-                <div className="ride-confirmation" role="status">
-                  <span className="confirmation-icon"><Check size={17} /></span>
-                  <div><strong>{ride.status === "failed" ? "No driver found" : ride.status === "matching" || ride.status === "requested" ? "Finding your driver" : "Ride request created"}</strong><span>Reference: {ride.rideId}</span><small>{ride.status === "failed" ? "We could not find an eligible driver for this request. No ride was assigned; you can request another ride." : `Status: ${ride.status.replaceAll("_", " ")}. Updates refresh while this page is visible.`}</small></div>
-                  {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && (
-                    <button className="text-action" onClick={cancelRide}>Cancel request</button>
-                  )}
-                  <button className="text-action" onClick={() => { setRide(null); setQuote(null); setNotice("Ride request saved. You can request a new quote for another trip."); }}>New ride</button>
-                </div>
-              )}
-              {account?.role === "driver" && (
-                <section className="driver-panel" aria-labelledby="driver-console-title">
-                  <div className="driver-panel-head">
-                    <div><h3 id="driver-console-title">Availability and rides</h3><p>Availability and ride actions use the API.</p></div>
-                    <button className={driverOnline ? "driver-online online" : "driver-online"} onClick={toggleDriverAvailability}>{driverOnline ? "Go offline" : "Go online"}</button>
-                    <button className="text-action" onClick={() => { void signOutDriver(); }}>Sign out</button>
+              <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); clearBookingState(); setNotice(""); }} disabled={routeLoading || !pickup || !destination}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
+              <datalist id="rideforge-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
+            </div>
+
+            <div className="booking-quick-actions">
+              <button className="location-action" type="button" onClick={() => void useCurrentLocation()} disabled={locationBusy || routeLoading}>
+                <LocateFixed size={15} /> {locationBusy ? "Finding your location…" : "Use my current location"}
+              </button>
+              <span>Suggestions are focused on Noida. You can also type a full address.</span>
+            </div>
+
+            <div className="quote-row">
+              <div className="quote-icon"><Route size={18} /></div>
+              <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Enter both locations and request a quote. No price is shown until the server confirms it."}</span></div>
+              <button className="text-action help-button" onClick={() => setNotice("RideForge uses server-side geocoding and road routing. Fare is a demo estimate, not a commercial price commitment.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
+            </div>
+
+            <div className="fare-row">
+              <div><span className="fare-label">YOUR ESTIMATED FARE</span><div className="fare-amount">{fare === null ? "—" : `₹${fare}`}<span>{fare === null ? "No quote yet" : "Server estimate"}</span></div></div>
+              <div className="fare-note"><span className="fare-check"><Check size={13} /></span><span>{quote ? "Quote verified" : "No made-up prices"}<small>{quote?.expiresAt ? `Valid until ${new Date(quote.expiresAt).toLocaleTimeString()}` : "Price appears after a valid API response."}</small></span></div>
+            </div>
+            {quote && <div className="fare-breakdown" aria-label="Fare breakdown">
+              <div><span>Base fare</span><strong>₹{(quote.baseFarePaise / 100).toFixed(2)}</strong></div>
+              <div><span>Distance charge · {quote.distanceKm.toFixed(2)} km</span><strong>₹{(quote.distanceFarePaise / 100).toFixed(2)}</strong></div>
+              <p>Demo tariff only. This is not a commercial fare commitment or a payment request.</p>
+            </div>}
+
+            <button className="book-button quote-button" onClick={requestRide} disabled={!valid || apiState === "checking" || apiHealth === "offline"}>
+              {apiState === "checking" ? <><span className="button-spinner" /> Calculating route & fare…</> : <>Get fare estimate <ArrowRight size={17} /></>}
+            </button>
+            {!pickup.trim() || !destination.trim() ? <p className="form-hint">Add both locations to continue. Try “JIIT Sector 128, Noida” and “Botanical Garden Metro, Noida”.</p> : !valid ? <p className="form-hint">Pickup and drop-off must be different locations.</p> : null}
+            {apiHealth === "offline" && <div className="service-warning" role="status">The RideForge API is not responding. Booking is disabled until the service is reachable. Please try again later.</div>}
+
+            {((quote && !ride) || account) && account?.role !== "driver" && account?.role !== "admin" && (
+              <div className="auth-panel booking-auth-panel">
+                {account ? (
+                  <div className="auth-session">
+                    <div className="session-identity"><span className="confirmation-icon"><Check size={15} /></span><span><strong>You're signed in</strong><small>{account.displayName || account.email}</small></span></div>
+                    <button className="text-action" onClick={() => { setAccount(null); setProfileName(""); setSupportReports([]); setPassengerHistory([]); setReceiptRideId(null); }}>Sign out</button>
+                    {quote && !ride && <button className="book-button" onClick={createBooking}>Confirm ride request <ArrowRight size={17} /></button>}
                   </div>
-                  <p className="auth-caption">Going online uses your device location. Allow location access when prompted.</p>
-                  <button className="text-action" onClick={refreshDriverQueue}>Refresh ride queue</button>
-                  {driverRide ? (
-                    <div className="driver-active-ride">
-                      <strong>Active ride</strong><span>Reference: {driverRide.rideId}</span><span>Status: {driverRide.status}</span>
-                      {driverRide.status === "assigned" && <button className="book-button" onClick={() => advanceDriverRide("driver_arriving")}>Mark arriving</button>}
-                      {driverRide.status === "driver_arriving" && <button className="book-button" onClick={() => advanceDriverRide("in_progress")}>Start trip</button>}
-                      {driverRide.status === "in_progress" && <button className="book-button" onClick={() => advanceDriverRide("completed")}>Complete trip</button>}
+                ) : (
+                  <>
+                    <div className="auth-panel-heading"><div><span className="card-eyebrow">02 / YOUR ACCOUNT</span><h3>Almost there. Who's riding?</h3><p>Sign in or create an account to request this ride.</p></div></div>
+                    <div className="auth-switch" role="group" aria-label="Account action">
+                      <button type="button" className={authMode === "register" ? "auth-tab selected" : "auth-tab"} onClick={() => setAuthMode("register")}>Create account</button>
+                      <button type="button" className={authMode === "login" ? "auth-tab selected" : "auth-tab"} onClick={() => setAuthMode("login")}>Sign in</button>
                     </div>
-                  ) : (
-                    <div className="driver-queue">
-                      {driverQueue.map(item => {
-                        const expiresAt = item.offerExpiresAt ? Date.parse(item.offerExpiresAt) : Number.NaN;
-                        const secondsLeft = Number.isFinite(expiresAt) ? Math.max(0, Math.ceil((expiresAt - clockNow) / 1000)) : null;
-                        return <article className="driver-queue-item" key={item.rideId}>
-                          <div><strong>{item.pickup} → {item.destination}</strong><small>{(item.distanceMeters / 1000).toFixed(1)} km · ₹{(item.farePaise / 100).toFixed(2)}</small><small role="timer" aria-live="off">{secondsLeft === null ? "Offer expires soon" : secondsLeft > 0 ? `Offer expires in ${secondsLeft}s` : "Offer expired — refreshing…"}</small></div>
-                          <button onClick={() => acceptDriverRide(item.rideId)} disabled={!driverOnline || secondsLeft === 0}>Accept</button>
-                        </article>;
-                      })}
-                      {driverQueue.length === 0 && <p className="auth-caption">{driverOnline ? "No open requests right now. Refresh to check again." : "Go online to update your location and see open requests."}</p>}
-                    </div>
-                  )}
-                </section>
-              )}
-              {account?.role === "admin" && (
-                <section className="driver-panel" aria-labelledby="admin-console-title">
-                  <div className="driver-panel-head">
-                    <div><h3 id="admin-console-title">Admin overview</h3><p>Operational counts from PostgreSQL.</p></div>
-                    <button className="driver-online" onClick={loadAdminMetrics}>Refresh metrics</button>
-                    <button className="text-action" onClick={() => { setAccount(null); setAdminMetrics(null); setSupportReports([]); setPassengerHistory([]); setReceiptRideId(null); }}>Sign out</button>
-                  </div>
-                  {adminMetrics && <div className="admin-metrics">
-                    <strong>Online drivers: {adminMetrics.onlineDrivers}</strong>
-                    {Object.entries(adminMetrics.ridesByStatus).map(([status, count]) => <span key={status}>{status.replaceAll("_", " ")} <b>{count}</b></span>)}
-                  </div>}
-                </section>
-              )}
-              {account?.role === "passenger" && (
-                <section className="driver-panel" aria-labelledby="passenger-profile-title">
-                  <div className="driver-panel-head">
-                    <div><h3 id="passenger-profile-title">Your profile</h3><p>Update the display name shown on your account.</p></div>
-                  </div>
+                    {authMode === "register" && <label className="auth-field"><span>Your name</span><input required value={authName} onChange={event => setAuthName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Full name" /></label>}
+                    <label className="auth-field"><span>Email address</span><input required type="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></label>
+                    <label className="auth-field"><span>Password</span><input required type="password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} maxLength={128} minLength={authMode === "register" ? 12 : 1} autoComplete={authMode === "register" ? "new-password" : "current-password"} placeholder={authMode === "register" ? "At least 12 characters" : "Your password"} /></label>
+                    <button className="book-button" onClick={authenticate} disabled={!authEmail.trim() || !authPassword || (authMode === "register" && (!authName.trim() || authPassword.length < 12))}>{authMode === "register" ? "Create passenger account" : "Sign in and continue"} <ArrowRight size={17} /></button>
+                    <p className="auth-caption">Email verification may be required. Your access token stays in memory and is cleared when you refresh or sign out.</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {ride && <div className="ride-confirmation ride-status-card" role="status">
+              <div className="confirmation-icon"><Check size={16} /></div>
+              <div className="ride-status-copy"><span className="card-eyebrow">03 / RIDE STATUS</span><strong>{ride.status === "failed" ? "No driver found" : ride.status === "matching" || ride.status === "requested" ? "Finding your driver" : "Your ride request is active"}</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status.replaceAll("_", " ")} · Updates refresh automatically while this page is open.</small></div>
+              <div className="ride-status-actions">
+                {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && <button className="outline-button" onClick={cancelRide}>Cancel ride</button>}
+                <button className="text-action" onClick={() => { setRide(null); setQuote(null); setBookingKey(null); setNotice("Your previous ride remains in trip history. You can plan another ride."); }}>New ride</button>
+              </div>
+            </div>}
+
+            {account?.role === "passenger" && (
+              <div className="passenger-tools">
+                <details className="tool-disclosure"><summary>My profile</summary>
                   <label className="auth-field"><span>Display name</span><input value={profileName} onChange={event => setProfileName(event.target.value)} maxLength={120} autoComplete="name" /></label>
-                  <button className="outline-button" onClick={saveProfile} disabled={profileBusy || profileName.trim().length === 0}>
-                    {profileBusy ? "Saving profile…" : "Save profile"}
-                  </button>
-                  <p className="auth-caption">Phone verification, verified contact details and notification preferences are not configured in this demo.</p>
-                </section>
-              )}
-              {account?.role === "passenger" && (
-                <section className="driver-panel" aria-labelledby="passenger-history-title">
-                  <div className="driver-panel-head">
-                    <div><h3 id="passenger-history-title">Your trip history</h3><p>Saved rides from the API, including cancelled and completed trips.</p></div>
-                    <button className="outline-button" onClick={loadPassengerHistory} disabled={historyBusy}>{historyBusy ? "Loading…" : "Refresh trip history"}</button>
-                  </div>
-                  {passengerHistory.length === 0 ? <p className="auth-caption">Refresh history to load your latest saved trips.</p> : passengerHistory.map(item => <article className="ride-confirmation" key={item.rideId}>
-                    <div><strong>{item.pickup} → {item.destination}</strong><span>Status: {item.status.replaceAll("_", " ")} · ₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()} · {item.rideId}</small></div>
-                    {item.status === "completed" && <button className="text-action" onClick={() => setReceiptRideId(item.rideId)}>View demo receipt</button>}
+                  <button className="outline-button" onClick={saveProfile} disabled={profileBusy || !profileName.trim()}>{profileBusy ? "Saving…" : "Save profile"}</button>
+                  <p className="auth-caption">Phone verification and notification preferences are not configured in this demo.</p>
+                </details>
+                <details className="tool-disclosure"><summary>My trip history</summary>
+                  <button className="outline-button" onClick={loadPassengerHistory} disabled={historyBusy}>{historyBusy ? "Loading…" : "Refresh trip history"}</button>
+                  {passengerHistory.length === 0 ? <p className="auth-caption">Your saved trips will appear here after you refresh.</p> : passengerHistory.map(item => <article className="ride-confirmation history-item" key={item.rideId}>
+                    <div><strong>{item.pickup} → {item.destination}</strong><span>{item.status.replaceAll("_", " ")} · ₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)}</span><small>{new Date(item.createdAt).toLocaleString()}</small></div>
+                    {item.status === "completed" && <button className="text-action" onClick={() => setReceiptRideId(item.rideId)}>View receipt</button>}
                   </article>)}
                   {receiptRideId && passengerHistory.find(item => item.rideId === receiptRideId && item.status === "completed") && (() => {
                     const item = passengerHistory.find(entry => entry.rideId === receiptRideId)!;
-                    return <div className="print-receipt">
-                      <div className="card-heading"><div><span className="card-eyebrow">RIDEFORGE · DEMO RECEIPT</span><h3>Trip receipt</h3></div><button className="outline-button" onClick={() => window.print()}>Print receipt</button></div>
-                      <p><strong>Trip reference</strong><br />{item.rideId}</p>
-                      <p><strong>Pickup</strong><br />{item.pickup}</p>
-                      <p><strong>Destination</strong><br />{item.destination}</p>
-                      <p><strong>Completed</strong><br />{item.completedAt ? new Date(item.completedAt).toLocaleString() : new Date(item.createdAt).toLocaleString()}</p>
-                      <p><strong>Final fare</strong><br />₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)} {item.currency}</p>
-                      <p className="auth-caption">Demo trip record only. Not a tax invoice, proof of payment, or driver payout statement.</p>
-                    </div>;
+                    return <div className="print-receipt"><div className="card-heading"><div><span className="card-eyebrow">RIDEFORGE · DEMO RECEIPT</span><h3>Trip receipt</h3></div><button className="outline-button" onClick={() => window.print()}>Print receipt</button></div><p><strong>Trip reference</strong><br />{item.rideId}</p><p><strong>Pickup</strong><br />{item.pickup}</p><p><strong>Destination</strong><br />{item.destination}</p><p><strong>Completed</strong><br />{item.completedAt ? new Date(item.completedAt).toLocaleString() : new Date(item.createdAt).toLocaleString()}</p><p><strong>Final fare</strong><br />₹{((item.finalFarePaise ?? item.farePaise) / 100).toFixed(2)} {item.currency}</p><p className="auth-caption">Demo trip record only. Not a tax invoice, proof of payment, or driver payout statement.</p></div>;
                   })()}
-                </section>
-              )}
-              {account && (account.role === "passenger" || account.role === "driver") && (
-                <section className="driver-panel support-panel" aria-labelledby="support-report-title">
-                  <div className="driver-panel-head">
-                    <div><h3 id="support-report-title">Support and incident report</h3><p>Submit a report tied to your current ride, or leave the ride reference blank. Reports are visible to authorized administrators; do not include passwords, payment credentials, or unnecessary personal data.</p></div>
-                    <button className="text-action" type="button" onClick={loadSupportReports}>Refresh my reports</button>
-                  </div>
-                  <form className="auth-panel" onSubmit={submitSupportReport}>
-                    <label className="auth-field"><span>What is this about?</span>
-                      <select value={supportCategory} onChange={event => setSupportCategory(event.target.value)}>
-                        <option value="booking">Booking or trip status</option>
-                        <option value="driver">Driver or vehicle</option>
-                        <option value="payment">Fare or payment</option>
-                        <option value="safety">Safety concern</option>
-                        <option value="technical">Technical issue</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </label>
-                    <label className="auth-field"><span>Describe the issue (10–2,000 characters)</span>
-                      <textarea className="support-description" minLength={10} maxLength={2000} required value={supportDescription} onChange={event => setSupportDescription(event.target.value)} placeholder="What happened, and what should the team review?" rows={4} />
-                    </label>
-                    {supportCategory === "safety" && <p className="support-disclaimer" role="note">This creates a report for review. It does not contact emergency services or guarantee an immediate response. If anyone is in immediate danger, contact local emergency services directly.</p>}
-                    <button className="book-button" type="submit" disabled={supportBusy || supportDescription.trim().length < 10}>{supportBusy ? "Submitting report…" : "Submit support report"} <ArrowRight size={17} /></button>
+                </details>
+                <details className="tool-disclosure"><summary>Help & support</summary>
+                  <p className="auth-caption">Reports are sent to authorized administrators for review. This demo does not contact emergency services.</p>
+                  <form className="auth-panel support-form" onSubmit={submitSupportReport}>
+                    <label className="auth-field"><span>What is this about?</span><select value={supportCategory} onChange={event => setSupportCategory(event.target.value)}><option value="booking">Booking or trip status</option><option value="driver">Driver or vehicle</option><option value="payment">Fare or payment</option><option value="safety">Safety concern</option><option value="technical">Technical issue</option><option value="other">Other</option></select></label>
+                    <label className="auth-field"><span>Describe the issue (10–2,000 characters)</span><textarea className="support-description" minLength={10} maxLength={2000} required value={supportDescription} onChange={event => setSupportDescription(event.target.value)} placeholder="Tell us what happened and what should be reviewed." rows={4} /></label>
+                    {supportCategory === "safety" && <p className="support-disclaimer" role="note">This creates a report for review. It does not contact emergency services. If anyone is in immediate danger, contact local emergency services directly.</p>}
+                    <button className="book-button" type="submit" disabled={supportBusy || supportDescription.trim().length < 10}>{supportBusy ? "Sending report…" : "Submit report"} <ArrowRight size={16} /></button>
                   </form>
-                  <div className="driver-queue"><h3>My recent reports</h3>
-                    {supportReports.length === 0 ? <p>No reports loaded yet. Use “Refresh my reports” to check the server.</p> : supportReports.map(report => <article className="ride-confirmation" key={report.id}>
-                      <div><strong>#{report.id} · {report.category.replaceAll("_", " ")}</strong><span>Status: {report.status.replaceAll("_", " ")}</span><small>{new Date(report.createdAt).toLocaleString()}{report.resolutionNote ? " · " + report.resolutionNote : ""}</small></div>
-                    </article>)}
-                  </div>
-                </section>
-              )}
-              <div className="card-footnote"><ShieldCheck size={14} /> Quotes and rides persist through the API. The backend creates time-limited offers for eligible, approved drivers who are online with a fresh location. Authenticated ride-status events stream with polling/reconnect recovery. Driver location is shared only while online; no historical GPS trail is retained. This is an academic demo, not a live transport service.</div>
-              <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
-            </div>
-            <div className="route-card">
-              <div className="route-card-top"><div><span className="card-eyebrow">THE SHORT VERSION</span><h3>Your route, at a glance.</h3></div><span className="compass-chip"><Compass size={16} /></span></div>
-              <div className="mini-map" role="group" aria-label={route ? `Route map from ${pickup} to ${destination}` : "Route map"}>
-                <Suspense fallback={<div className="route-map-empty" role="status">Loading interactive map…</div>}>
-                  {route
-                    ? <RouteMap geometry={route.geometry} pickup={pickup} destination={destination} driverLocation={rideDriverLocation} />
-                    : <div className="route-map-empty" role="status">A real road route will appear here when routing succeeds.</div>}
-                </Suspense>
-                <button className="locate-button" onClick={() => setNotice("Device location is not requested in this preview. Choose a pickup from the location list.")} aria-label="About current location"><LocateFixed size={17} /></button>
+                  <button className="outline-button" onClick={loadSupportReports}>Refresh my reports</button>
+                  {supportReports.map(report => <article className="ride-confirmation history-item" key={report.id}><div><strong>#{report.id} · {report.category.replaceAll("_", " ")}</strong><span>{report.status.replaceAll("_", " ")}</span><small>{new Date(report.createdAt).toLocaleString()}</small></div></article>)}
+                </details>
               </div>
-              <div className="route-stats"><div><span><Route size={15} /> DISTANCE</span><strong>{route ? route.km.toFixed(1) : "—"} <small>km</small></strong></div><div><span><Clock3 size={15} /> EST. TIME</span><strong>{route ? route.mins : "—"} <small>min</small></strong></div><div><span><Gauge size={15} /> ROUTE TYPE</span><strong>{route ? "Road" : "—"} <small>{route ? "route" : "unavailable"}</small></strong></div></div>
-              <div className="route-disclaimer"><span className="disclaimer-dot" /> {route ? `Real road geometry via ${route.provider}; live traffic may not be included.` : routeLoading ? "Looking up locations and calculating road geometry…" : routeError || "A route will appear when a real road route is available."}</div>
+            )}
+
+            <AnimatePresence>{notice && <motion.div className={apiState === "offline" ? "inline-notice warning" : "inline-notice"} role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}>{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></motion.div>}</AnimatePresence>
+            <div className="card-footnote"><ShieldCheck size={14} /><span>Your fare and ride status come from the RideForge API. This is an academic demonstration: no live transport service, emergency response or payment processing is provided.</span></div>
+          </div>
+        </section>
+
+        <section className="route-section" aria-labelledby="route-heading">
+          <div className="route-section-heading"><div><span className="section-kicker">YOUR JOURNEY, MADE CLEAR</span><h2 id="route-heading">See the route.<br /><em>Know the details.</em></h2></div><p>Once a quote succeeds, the real road geometry and trip estimate appear here. No simulated driver positions or made-up route metrics.</p></div>
+          <div className="route-card route-card-large">
+            <div className="route-card-top"><div><span className="card-eyebrow">ROUTE PREVIEW</span><h3>{route ? `${pickup} to ${destination}` : "Your route will appear here"}</h3></div><span className="route-live-badge"><span /> {route ? "ROUTE READY" : "WAITING FOR LOCATIONS"}</span></div>
+            <div className="mini-map" role="group" aria-label={route ? `Route map from ${pickup} to ${destination}` : "Route map"}>
+              <Suspense fallback={<div className="route-map-empty" role="status">Loading map…</div>}>
+                {route ? <RouteMap geometry={route.geometry} pickup={pickup} destination={destination} driverLocation={rideDriverLocation} /> : <div className="route-map-empty"><div className="empty-map-icon"><Route size={26} /></div><strong>Nothing plotted yet</strong><span>Enter two locations above and get a fare estimate to see your road route.</span></div>}
+              </Suspense>
+              {route && <div className="map-attribution-note">Map data © OpenStreetMap contributors</div>}
             </div>
+            <div className="route-stats"><div><span><Route size={15} /> DISTANCE</span><strong>{route ? route.km.toFixed(1) : "—"} <small>km</small></strong></div><div><span><Clock3 size={15} /> EST. TIME</span><strong>{route ? route.mins : "—"} <small>min</small></strong></div><div><span><Gauge size={15} /> ROUTE TYPE</span><strong>{route ? "Road" : "—"} <small>{route ? "route" : "not calculated"}</small></strong></div></div>
+            <div className="route-disclaimer"><span className="disclaimer-dot" /> {route ? `Real road geometry via ${route.provider}; travel time may not include live traffic.` : routeLoading ? "Calculating route from the selected locations…" : routeError || "Your map and route metrics will load after a successful server quote."}</div>
           </div>
         </section>
 
-        <section className="value-section" id="safety"><div className="value-header"><div><span className="section-kicker">THE RIDEFORGE DIFFERENCE</span><h2>Less guesswork.<br />More go-time.</h2></div><p>Good mobility is not just getting there. It's knowing what's happening at every step.</p></div>
-          <div className="value-grid">
-            <article className="value-card"><div className="value-icon lime"><Wallet size={21} /></div><span className="value-number">01 / CLARITY</span><h3>Price, made plain.</h3><p>See the estimate and how it's calculated before you commit. No mystery math.</p><a href="#booking" onClick={e => { e.preventDefault(); scrollToBooking(); }}>Plan a ride <ArrowRight size={15} /></a></article>
-            <article className="value-card"><div className="value-icon blue"><ShieldCheck size={21} /></div><span className="value-number">02 / CONFIDENCE</span><h3>Safety isn't a footnote.</h3><p>Trip status, support and sharing belong in the experience — not buried in settings.</p><a href="#safety" onClick={e => { e.preventDefault(); setNotice("Safety workflows are planned for the operational milestone."); }}>Our approach <ArrowRight size={15} /></a></article>
-            <article className="value-card"><div className="value-icon peach"><Sparkles size={21} /></div><span className="value-number">03 / SMARTER SYSTEMS</span><h3>Smart, with receipts.</h3><p>Our DSA lab will show why a route or driver ranks first — backed by measurable results.</p><a href="#lab" onClick={e => { e.preventDefault(); document.getElementById("lab")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); }}>Meet the engine <ArrowRight size={15} /></a></article>
+        <section className="how-section" id="how-it-works">
+          <div className="section-kicker">HOW RIDEFORGE WORKS</div>
+          <h2>Three clear steps.<br /><em>One less thing to worry about.</em></h2>
+          <div className="how-grid">
+            <article><span>01</span><MapPin size={21} /><h3>Choose your locations</h3><p>Enter your pickup and destination, or use your device location for pickup.</p></article>
+            <article><span>02</span><Route size={21} /><h3>Review your fare</h3><p>We request a road route and a transparent demo fare from the server before you confirm.</p></article>
+            <article><span>03</span><Bike size={21} /><h3>Request and follow</h3><p>Sign in, request your ride and follow the status updates. Eligible drivers must be approved and online.</p></article>
           </div>
         </section>
 
-        <section className="lab-section" id="lab"><div className="lab-orb"><div className="orb-ring ring-a" /><div className="orb-ring ring-b" /><div className="orb-core"><Bike size={30} /></div><span className="orb-node node-a" /><span className="orb-node node-b" /><span className="orb-node node-c" /></div><div className="lab-copy"><span className="section-kicker">UNDER THE HOOD</span><h2>Not just a pretty route.<br /><em>A smarter one.</em></h2><p>Behind the ride is a C++ routing and dispatch engine. We’re building the tools to inspect the path, understand driver selection, and benchmark every decision instead of calling it “AI” and hoping nobody asks.</p><div className="lab-pills"><span><Route size={14} /> Dijkstra routing</span><span><Gauge size={14} /> Benchmarks</span><span><Sparkles size={14} /> Explainable matching</span></div><button className="outline-button" onClick={() => { setMode("insights"); setNotice("DSA explorer is planned: this UI foundation will connect to measured backend results, not fabricated metrics."); document.getElementById("booking")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); }}>Explore the engine <ArrowUpRight size={16} /></button></div></section>
-
-        <section className="closing-cta"><div><span className="section-kicker">YOUR CITY IS CALLING</span><h2>Make the next move<br />a little lighter.</h2></div><button onClick={scrollToBooking}>Plan your first route <ArrowRight size={17} /></button><span className="cta-decoration">↗</span></section>
+        <section className="safety-section" id="safety">
+          <div className="safety-icon"><ShieldCheck size={24} /></div>
+          <div><span className="section-kicker">SAFETY & TRANSPARENCY</span><h2>Clear about what works — and what doesn't.</h2><p>RideForge is a portfolio and academic demo, not an operating taxi service. It does not process payments, verify identity documents, contact emergency services or guarantee a driver. Do not use it to arrange real-world travel.</p></div>
+          <a href="/driver" className="outline-button">Driver workspace <ArrowRight size={15} /></a>
+        </section>
       </main>
 
-      <footer className="site-footer"><a className="brand footer-brand" href="#top"><span className="brand-mark"><Bike size={20} /></span><span>rideforge<span className="brand-period">.</span><small>URBAN MOBILITY</small></span></a><span className="footer-note">A portfolio project in progress. No live rides or payments.</span><div className="footer-links"><a href="#booking">Ride planner</a><a href="#safety">Safety</a><a href="#lab">DSA lab</a><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={13} /></a></div><span className="copyright">© 2026 RIDEFORGE LABS</span></footer>
-      <div className="mobile-bottom-bar"><span><small>ESTIMATED FARE</small><strong>{fare === null ? "—" : `₹${fare}`}</strong></span><button onClick={scrollToBooking}>Plan a ride <ArrowRight size={16} /></button></div>
+      <footer className="site-footer app-footer">
+        <a className="brand footer-brand" href="#top"><span className="brand-mark"><Bike size={20} /></span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
+        <span className="footer-note">Built for learning. Designed for clear journeys.</span>
+        <div className="footer-links"><a href="#booking">Book a ride</a><a href="#how-it-works">How it works</a><a href="/driver">Driver portal</a><a href="/admin">Admin portal</a><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">GitHub</a></div>
+        <span className="copyright">© 2026 RIDEFORGE</span>
+      </footer>
+      <div className="mobile-bottom-bar"><span><small>ESTIMATED FARE</small><strong>{fare === null ? "—" : `₹${fare}`}</strong></span><button onClick={scrollToBooking}>Book a ride <ArrowRight size={16} /></button></div>
     </div>
   );
 }
