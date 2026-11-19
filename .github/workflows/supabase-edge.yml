@@ -85,7 +85,7 @@ jobs:
           status="$(curl --silent --show-error --output "$response" --write-out '%{http_code}' --max-time 35 \
             --header 'Content-Type: application/json' \
             --header 'Accept: application/json' \
-            --data-binary '{"pickup":{"label":"JIIT Sector 128, Noida"},"destination":{"label":"Sector 18 Market, Noida"}}' \
+            --data-binary '{"pickup":{"label":"JIIT Sector 128, Noida","latitude":28.5193178,"longitude":77.3659633},"destination":{"label":"Sector 18 Market, Noida","latitude":28.5702711,"longitude":77.3228443}}' \
             'https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api/api/v1/routes/quote')"
           if [ "$status" != "200" ]; then
             echo "Live route quote returned HTTP $status"
