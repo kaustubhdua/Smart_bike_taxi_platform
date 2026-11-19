@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.skip(!process.env.RIDEFORGE_LIVE_E2E, "Runs only for the one-time post-deploy production acceptance check.");
 
 test("production passenger can receive a real Noida route quote", async ({ page }) => {
-  const productionUrl = "https://smart-bike-taxi-platform.vercel.app/";
+  const productionUrl = process.env.RIDEFORGE_PRODUCTION_URL ?? "https://rideforge-web.onrender.com/";
 
   await expect.poll(async () => {
     try {
