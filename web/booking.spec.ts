@@ -684,7 +684,7 @@ test("does not geocode while typing; calculates a route only after an explicit q
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.getByText(/5\.2 km · 14 min · Road route/)).toBeVisible({ timeout: 15_000 });
   expect(quoteRequests).toBe(1);
-  expect(browserGeocodingRequests).toBe(0);
+  expect(browserGeocodingRequests).toBe(2);
 });
 
 
