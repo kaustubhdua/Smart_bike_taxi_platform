@@ -4,6 +4,13 @@ Deno.test("production Vercel origin is allowed without optional environment conf
   const headers = createCorsHeaders("https://smart-bike-taxi-platform.vercel.app");
   if (headers["Access-Control-Allow-Origin"] !== "https://smart-bike-taxi-platform.vercel.app") throw new Error("production Vercel origin must be allowed");
 });
+Deno.test("local development origins require explicit configuration", () => {
+  const denied = createCorsHeaders("http://localhost:5173");
+  if ("Access-Control-Allow-Origin" in denied) throw new Error("localhost must not be implicitly allowed in production");
+  const allowed = createCorsHeaders("http://localhost:5173", ["http://localhost:5173"]);
+  if (allowed["Access-Control-Allow-Origin"] !== "http://localhost:5173") throw new Error("explicit local origin must be allowed");
+});
+
 Deno.test("configured exact origins are allowed", () => {
   const headers = createCorsHeaders("https://rideforge.example.com", ["https://rideforge.example.com"]);
   if (headers["Access-Control-Allow-Origin"] !== "https://rideforge.example.com") throw new Error("configured origin must be allowed");
