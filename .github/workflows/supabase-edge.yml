@@ -57,7 +57,7 @@ jobs:
         working-directory: web
         run: npm run build
       - name: Verify production Vercel CORS preflight
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         shell: bash
         run: |
           set -Eeuo pipefail
