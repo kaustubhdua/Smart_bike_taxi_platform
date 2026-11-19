@@ -1,8 +1,13 @@
 export type Coordinates = { lat: number; lon: number };
 
 export function parseCoordinatePair(lat: unknown, lon: unknown): Coordinates | null {
-  const latitude = typeof lat === "number" ? lat : Number(lat);
-  const longitude = typeof lon === "number" ? lon : Number(lon);
+  const toNumber = (value: unknown) => {
+    if (typeof value === "number") return value;
+    if (typeof value === "string" && value.trim().length > 0) return Number(value);
+    return Number.NaN;
+  };
+  const latitude = toNumber(lat);
+  const longitude = toNumber(lon);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
       latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
   return { lat: latitude, lon: longitude };
