@@ -210,3 +210,5 @@ RideForge remains an academic/portfolio MVP, not an authorized transport operato
 - Vercel's free daily deployment API quota was exhausted during rollout; the Vercel production alias remains on its previous build. Render is the active demo frontend until Vercel quota resets or the plan changes.
 - The one-time `[verify-live-quote]` production browser acceptance now targets Render and checks the deployed build marker, Photon address lookup and real Supabase route quote.
 - Supabase Auth URL Configuration still needs the Render origin added to its allowed redirect URLs before real email-confirmation sign-in can be demonstrated. Quote-only acceptance does not require sign-in.
+
+- Supabase `rideforge-api` Edge Function v15 is now deployed with the Render production origin in its exact-origin CORS allowlist; a regression test covers the new origin.
