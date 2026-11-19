@@ -15,7 +15,7 @@ const isLiveApiView = pathname === "/live";
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     {isDriverPortal
-      ? <div className="app-shell role-workspace">
+      ? <div className="app-shell rideforge-app role-workspace">
           <header className="role-header">
             <a className="brand" href="/"><span className="brand-mark">R</span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
             <nav aria-label="Role navigation"><a href="/">Book a ride</a><a href="/driver" aria-current="page">Driver workspace</a><a href="/admin">Admin console</a></nav>
@@ -24,7 +24,7 @@ createRoot(document.getElementById("root")!).render(
           <OperationsWorkspace mode="driver" />
         </div>
       : isAdminPortal
-        ? <div className="app-shell role-workspace">
+        ? <div className="app-shell rideforge-app role-workspace">
             <header className="role-header">
               <a className="brand" href="/"><span className="brand-mark">R</span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
               <nav aria-label="Role navigation"><a href="/">Book a ride</a><a href="/driver">Driver workspace</a><a href="/admin" aria-current="page">Admin console</a></nav>
