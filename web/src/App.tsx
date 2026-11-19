@@ -35,7 +35,7 @@ type ResolvedLocation = { latitude: number; longitude: number };
 
 async function resolveLocationInBrowser(label: string): Promise<ResolvedLocation> {
   const query = new URLSearchParams({
-    q: label.trim() + ", Noida, Uttar Pradesh, India",
+    q: /noida|uttar pradesh|greater noida/i.test(label.trim()) ? label.trim() : label.trim() + ", Noida, Uttar Pradesh, India",
     limit: "1",
     lang: "en",
     lat: "28.5355",
@@ -65,6 +65,9 @@ async function resolveLocationInBrowser(label: string): Promise<ResolvedLocation
 }
 
 async function reverseGeocodeInBrowser(latitude: number, longitude: number): Promise<string> {
+  if (latitude < 28.2 || latitude > 28.8 || longitude < 77.1 || longitude > 77.7) {
+    throw new Error("Current-location pickup is limited to Noida and nearby NCR in this demo. Enter a pickup address manually.");
+  }
   const query = new URLSearchParams({ lat: String(latitude), lon: String(longitude), lang: "en" });
   const response = await fetch("https://photon.komoot.io/reverse?" + query.toString(), {
     headers: { Accept: "application/geo+json, application/json" },
