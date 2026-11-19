@@ -664,9 +664,9 @@ test("sets the current pickup from Photon reverse geocoding after explicit permi
     await route.abort();
   });
   await blockMapTiles(page);
-  await page.goto("/");
+  await page.goto("/live");
   await page.getByRole("button", { name: /Use my current location/ }).click();
-  await expect(page.getByRole("textbox", { name: "Pickup point" })).toHaveValue("JIIT Sector 128, Noida, Uttar Pradesh, India");
+  await expect(page.getByRole("combobox", { name: "Pickup point" })).toHaveValue("JIIT Sector 128, Noida, Uttar Pradesh, India");
   expect(quoteRequests).toBe(0);
 });
 
