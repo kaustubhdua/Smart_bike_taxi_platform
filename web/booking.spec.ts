@@ -15,8 +15,8 @@ async function blockMapTiles(page: import("@playwright/test").Page) {
 }
 
 async function fillRideLocations(page: import("@playwright/test").Page) {
-  await page.getByRole("textbox", { name: "Pickup point" }).fill("JIIT Sector 128, Noida");
-  await page.getByRole("textbox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
+  await page.getByLabel("Pickup point").fill("JIIT Sector 128, Noida");
+  await page.getByLabel("Drop-off point").fill("Sector 18 Market, Noida");
 }
 test("calculates road route and shows a fare only after a valid server quote", async ({ page }) => {
   const tileHosts = await blockMapTiles(page);
