@@ -67,7 +67,7 @@ jobs:
           echo "Encrypted backup created and archive readability verified; plaintext is not uploaded."
           {
             echo "### RideForge public-schema backup created"
-            echo "This artifact contains the encrypted PostgreSQL `public` schema only. It does not include Supabase-managed Auth identities, Storage object bytes, Edge Function bundles/configuration, project secrets or platform settings."
+            echo 'This artifact contains the encrypted PostgreSQL `public` schema only. It does not include Supabase-managed Auth identities, Storage object bytes, Edge Function bundles/configuration, project secrets or platform settings.'
             echo "Use the [isolated restore drill](.github/workflows/supabase-restore-drill.yml) with this run ID to verify the schema archive. This is not a full Supabase project backup."
           } >> "$GITHUB_STEP_SUMMARY"
 
