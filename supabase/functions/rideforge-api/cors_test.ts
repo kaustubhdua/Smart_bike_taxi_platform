@@ -28,3 +28,10 @@ Deno.test("preflight advertises API methods and authorization header", () => {
   if (headers["Access-Control-Allow-Methods"] !== "GET, POST, PUT, PATCH, OPTIONS") throw new Error("unexpected CORS methods");
   if (!headers["Access-Control-Allow-Headers"].includes("authorization")) throw new Error("authorization header must be allowed");
 });
+
+Deno.test("Render production origin is allowed for browser API requests", () => {
+  const headers = createCorsHeaders("https://rideforge-web.onrender.com");
+  if (headers["Access-Control-Allow-Origin"] !== "https://rideforge-web.onrender.com") {
+    throw new Error("Render production origin must be allowed");
+  }
+});
