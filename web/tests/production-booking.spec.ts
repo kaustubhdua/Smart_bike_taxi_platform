@@ -14,8 +14,8 @@ test("production passenger can receive a real Noida route quote", async ({ page 
     return page.locator('meta[name="rideforge-geocoding-mode"]').getAttribute("content").catch(() => null);
   }, { timeout: 180_000, intervals: [1_000, 2_000, 5_000, 10_000] }).toBe("browser-photon-v1");
 
-  await page.getByRole("textbox", { name: "Pickup point" }).fill("JIIT Sector 128, Noida");
-  await page.getByRole("textbox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
+  await page.getByRole("combobox", { name: "Pickup point" }).fill("JIIT Sector 128, Noida");
+  await page.getByRole("combobox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
 
   await expect(page.getByText("Route found")).toBeVisible({ timeout: 60_000 });
