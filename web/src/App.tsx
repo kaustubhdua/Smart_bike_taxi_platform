@@ -624,7 +624,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell rideforge-app">
+    <div className="app-shell rideforge-app" data-build="2026-11-19-photon-browser-geocoding">
       <div className="app-announcement" role="region" aria-label="Service connection status" aria-live="polite">
         <span className="status-indicator" data-state={apiHealth} />
         <span>{apiHealth === "online" ? "RIDEFORGE API CONNECTED" : apiHealth === "checking" ? "CHECKING RIDEFORGE SERVICES" : "SERVICE CONNECTION UNAVAILABLE"}</span>
