@@ -1,7 +1,5 @@
 const FIXED_ORIGINS = [
   "https://smart-bike-taxi-platform.vercel.app",
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
 ] as const;
 
 const ALLOW_HEADERS = "authorization, apikey, content-type, idempotency-key, last-event-id, x-client-info";
