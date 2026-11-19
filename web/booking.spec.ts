@@ -201,7 +201,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   await page.getByRole("button", { name: /Refresh trip history/ }).click();
   await expect(page.getByText("Trip history refreshed from the API.")).toBeVisible();
   await expect(page.getByText("JIIT Sector 128 → Sector 18 Market")).toBeVisible();
-  await page.getByRole("button", { name: "View demo receipt" }).click();
+  await page.getByRole("button", { name: "View trip record" }).click();
   await expect(page.getByRole("heading", { name: "Trip receipt" })).toBeVisible();
   await expect(page.getByText(/Not a tax invoice/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Print receipt" })).toBeVisible();
