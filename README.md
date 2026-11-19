@@ -298,7 +298,9 @@ PostgreSQL recovery helpers: `backend/scripts/backup.sh` and `backend/scripts/re
 
 ## Current RideForge demo (19 November 2026)
 
+**Live site:** https://rideforge-web.onrender.com
+
 - Passenger address lookup uses Photon in the browser after an explicit action; current-location GPS coordinates remain usable if reverse lookup is unavailable.
 - The Supabase Edge API remains authoritative for road routing, distance, duration, quote expiry and demo fare.
-- The user interface uses the Nirdhoom-inspired warm cream, forest-green, saffron and navy design system. See [UX design system](docs/UX_DESIGN_SYSTEM.md) and [UX redesign notes](docs/UX_REDESIGN_2026-11-19.md).
+- The user interface uses the Nirdhoom-inspired warm cream, forest-green, saffron and navy design system. The static frontend is deployed on Render; Vercel deployment is temporarily blocked by its free daily deployment API quota. See [UX design system](docs/UX_DESIGN_SYSTEM.md) and [UX redesign notes](docs/UX_REDESIGN_2026-11-19.md).
 - This is an academic/portfolio demo, not a licensed transport service. No synthetic drivers, live availability, payment success or emergency-response capability are presented as real.
