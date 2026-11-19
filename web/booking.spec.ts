@@ -472,7 +472,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await fillRideLocations(page);
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
   if ((page.viewportSize()?.width ?? 1024) <= 768) await openAdminNav.click();
-  await page.getByRole("button", { name: "Admin console" }).click();
+  await page.getByRole("link", { name: "Admin console" }).click();
   await page.locator("#operations").getByLabel("Email").fill("admin@example.test");
   await page.locator("#operations").getByLabel("Password").fill("a-long-admin-password-123");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
@@ -547,7 +547,7 @@ test("driver refreshes a controlled browser location and goes offline on sign-ou
   await fillRideLocations(page);
   const openDriverNav = page.getByRole("button", { name: "Open navigation" });
   if ((page.viewportSize()?.width ?? 1024) <= 768) await openDriverNav.click();
-  await page.getByRole("button", { name: "Drive with us" }).click();
+  await page.getByRole("link", { name: "Drive with us" }).click();
   await page.locator('.auth-panel input[type="email"]').first().fill("driver@example.test");
   await page.locator('.auth-panel input[type="password"]').first().fill("a-long-driver-password-123");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
