@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type User } from "npm:@supabase/supabase-js@2.119.0";
 import { getRateLimitClientIp } from "./client_ip.ts";
 import { createCorsHeaders } from "./cors.ts";
+import { buildGeocodingUrl, parseGeocodingCoordinates } from "./geocoding.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -80,32 +81,47 @@ async function quoteRoute(body: Record<string, unknown>, req: Request) {
   if (rateError) return { error: "Quote service is temporarily unavailable.", status: 503 };
   if (withinLimit !== true) return { error: "Too many quote requests. Wait a moment and try again.", status: 429 };
 
-  const geoUrl = Deno.env.get("RIDEFORGE_GEOCODING_URL") ?? "https://nominatim.openstreetmap.org/search";
+  const geoUrl = Deno.env.get("RIDEFORGE_GEOCODING_URL") ?? "https://photon.komoot.io/api/";
   const routeUrl = Deno.env.get("RIDEFORGE_ROUTING_URL") ?? "https://router.project-osrm.org/route/v1/driving";
   const userAgent = Deno.env.get("RIDEFORGE_USER_AGENT") ?? "RideForge/1.0 (https://github.com/kaustubhdua/Smart_bike_taxi_platform)";
   const geocode = async (label: string) => {
-    const { data: slot, error: throttleError } = await db.rpc("rideforge_reserve_provider_slot", {
-      p_provider: "nominatim", p_interval_ms: 1100,
-    });
-    if (throttleError || typeof slot !== "string") throw new Error("Geocoding provider is temporarily unavailable.");
-    const waitMs = Date.parse(slot) - Date.now();
-    if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
-    const url = new URL(geoUrl);
-    url.searchParams.set("q", label + ", Noida, Uttar Pradesh, India");
-    url.searchParams.set("format", "jsonv2");
-    url.searchParams.set("limit", "1");
-    const response = await fetch(url, {
-      headers: { "User-Agent": userAgent, "Accept": "application/json" },
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!response.ok) throw new Error("Geocoding provider unavailable.");
-    const results = await response.json();
-    if (!Array.isArray(results) || !results[0]) throw new Error("Location could not be found.");
-    const lat = Number(results[0].lat), lon = Number(results[0].lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-      throw new Error("Geocoding provider returned invalid coordinates.");
+    const fallbackUrls = [
+      "https://photon.komoot.io/api/",
+      "https://nominatim.openstreetmap.org/search",
+    ];
+    const endpoints = [...new Set([geoUrl, ...fallbackUrls])];
+    let lastError = new Error("Geocoding providers are temporarily unavailable.");
+    for (const endpoint of endpoints) {
+      try {
+        const host = new URL(endpoint).hostname.toLowerCase();
+        const provider = host.includes("photon") ? "photon" :
+          host.includes("nominatim") ? "nominatim" : "geocoding";
+        const { data: slot, error: throttleError } = await db.rpc("rideforge_reserve_provider_slot", {
+          p_provider: provider, p_interval_ms: 1100,
+        });
+        if (throttleError || typeof slot !== "string") {
+          lastError = new Error("Geocoding provider is temporarily unavailable.");
+          continue;
+        }
+        const waitMs = Date.parse(slot) - Date.now();
+        if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
+        const response = await fetch(buildGeocodingUrl(endpoint, label), {
+          headers: { "User-Agent": userAgent, "Accept": "application/json" },
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (!response.ok) {
+          console.warn("RideForge geocoding provider returned a non-OK response", provider, response.status);
+          lastError = new Error("Geocoding provider is temporarily unavailable.");
+          continue;
+        }
+        const point = parseGeocodingCoordinates(await response.json());
+        if (point) return point;
+        lastError = new Error("Location could not be found.");
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error("Geocoding provider is temporarily unavailable.");
+      }
     }
-    return { lat, lon };
+    throw lastError;
   };
   try {
     const p = await geocode(pickupLabel);
@@ -137,7 +153,8 @@ async function quoteRoute(body: Record<string, unknown>, req: Request) {
       currency: "INR", geometry,
     };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Route quote unavailable.", status: 503 };
+    const message = error instanceof Error ? error.message : "Route quote unavailable.";
+    return { error: message, status: message === "Location could not be found." ? 422 : 503 };
   }
 }
 
