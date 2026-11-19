@@ -337,7 +337,7 @@ export default function App() {
         : error instanceof Error && error.message !== "Failed to fetch"
           ? error.message
           : "We could not reach the quote service. Check the API and try again.";
-      setApiState(apiRequestStarted ? "offline" : "idle");
+      setApiState(apiRequestStarted && !serverResponded ? "offline" : "idle");
       setRoute(null);
       setRouteError(message);
       if (apiRequestStarted) setApiHealth(serverResponded ? "online" : "offline");
