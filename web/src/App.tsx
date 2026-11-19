@@ -31,6 +31,39 @@ function isRouteGeometry(value: unknown): value is Array<[number, number]> {
       point[0] >= -180 && point[0] <= 180 && point[1] >= -90 && point[1] <= 90);
 }
 
+type ResolvedLocation = { latitude: number; longitude: number };
+
+async function resolveLocationInBrowser(label: string): Promise<ResolvedLocation> {
+  const query = new URLSearchParams({
+    q: label.trim() + ", Noida, Uttar Pradesh, India",
+    limit: "1",
+    lang: "en",
+    lat: "28.5355",
+    lon: "77.3910",
+  });
+  const response = await fetch("https://photon.komoot.io/api/?" + query.toString(), {
+    headers: { Accept: "application/geo+json, application/json" },
+    signal: AbortSignal.timeout(9000),
+  });
+  if (!response.ok) throw new Error("Address search is temporarily unavailable (HTTP " + response.status + "). Please try another landmark or enter a more specific address.");
+  const data = await response.json() as {
+    features?: Array<{ geometry?: { coordinates?: unknown }; properties?: { name?: string; city?: string; state?: string; country?: string } }>;
+  };
+  const feature = data.features?.[0];
+  const coordinates = feature?.geometry?.coordinates;
+  if (!Array.isArray(coordinates) || coordinates.length < 2 ||
+      typeof coordinates[0] !== "number" || !Number.isFinite(coordinates[0]) ||
+      typeof coordinates[1] !== "number" || !Number.isFinite(coordinates[1]) ||
+      Math.abs(coordinates[0]) > 180 || Math.abs(coordinates[1]) > 90) {
+    throw new Error("We couldn't find that address in the Noida area. Try a nearby landmark or a more complete address.");
+  }
+  const country = feature?.properties?.country;
+  if (country && !/india/i.test(country)) {
+    throw new Error("Please choose a location in India for this Noida-focused demo.");
+  }
+  return { longitude: coordinates[0], latitude: coordinates[1] };
+}
+
 export default function App() {
   const reduceMotion = useReducedMotion();
   const [pickup, setPickup] = useState("");
@@ -256,6 +289,12 @@ export default function App() {
     }
     let serverResponded = false;
     try {
+      setNotice("Finding both addresses…");
+      const [pickupPoint, destinationPoint] = await Promise.all([
+        resolveLocationInBrowser(pickup),
+        resolveLocationInBrowser(destination),
+      ]);
+      setNotice("Addresses found. Calculating a road route and fare…");
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10_000);
       let response: Response;
@@ -263,7 +302,10 @@ export default function App() {
         response = await fetch(apiUrl(base, "/api/v1/routes/quote"), {
           method: "POST",
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
-          body: JSON.stringify({ pickup: { label: pickup }, destination: { label: destination } }),
+          body: JSON.stringify({
+            pickup: { label: pickup, latitude: pickupPoint.latitude, longitude: pickupPoint.longitude },
+            destination: { label: destination, latitude: destinationPoint.latitude, longitude: destinationPoint.longitude },
+          }),
           signal: controller.signal,
         });
       } finally {
@@ -303,7 +345,7 @@ export default function App() {
         mins: data.durationMinutes as number,
         path: "Road route",
         geometry: data.geometry,
-        provider: "server-side routing provider",
+        provider: "OpenStreetMap road network",
       });
       setRouteError("");
       setQuote({
@@ -614,7 +656,7 @@ export default function App() {
           <div className="booking-hero-copy">
             <div className="eyebrow"><span className="eyebrow-dot" /> SIMPLE CITY RIDES, BUILT AROUND YOU</div>
             <h1>Your ride.<br /><em>Your route.<br />No guesswork.</em></h1>
-            <p className="hero-description">Set your pickup and destination, see a real road route and a server-calculated fare, then request a ride. Clear steps, clear status.</p>
+            <p className="hero-description">Choose your pickup and destination, review an OpenStreetMap road route and a server-calculated estimate, then request a ride. Clear steps, clear status.</p>
             <div className="hero-benefits">
               <div><span className="benefit-icon"><MapPin size={16} /></span><span><strong>Pickup that makes sense</strong><small>Use your location or enter an address.</small></span></div>
               <div><span className="benefit-icon"><Wallet size={16} /></span><span><strong>Fare before confirmation</strong><small>Only show prices returned by the API.</small></span></div>
@@ -644,13 +686,13 @@ export default function App() {
               <button className="location-action" type="button" onClick={() => void useCurrentLocation()} disabled={locationBusy || routeLoading}>
                 <LocateFixed size={15} /> {locationBusy ? "Finding your location…" : "Use my current location"}
               </button>
-              <span>Noida-focused suggestions. Address lookup uses OpenStreetMap only when you tap; © OpenStreetMap contributors.</span>
+              <span>Noida-focused suggestions. Addresses are looked up only when you request a quote. © OpenStreetMap contributors.</span>
             </div>
 
             <div className="quote-row">
               <div className="quote-icon"><Route size={18} /></div>
-              <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Enter both locations, then request a server quote. No price appears until the API responds."}</span></div>
-              <button className="text-action help-button" onClick={() => setNotice("RideForge uses server-side geocoding and road routing. Fare is a demo estimate, not a commercial price commitment.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
+              <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Addresses are resolved when you request a quote. The server calculates the route and fare; no price appears before it responds."}</span></div>
+              <button className="text-action help-button" onClick={() => setNotice("RideForge uses browser-side address lookup and server-side road routing. Fare is a demo estimate, not a commercial price commitment.")} aria-label="About route and fare estimates"><CircleHelp size={17} /></button>
             </div>
 
             <div className="fare-row">
