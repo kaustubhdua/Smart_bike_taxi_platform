@@ -13,6 +13,11 @@ async function blockMapTiles(page: import("@playwright/test").Page) {
   await page.route("https://tile.openstreetmap.org/**", route => route.abort());
   return tileHosts;
 }
+
+async function fillRideLocations(page: import("@playwright/test").Page) {
+  await page.getByRole("textbox", { name: "Pickup point" }).fill("JIIT Sector 128, Noida");
+  await page.getByRole("textbox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");
+}
 test("calculates road route and shows a fare only after a valid server quote", async ({ page }) => {
   const tileHosts = await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
@@ -27,6 +32,7 @@ test("calculates road route and shows a fare only after a valid server quote", a
     });
   });
   await page.goto("/live");
+  await fillRideLocations(page);
   await expect(page.getByText(/LIVE API WORKSPACE/)).toBeVisible();
   await expect(page.locator(".quote-details")).toContainText(/request a server quote/i);
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeEnabled();
@@ -242,7 +248,7 @@ test("booking page has no automated WCAG 2.2 AA violations", async ({ page }) =>
   await page.emulateMedia({ reducedMotion: "reduce" });
   await blockMapTiles(page);
   await page.goto("/live");
-  await expect(page.getByRole("heading", { name: /your next stop/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Where to?" })).toBeVisible();
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   expect(results.violations).toEqual([]);
 });
@@ -262,7 +268,7 @@ test("mobile booking layout has no horizontal page overflow", async ({ page }, t
   test.skip(testInfo.project.name !== "mobile-chromium", "Mobile-only viewport assertion");
   await blockMapTiles(page);
   await page.goto("/live");
-  await expect(page.getByRole("heading", { name: /your next stop/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Where to?" })).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
     page: document.documentElement.scrollWidth,
@@ -313,7 +319,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await page.goto("/live");
   const openDriverNav = page.getByRole("button", { name: "Open navigation" });
   if ((page.viewportSize()?.width ?? 1024) <= 768) await openDriverNav.click();
-  await page.getByRole("button", { name: "Drive with us" }).click();
+  await page.getByRole("link", { name: "Drive with us" }).click();
   await page.locator("#operations").getByLabel("Email").fill("driver@example.test");
   await page.locator("#operations").getByLabel("Password").fill("driver-password");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
@@ -352,7 +358,7 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
   await page.goto("/live");
   const openAdminNav = page.getByRole("button", { name: "Open navigation" });
   if ((page.viewportSize()?.width ?? 1024) <= 768) await openAdminNav.click();
-  await page.getByRole("button", { name: "Admin console" }).click();
+  await page.getByRole("link", { name: "Admin console" }).click();
   await page.locator("#operations").getByLabel("Email").fill("admin@example.test");
   await page.locator("#operations").getByLabel("Password").fill("admin-password");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
@@ -748,6 +754,7 @@ test("home page reports an unreachable API honestly and never invents a ride or 
   await blockMapTiles(page);
   await page.route("http://api.test/**", route => route.abort("connectionrefused"));
   await page.goto("/");
+  await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".fare-amount")).toContainText("—");
   await expect(page.getByText(/RF-[A-Z0-9]{6}/)).toHaveCount(0);
