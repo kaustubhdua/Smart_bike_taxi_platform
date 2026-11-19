@@ -1,5 +1,7 @@
 # RideForge Release Readiness Evidence
 
+> **Historical snapshot:** This report was last assessed on 14 November 2026. Its branch, deployment and release-candidate statements are superseded by [FINAL_READINESS_AUDIT_2026-11-19.md](FINAL_READINESS_AUDIT_2026-11-19.md). Use the newer audit for current GitHub, Supabase and Render state.
+
 **Assessment date:** 2026-11-14  
 **Repository:** `kaustubhdua/Smart_bike_taxi_platform`  
 **Main SHA at assessment:** `670e946f2b290ec7081d712a073edad6a697f1cb`  
