@@ -663,7 +663,7 @@ export default function App() {
               <p>Demo tariff only. This is not a commercial fare commitment or a payment request.</p>
             </div>}
 
-            <button aria-label="Get server fare quote (fare estimate)" className="book-button quote-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>
+            <button aria-label="Get fare estimate — server fare quote" className="book-button quote-button" onClick={requestRide} disabled={!valid || apiState === "checking"}>
               {apiState === "checking" ? <><span className="button-spinner" /> Calculating route & fare…</> : <>Get fare estimate <ArrowRight size={17} /></>}
             </button>
             {!pickup.trim() || !destination.trim() ? <p className="form-hint">Add both locations to continue. Try “JIIT Sector 128, Noida” and “Botanical Garden Metro, Noida”.</p> : !valid ? <p className="form-hint">Pickup and drop-off must be different locations.</p> : null}
