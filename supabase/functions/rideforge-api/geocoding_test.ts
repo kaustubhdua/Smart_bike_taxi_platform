@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { buildGeocodingUrl, parseGeocodingCoordinates } from "./geocoding.ts";
+import { buildGeocodingUrl, parseCoordinatePair, parseGeocodingCoordinates } from "./geocoding.ts";
 
 Deno.test("parses a Nominatim jsonv2 result", () => {
   assertEquals(parseGeocodingCoordinates([{ lat: "28.5355", lon: "77.3910" }]), { lat: 28.5355, lon: 77.391 });
@@ -31,4 +31,12 @@ Deno.test("builds Nominatim queries constrained to India", () => {
   const url = buildGeocodingUrl("https://nominatim.openstreetmap.org/search", "Sector 18 Market");
   assertEquals(url.searchParams.get("format"), "jsonv2");
   assertEquals(url.searchParams.get("countrycodes"), "in");
+});
+
+Deno.test("validates caller-provided coordinate pairs", () => {
+  assertEquals(parseCoordinatePair(28.5193178, 77.3659633), { lat: 28.5193178, lon: 77.3659633 });
+  assertEquals(parseCoordinatePair("28.5193178", "77.3659633"), { lat: 28.5193178, lon: 77.3659633 });
+  assertEquals(parseCoordinatePair(91, 77), null);
+  assertEquals(parseCoordinatePair(28, 181), null);
+  assertEquals(parseCoordinatePair(null, 77), null);
 });
