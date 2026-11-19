@@ -1,0 +1,172 @@
+name: Supabase backup restore drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_run_id:
+        description: "GitHub Actions run ID that uploaded the encrypted RideForge backup artifact"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: rideforge-restore-drill
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    name: Decrypt and restore public-schema backup into disposable PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: restore-test-only
+          POSTGRES_DB: rideforge_restore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rideforge_restore"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Validate backup run ID and required secret
+        shell: bash
+        env:
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+          PASSPHRASE: ${{ secrets.RIDEFORGE_BACKUP_PASSPHRASE }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$BACKUP_RUN_ID" =~ ^[0-9]+$ ]] || { echo "backup_run_id must be numeric." >&2; exit 2; }
+          : "${PASSPHRASE:?Missing RIDEFORGE_BACKUP_PASSPHRASE repository secret}"
+
+      - name: Install PostgreSQL client and GnuPG
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client gnupg
+
+      - name: Download encrypted backup artifact from selected run
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.backup_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: rideforge-supabase-backup-${{ inputs.backup_run_id }}
+          path: backup-artifact
+
+      - name: Decrypt and verify archive checksum
+        id: decrypt
+        shell: bash
+        env:
+          PASSPHRASE: ${{ secrets.RIDEFORGE_BACKUP_PASSPHRASE }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          encrypted="$(find backup-artifact -maxdepth 1 -type f -name '*.dump.gpg' -print -quit)"
+          test -n "$encrypted"
+          checksum="$encrypted.sha256"
+          test -s "$checksum"
+          expected="$(awk '{print $1}' "$checksum")"
+          actual="$(sha256sum "$encrypted" | awk '{print $1}')"
+          test "$expected" = "$actual"
+          dump="$RUNNER_TEMP/rideforge-restore.dump"
+          printf '%s' "$PASSPHRASE" | gpg --batch --pinentry-mode loopback \
+            --decrypt --passphrase-fd 0 --output "$dump" "$encrypted"
+          pg_restore --list "$dump" > "$RUNNER_TEMP/rideforge-restore.list"
+          grep -q "TABLE public accounts" "$RUNNER_TEMP/rideforge-restore.list"
+          echo "dump_path=$dump" >> "$GITHUB_OUTPUT"
+          echo "Encrypted artifact checksum and archive structure verified."
+
+      - name: Prepare Supabase compatibility roles and auth stubs
+        env:
+          PGPASSWORD: restore-test-only
+        run: |
+          set -Eeuo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:5432/rideforge_restore" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $roles$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role NOLOGIN BYPASSRLS; END IF;
+          END
+          $roles$;
+          CREATE SCHEMA IF NOT EXISTS auth;
+          CREATE TABLE IF NOT EXISTS auth.users(id uuid PRIMARY KEY);
+          CREATE OR REPLACE FUNCTION auth.uid()
+          RETURNS uuid LANGUAGE sql STABLE
+          AS $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          CREATE OR REPLACE FUNCTION auth.role()
+          RETURNS text LANGUAGE sql STABLE
+          AS $$ SELECT NULLIF(current_setting('request.jwt.claim.role', true), '') $$;
+          CREATE OR REPLACE FUNCTION auth.jwt()
+          RETURNS jsonb LANGUAGE sql STABLE
+          AS $$ SELECT COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
+          CREATE SCHEMA IF NOT EXISTS extensions;
+          CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
+          SQL
+
+      - name: Restore into disposable PostgreSQL
+        env:
+          PGPASSWORD: restore-test-only
+          DUMP_PATH: ${{ steps.decrypt.outputs.dump_path }}
+        run: |
+          set -Eeuo pipefail
+          pg_restore --exit-on-error --no-owner --no-acl \
+            --dbname="postgresql://postgres:postgres@127.0.0.1:5432/rideforge_restore" \
+            "$DUMP_PATH"
+          echo "Public-schema backup restored into disposable PostgreSQL."
+
+      - name: Verify restored schema, RLS and migration ledger
+        env:
+          PGPASSWORD: restore-test-only
+        run: |
+          set -Eeuo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:5432/rideforge_restore" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $verify$
+          DECLARE
+            table_count integer;
+            rls_count integer;
+            migration_count integer;
+          BEGIN
+            SELECT count(*) INTO table_count
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relkind='r';
+            SELECT count(*) INTO rls_count
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity;
+            IF table_count < 14 THEN
+              RAISE EXCEPTION 'restore contains only % public tables; expected at least 14', table_count;
+            END IF;
+            IF rls_count <> table_count THEN
+              RAISE EXCEPTION 'RLS enabled on % of % restored public tables', rls_count, table_count;
+            END IF;
+            IF to_regclass('public.accounts') IS NULL
+              OR to_regclass('public.rides') IS NULL
+              OR to_regclass('public.driver_profiles') IS NULL
+              OR to_regclass('public.ride_offers') IS NULL THEN
+              RAISE EXCEPTION 'one or more core RideForge tables are missing after restore';
+            END IF;
+            SELECT count(*) INTO migration_count FROM public.schema_migrations;
+            IF migration_count < 24 THEN
+              RAISE EXCEPTION 'only % application migrations restored; expected at least 24', migration_count;
+            END IF;
+            RAISE NOTICE 'Restore verified: % public tables, all RLS-enabled, % application migrations.', table_count, migration_count;
+          END
+          $verify$;
+          SQL
+
+      - name: Publish restore scope limitation
+        run: |
+          {
+            echo "### Restore drill passed"
+            echo "The encrypted **public schema** backup was decrypted, checksum-verified and restored into a disposable PostgreSQL 17 service. Core RideForge tables, RLS and the application migration ledger were verified."
+            echo ""
+            echo "This does **not** restore Supabase-managed Auth identities, Storage object bytes, Edge Function bundles/configuration, project secrets, Auth provider settings or platform configuration. Follow the separate full-project recovery runbook before treating this as a full disaster-recovery test."
+          } >> "$GITHUB_STEP_SUMMARY"
