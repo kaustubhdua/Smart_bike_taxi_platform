@@ -556,7 +556,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               </div>
               <div className="driver-queue">
                 <div className="driver-panel-head"><h3>Support and incident reports ({supportReports.length})</h3><button className="outline-button" onClick={refreshSupportReports} disabled={busy}><RefreshCw size={15} /> Refresh reports</button></div>
-                {supportReports.length === 0 ? <p>Refresh reports to review passenger and driver submissions. Safety reports are records for follow-up; the demo does not contact emergency services.</p> : supportReports.map(report => <article className="ride-confirmation support-review-item" key={report.id}>
+                {supportReports.length === 0 ? <p>Refresh reports to review passenger and driver submissions. Safety reports are records for follow-up; they do not contact emergency services.</p> : supportReports.map(report => <article className="ride-confirmation support-review-item" key={report.id}>
                   <div>
                     <strong>#{report.id} · {report.category.replaceAll("_", " ")} · {report.status.replaceAll("_", " ")}</strong>
                     <span>{report.reporterName} ({report.reporterEmail}){report.rideId ? " · Ride " + report.rideId : ""}</span>
