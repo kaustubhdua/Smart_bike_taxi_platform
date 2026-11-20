@@ -59,7 +59,7 @@ Confirm exactly one row is returned. This is intentionally a manual privileged o
 - The fare quote is server-calculated, persisted for five minutes and consumed transactionally during booking. Public quote requests are limited to 10 per client IP per minute, and database-backed provider slots serialize Nominatim requests across Edge Function instances.
 - This remains a demonstration platform, not a live transport, payment or emergency-response service.
 
-## Ride safety and feedback (migration 029)
+## Ride safety and feedback (migration 029 · version `20261120050454`)
 
 | Capability | Endpoint | Notes |
 |---|---|---|
