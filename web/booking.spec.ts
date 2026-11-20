@@ -945,7 +945,7 @@ test("saves and restores favourite routes locally without creating a quote", asy
   await expect(page.getByLabel("Saved favourite routes")).toContainText("JIIT Sector 128, Noida");
   await page.reload();
   await expect(page.getByLabel("Saved favourite routes")).toContainText("Sector 18 Market, Noida");
-  await page.getByLabel("Saved favourite routes").getByRole("button", { name: /JIIT Sector 128/ }).click();
+  await page.getByLabel("Saved favourite routes").getByRole("button", { name: "JIIT Sector 128, Noida →" }).click();
   await expect(page.getByLabel("Pickup point")).toHaveValue("JIIT Sector 128, Noida");
   await expect(page.getByLabel("Drop-off point")).toHaveValue("Sector 18 Market, Noida");
   await expect(page.locator(".fare-amount")).toContainText("—");
