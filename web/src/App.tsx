@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { geocodeNoidaLocation, reverseGeocodeNoidaLocation, type Coordinates } from "./geocoding";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 const RouteMap = lazy(() => import("./components/RouteMap"));
+const MapPicker = lazy(() => import("./components/MapPicker"));
 import {
   ArrowLeft, ArrowRight, Bike, Check, CircleHelp, Clock3, Crosshair,
   Gauge, LocateFixed, MapPin, Menu, Route, ShieldCheck, Wallet, X,
@@ -55,6 +56,9 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [bookingBusy, setBookingBusy] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [mapTarget, setMapTarget] = useState<"pickup" | "destination">("pickup");
+  const [mapPointBusy, setMapPointBusy] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
@@ -618,6 +622,33 @@ export default function App() {
     setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null);
   }
 
+  async function selectMapPoint(coordinates: Coordinates) {
+    if (mapPointBusy) return;
+    if (coordinates.latitude < 28.25 || coordinates.latitude > 28.75 ||
+        coordinates.longitude < 77.15 || coordinates.longitude > 77.65) {
+      setNotice("Choose a point within the Noida service preview area.");
+      return;
+    }
+    setMapPointBusy(true);
+    try {
+      const place = await reverseGeocodeNoidaLocation(coordinates);
+      if (mapTarget === "pickup") {
+        setPickup(place.displayName);
+        setPickupCoordinates(coordinates);
+      } else {
+        setDestination(place.displayName);
+        setDestinationCoordinates(coordinates);
+      }
+      clearBookingState();
+      setMapPickerOpen(false);
+      setNotice((mapTarget === "pickup" ? "Pickup" : "Drop-off") + " selected from the map. Review the address before requesting a quote.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not resolve that map location. Try a nearby public landmark.");
+    } finally {
+      setMapPointBusy(false);
+    }
+  }
+
   function scrollToBooking() {
     document.getElementById("booking")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }
@@ -680,6 +711,24 @@ export default function App() {
               <button className="swap-button" aria-label="Swap pickup and drop-off" onClick={() => { setPickup(destination); setDestination(pickup); setPickupCoordinates(destinationCoordinates); setDestinationCoordinates(pickupCoordinates); clearBookingState(); setNotice(""); }} disabled={routeLoading || !pickup || !destination}><ArrowLeft size={15} /><ArrowRight size={15} /></button>
               <datalist id="rideforge-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
             </div>
+
+            <div className="map-picker-actions" aria-label="Choose locations on map">
+              <button type="button" className="location-action" onClick={() => { setMapTarget("pickup"); setMapPickerOpen(true); }} disabled={routeLoading || mapPointBusy}>
+                <MapPin size={15} /> Pick pickup on map
+              </button>
+              <button type="button" className="location-action" onClick={() => { setMapTarget("destination"); setMapPickerOpen(true); }} disabled={routeLoading || mapPointBusy}>
+                <Crosshair size={15} /> Pick drop-off on map
+              </button>
+            </div>
+            {mapPickerOpen && <div className="map-picker-panel">
+              <div className="map-picker-heading">
+                <strong>{mapPointBusy ? "Resolving selected location…" : <>Tap the map to choose {mapTarget === "pickup" ? "pickup" : "drop-off"}</>}</strong>
+                <button type="button" className="text-action" onClick={() => setMapPickerOpen(false)} disabled={mapPointBusy}>Close map</button>
+              </div>
+              <Suspense fallback={<div className="route-map-empty" role="status">Loading location map…</div>}>
+                <MapPicker target={mapTarget} pickupCoordinates={pickupCoordinates} destinationCoordinates={destinationCoordinates} onSelect={selectMapPoint} />
+              </Suspense>
+            </div>}
 
             <div className="booking-quick-actions">
               <button className="location-action" type="button" onClick={() => void useCurrentLocation()} disabled={locationBusy || routeLoading}>
