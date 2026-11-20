@@ -53,7 +53,7 @@ createRoot(document.getElementById("root")!).render(
       ? <div className="app-shell rideforge-app role-workspace">
           <header className="role-header">
             <a className="brand" href="/"><span className="brand-mark">R</span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
-            <nav aria-label="Role navigation"><a href="/">Book a ride</a><a href="/driver" aria-current="page">Driver workspace</a><a href="/admin">Admin console</a></nav>
+            <nav aria-label="Role navigation"><a href="/passenger">Passenger booking</a><a href="/driver" aria-current="page">Driver workspace</a><a href="/admin">Admin console</a></nav>
           </header>
           <div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API and real driver credentials.</div>
           <OperationsWorkspace mode="driver" />
