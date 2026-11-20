@@ -111,12 +111,12 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       setEmail(applicationEmail); setPassword(""); setApplicationPassword("");
       if (data.verificationRequired || !data.accessToken) {
         setDriverAuthMode("login");
-        setError(data.message || "Verify your email, then sign in to upload your documents.");
+        setError(data.message || "Verify your email, then sign in to check your application. Document uploads are optional for this demonstration.");
         return;
       }
       if (data.account?.role !== "driver") throw new Error("The server did not create a driver account.");
       setToken(data.accessToken);
-      setError("Driver account created. Upload your verification documents; you cannot go online until approved.");
+      setError("Driver application created successfully. Document uploads are optional for this demonstration. Your account must be approved by an administrator before you can go online.");
       await loadDriverApplication(data.accessToken);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Driver application failed.");
@@ -589,7 +589,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               <div className="card-heading"><div><span className="card-eyebrow">DRIVER SESSION</span><h3>Availability and rides</h3></div><button className="text-action" onClick={() => { void signOutDriver(); }} disabled={busy}>Sign out</button></div>
               {driverProfile && !driverProfile.approved && <div className="inline-notice" role="status">Your driver account is awaiting administrator approval. You do not need to upload documents for this demonstration.</div>}
               <div className="driver-queue">
-                <h3>Driver verification documents</h3>
+                <h3>Optional driver documents</h3>
                 <p className="auth-caption">Optional for now — you can skip these uploads and continue with your driver application. If you choose to upload later, files are stored privately.</p>
                 {(["driving_license","vehicle_rc","insurance"] as const).map(documentType => {
                   const latest = driverDocuments.find(document => document.document_type === documentType);
@@ -600,7 +600,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                     <button className="text-action" onClick={() => uploadDriverDocument(documentType)} disabled={busy || !documentFiles[documentType]}>Upload</button>
                   </div>;
                 })}
-                <button className="outline-button" onClick={() => loadDriverApplication()} disabled={busy}><RefreshCw size={15}/> Refresh verification status</button>
+                <button className="outline-button" onClick={() => loadDriverApplication()} disabled={busy}><RefreshCw size={15}/> Refresh application status</button>
               </div>
               <p className="auth-caption">Location permission is used to refresh your dispatch eligibility while online. The queue requires a recent location.</p>
               <button className="book-button" onClick={toggleAvailability} disabled={busy || !driverProfile?.approved}>{online ? "Go offline" : driverProfile?.approved ? "Use my location and go online" : "Awaiting driver approval"} <ArrowRight size={18} /></button>
