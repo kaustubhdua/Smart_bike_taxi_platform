@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, Bike, CheckCircle2, Clock3, MapPin, RotateCcw, ShieldCheck, UserRound } from "lucide-react";
+import { Bike, CheckCircle2, Clock3, MapPin, RotateCcw, ShieldCheck, UserRound } from "lucide-react";
 
 type Stage = "quote" | "requested" | "accepted" | "arriving" | "in_progress" | "completed" | "cancelled";
 type Role = "passenger" | "driver" | "admin";
