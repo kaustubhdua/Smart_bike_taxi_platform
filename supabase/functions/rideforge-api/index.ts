@@ -637,12 +637,21 @@ async function handle(req: Request): Promise<Response> {
       if (!["verified","rejected"].includes(reviewStatus) || (reviewStatus === "rejected" && note.length < 8)) {
         return fail("Choose verified or rejected; rejected documents require a reason.", 422, origin);
       }
+      const { data: existingDocument, error: existingDocumentError } = await db.from("driver_documents")
+        .select("id").eq("id", adminReviewPath[2]).eq("driver_id", adminReviewPath[1]).maybeSingle();
+      if (existingDocumentError || !existingDocument) return fail("Document not found.", 404, origin);
+      if (reviewStatus === "rejected") {
+        const { error: suspendError } = await db.from("driver_profiles").update({
+          is_approved: false, approved_at: null, approved_by: null, is_online: false,
+        }).eq("account_id", adminReviewPath[1]);
+        if (suspendError) return fail("Could not suspend the driver after document rejection.", 500, origin);
+      }
       const { data, error } = await db.from("driver_documents").update({
         review_status: reviewStatus, review_note: note || null,
         reviewed_by: accountId, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }).eq("id", adminReviewPath[2]).eq("driver_id", adminReviewPath[1])
         .select("id,document_type,review_status,review_note").maybeSingle();
-      if (error || !data) return fail("Document not found or review could not be saved.", 404, origin);
+      if (error || !data) return fail("Document review could not be saved.", 500, origin);
       await db.from("admin_audit_events").insert({
         actor_id: accountId, action: "driver_document_" + reviewStatus,
         target_type: "driver_document", target_id: data.id,
