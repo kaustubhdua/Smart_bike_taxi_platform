@@ -38,6 +38,19 @@ BEGIN
      OR has_function_privilege('authenticated', 'public.review_driver_document(uuid,uuid,text,text,uuid)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Driver document review function is executable by a client role';
   END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN (
+        'approve_driver_if_documents_verified',
+        'suspend_driver_for_document_reverification',
+        'review_driver_document'
+      )
+      AND p.prosecdef
+  ) THEN
+    RAISE EXCEPTION 'Driver verification RPCs must remain SECURITY INVOKER';
+  END IF;
   SELECT count(*) INTO auth_account_triggers FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'auth' AND c.relname = 'users' AND t.tgname = 'rideforge_auth_user_created' AND NOT t.tgisinternal;
   IF auth_account_triggers <> 1 THEN RAISE EXCEPTION 'Expected auth.users account-bridge trigger exactly once, found %', auth_account_triggers; END IF;
   SELECT count(*) INTO realtime_tables FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename IN ('rides', 'ride_events');
