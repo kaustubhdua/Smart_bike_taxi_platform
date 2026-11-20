@@ -13,7 +13,8 @@ type RideRequest = {
 };
 type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number };
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
-type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string };
+type DriverDocument = { id: string; document_type: string; original_name: string; mime_type: string; byte_size: number; review_status: string; review_note: string | null; created_at: string; signedUrl?: string | null };
+type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string; documents?: Array<{ documentType: string; status: string }> };
 type SupportReport = { id: string; rideId: string | null; category: string; description: string; status: string; resolutionNote: string; createdAt: string; updatedAt: string; resolvedAt: string | null; reporterEmail: string; reporterName: string };
 type DriverHistory = { rides: Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; finalFarePaise?: number; createdAt: string; completedAt?: string }>; grossCompletedFarePaise: number; currency: string; note: string };
 type AdminRideSearchItem = { rideId: string; status: string; passengerEmail: string; driverEmail: string | null; pickup: string; destination: string; farePaise: number; createdAt: string; updatedAt: string };
@@ -21,6 +22,15 @@ type AdminRideSearchItem = { rideId: string; status: string; passengerEmail: str
 export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [driverAuthMode, setDriverAuthMode] = useState<"login" | "apply">("login");
+  const [applicationName, setApplicationName] = useState("");
+  const [applicationEmail, setApplicationEmail] = useState("");
+  const [applicationPassword, setApplicationPassword] = useState("");
+  const [applicationVehicle, setApplicationVehicle] = useState("");
+  const [driverProfile, setDriverProfile] = useState<{ vehicleRegistration: string; approved: boolean; online: boolean } | null>(null);
+  const [driverDocuments, setDriverDocuments] = useState<DriverDocument[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<Record<string, File | null>>({ driving_license: null, vehicle_rc: null, insurance: null });
+  const [adminDocuments, setAdminDocuments] = useState<Record<string, DriverDocument[]>>({});
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
