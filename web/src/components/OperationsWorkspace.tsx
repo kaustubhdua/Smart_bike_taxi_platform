@@ -115,7 +115,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       setEmail(applicationEmail); setPassword(""); setApplicationPassword("");
       if (data.verificationRequired || !data.accessToken) {
         setDriverAuthMode("login");
-        setError(data.message || "Verify your email, then sign in to check your application. Document uploads are optional for this demonstration.");
+        setError(data.message || "Verify your email, then sign in to upload the required driving licence, vehicle RC and insurance documents for review.");
         return;
       }
       if (data.account?.role !== "driver") throw new Error("The server did not create a driver account.");
