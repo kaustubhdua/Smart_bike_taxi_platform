@@ -5,7 +5,7 @@ const RouteMap = lazy(() => import("./components/RouteMap"));
 const MapPicker = lazy(() => import("./components/MapPicker"));
 import {
   ArrowLeft, ArrowRight, Bike, Check, CircleHelp, Clock3, Crosshair,
-  Gauge, LocateFixed, MapPin, Menu, Route, ShieldCheck, Wallet, X,
+  Gauge, LocateFixed, MapPin, Menu, Route, ShieldCheck, Wallet, X, Bookmark, Trash2,
 } from "lucide-react";
 
 const locations = [
@@ -36,6 +36,8 @@ function isRouteGeometry(value: unknown): value is Array<[number, number]> {
 export default function App() {
   const reduceMotion = useReducedMotion();
   const [pickup, setPickup] = useState("");
+  const [savedRoutes, setSavedRoutes] = useState<Array<{ id: string; pickup: string; destination: string }>>([]);
+  const [savedRoutesReady, setSavedRoutesReady] = useState(false);
   const [destination, setDestination] = useState("");
   const [pickupCoordinates, setPickupCoordinates] = useState<Coordinates | null>(null);
   const [destinationCoordinates, setDestinationCoordinates] = useState<Coordinates | null>(null);
@@ -71,6 +73,54 @@ export default function App() {
   const [passengerHistory, setPassengerHistory] = useState<Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; finalFarePaise?: number; currency: string; createdAt: string; completedAt?: string }>>([]);
   const [historyBusy, setHistoryBusy] = useState(false);
   const [receiptRideId, setReceiptRideId] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("rideforge:saved-routes:v1");
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setSavedRoutes(parsed.filter((item): item is { id: string; pickup: string; destination: string } =>
+            item && typeof item.id === "string" && typeof item.pickup === "string" &&
+            typeof item.destination === "string" && item.pickup.length <= 240 && item.destination.length <= 240
+          ).slice(0, 8));
+        }
+      }
+    } catch {
+      // Saved shortcuts are optional; a blocked or malformed browser store must not block booking.
+    } finally {
+      setSavedRoutesReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!savedRoutesReady) return;
+    try { window.localStorage.setItem("rideforge:saved-routes:v1", JSON.stringify(savedRoutes)); }
+    catch { /* Private browsing or storage limits can disable this convenience without affecting rides. */ }
+  }, [savedRoutes, savedRoutesReady]);
+
+  function saveCurrentRoute() {
+    const from = pickup.trim();
+    const to = destination.trim();
+    if (from.length < 3 || to.length < 3 || from.toLocaleLowerCase("en-US") === to.toLocaleLowerCase("en-US")) {
+      setNotice("Enter two different locations before saving this route.");
+      return;
+    }
+    const duplicate = savedRoutes.some(item => item.pickup.toLowerCase() === from.toLowerCase() && item.destination.toLowerCase() === to.toLowerCase());
+    if (duplicate) { setNotice("This route is already in your saved places."); return; }
+    if (savedRoutes.length >= 8) { setNotice("You can save up to eight favourite routes. Remove one before adding another."); return; }
+    setSavedRoutes(current => [...current, { id: crypto.randomUUID(), pickup: from, destination: to }]);
+    setNotice("Favourite route saved on this device only. It is not uploaded to your account.");
+  }
+
+  function applySavedRoute(item: { pickup: string; destination: string }) {
+    setPickup(item.pickup);
+    setDestination(item.destination);
+    setPickupCoordinates(null);
+    setDestinationCoordinates(null);
+    clearBookingState();
+    setNotice("Saved route loaded. Request a fresh server quote before booking.");
+  }
+
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup.trim().length >= 3 && destination.trim().length >= 3 &&
     pickup.trim().toLocaleLowerCase("en-US") !== destination.trim().toLocaleLowerCase("en-US") && !routeLoading;
@@ -745,7 +795,19 @@ export default function App() {
               <button type="button" onClick={() => { setPickup("JIIT Sector 128, Noida"); setDestination("Botanical Garden Metro, Noida"); setPickupCoordinates(null); setDestinationCoordinates(null); clearBookingState(); setNotice("Suggested route selected. Get a fresh server quote to see live route data."); }} disabled={routeLoading}>
                 JIIT → Botanical Garden <ArrowRight size={13} />
               </button>
+              <button type="button" onClick={saveCurrentRoute} disabled={routeLoading || !pickup.trim() || !destination.trim()} aria-label="Save current route to this device">
+                <Bookmark size={13} /> Save route
+              </button>
             </div>
+            {savedRoutes.length > 0 && <div className="saved-routes" aria-label="Saved favourite routes">
+              <span>YOUR SAVED ROUTES · THIS DEVICE</span>
+              {savedRoutes.map(item => <div className="saved-route-item" key={item.id}>
+                <button type="button" onClick={() => applySavedRoute(item)} disabled={routeLoading} title={item.pickup + " to " + item.destination}>
+                  <MapPin size={13} /><span>{item.pickup} <b>→</b> {item.destination}</span>
+                </button>
+                <button type="button" className="saved-route-remove" aria-label={"Remove saved route " + item.pickup + " to " + item.destination} onClick={() => setSavedRoutes(current => current.filter(route => route.id !== item.id))}><Trash2 size={13}/></button>
+              </div>)}
+            </div>}
 
             <div className="quote-row">
               <div className="quote-icon"><Route size={18} /></div>
