@@ -261,3 +261,30 @@ button,input,select,textarea{font-family:inherit}
 @media print{
  .rideforge-app .app-header,.rideforge-app .app-announcement,.rideforge-app .mobile-bottom-bar,.rideforge-app .site-footer{display:none!important}
 }
+
+/* Document verification and operations review surfaces. */
+.rideforge-app .admin-driver-review>p{font-size:10px;line-height:1.65;color:#748075}
+.rideforge-app .admin-driver-card{display:grid;gap:10px;margin:11px 0;padding:14px}
+.rideforge-app .admin-driver-summary{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rideforge-app .admin-driver-summary>div:first-child{display:grid;gap:4px;min-width:0}
+.rideforge-app .admin-driver-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.rideforge-app .document-readiness{padding:9px 11px;border-radius:9px;background:#fff6e5;color:#815c20;font-size:9px;line-height:1.5}
+.rideforge-app .document-readiness.ready{background:#eef7e9;color:#28613b}
+.rideforge-app .admin-document-list{display:grid;gap:8px;padding-top:11px;border-top:1px solid #e8ede6}
+.rideforge-app .admin-document-list>p{font-size:10px;color:#78847a}
+.rideforge-app .admin-document-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.9fr);gap:12px;padding:12px;border:1px solid #e5ebe3;border-radius:11px;background:#fafcf9}
+.rideforge-app .admin-document-meta{display:grid;align-content:start;gap:5px;min-width:0}
+.rideforge-app .admin-document-meta strong{text-transform:capitalize;font-size:11px}
+.rideforge-app .admin-document-meta span,.rideforge-app .admin-document-meta small{font-size:9px;line-height:1.5;color:#7c887d;overflow-wrap:anywhere}
+.rideforge-app .admin-document-meta a{font-size:9px;color:var(--rf-green);font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.rideforge-app .admin-document-review{display:flex;align-items:end;gap:7px;flex-wrap:wrap}
+.rideforge-app .admin-document-review .auth-field{flex:1;min-width:160px;margin:0}
+.rideforge-app .admin-document-review .auth-field input{min-height:36px;font-size:10px}
+.rideforge-app .admin-document-review .outline-button{min-height:34px}
+@media(max-width:760px){
+ .rideforge-app .admin-driver-summary{align-items:flex-start;flex-direction:column}
+ .rideforge-app .admin-driver-actions{justify-content:flex-start}
+ .rideforge-app .admin-document-card{grid-template-columns:1fr}
+ .rideforge-app .admin-document-review{align-items:stretch}
+ .rideforge-app .admin-document-review .auth-field{flex-basis:100%}
+}
