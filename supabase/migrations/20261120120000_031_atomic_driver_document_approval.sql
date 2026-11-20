@@ -75,4 +75,62 @@ INSERT INTO public.schema_migrations(version)
 VALUES ('031_atomic_driver_document_approval')
 ON CONFLICT (version) DO NOTHING;
 
+
+CREATE OR REPLACE FUNCTION public.review_driver_document(
+  p_driver_id uuid,
+  p_document_id uuid,
+  p_review_status text,
+  p_note text,
+  p_admin_id uuid
+)
+RETURNS TABLE(id uuid, document_type text, review_status text, review_note text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+BEGIN
+  IF p_review_status NOT IN ('verified', 'rejected') THEN
+    RAISE EXCEPTION 'invalid_document_review_status';
+  END IF;
+  IF p_review_status = 'rejected' AND length(btrim(coalesce(p_note, ''))) < 8 THEN
+    RAISE EXCEPTION 'document_rejection_reason_required';
+  END IF;
+
+  PERFORM 1
+    FROM public.driver_profiles
+   WHERE account_id = p_driver_id
+   FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'driver_not_found';
+  END IF;
+
+  RETURN QUERY
+    UPDATE public.driver_documents AS d
+       SET review_status = p_review_status,
+           review_note = nullif(btrim(coalesce(p_note, '')), ''),
+           reviewed_by = p_admin_id,
+           reviewed_at = now(),
+           updated_at = now()
+     WHERE d.id = p_document_id
+       AND d.driver_id = p_driver_id
+     RETURNING d.id, d.document_type, d.review_status, d.review_note;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'driver_document_not_found';
+  END IF;
+
+  IF p_review_status = 'rejected' THEN
+    UPDATE public.driver_profiles
+       SET is_approved = false,
+           approved_at = NULL,
+           approved_by = NULL,
+           is_online = false
+     WHERE account_id = p_driver_id;
+  END IF;
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.review_driver_document(uuid, uuid, text, text, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.review_driver_document(uuid, uuid, text, text, uuid) TO service_role;
+
 COMMIT;
