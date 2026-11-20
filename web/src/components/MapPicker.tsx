@@ -77,7 +77,7 @@ export default function MapPicker({
     const points = [pickupCoordinates, destinationCoordinates].filter((value): value is Coordinates => value !== null);
     if (points.length === 1) map.setView([points[0].latitude, points[0].longitude], 14);
     if (points.length === 2) {
-      map.fitBounds(L.latLngBounds(points.map(point => [point.latitude, point.longitude])), { padding: [28, 28], maxZoom: 15 });
+      map.fitBounds(L.latLngBounds(points.map(point => L.latLng(point.latitude, point.longitude))), { padding: [28, 28], maxZoom: 15 });
     }
   }, [pickupCoordinates, destinationCoordinates]);
 
