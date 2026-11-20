@@ -46,6 +46,7 @@ createRoot(document.getElementById("root")!).render(
               </a>
             </div>
             <p className="role-entry-footnote"><ShieldCheck size={15}/> Your access is checked by RideForge. A passenger account cannot accept driver trips; drivers must be approved before going online.</p>
+            <p className="role-entry-footnote">Academic demonstration preview only — not a live transport service. Driver/vehicle verification, regulatory approvals, insurance, payments and staffed emergency response are not available.</p>
           </main>
           <footer className="site-footer"><span>© 2026 RIDEFORGE</span><a href="https://github.com/kaustubhdua/Smart_bike_taxi_platform" target="_blank" rel="noreferrer">Open-source project</a></footer>
         </div>
@@ -55,7 +56,7 @@ createRoot(document.getElementById("root")!).render(
             <a className="brand" href="/"><span className="brand-mark">R</span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
             <nav aria-label="Role navigation"><a href="/passenger">Passenger booking</a><a href="/driver" aria-current="page">Driver workspace</a><a href="/admin">Admin console</a></nav>
           </header>
-          <div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API and real driver credentials.</div>
+          <div className="demo-disclaimer" role="note"><strong>DEMONSTRATION WORKSPACE</strong> · Uses the configured Supabase API. Not authorised for real rides; driver and vehicle checks must be completed outside this prototype.</div>
           <OperationsWorkspace mode="driver" />
         </div>
       : isAdminPortal
@@ -64,7 +65,7 @@ createRoot(document.getElementById("root")!).render(
               <a className="brand" href="/"><span className="brand-mark">R</span><span>rideforge<span className="brand-period">.</span><small>MOVE WITH CLARITY</small></span></a>
               <nav aria-label="Role navigation"><a href="/">Book a ride</a><a href="/driver">Driver workspace</a><a href="/admin" aria-current="page">Admin console</a></nav>
             </header>
-            <div className="demo-disclaimer" role="note"><strong>LIVE API WORKSPACE</strong> · Requires the configured Supabase API and administrator credentials.</div>
+            <div className="demo-disclaimer" role="note"><strong>DEMONSTRATION WORKSPACE</strong> · Requires provisioned administrator credentials. Administrative tools do not establish commercial or regulatory readiness.</div>
             <OperationsWorkspace mode="admin" />
           </div>
         : (isLiveApiView || isPassengerPortal)
