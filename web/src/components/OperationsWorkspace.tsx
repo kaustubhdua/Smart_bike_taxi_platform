@@ -518,6 +518,31 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  async function loadAdminDocuments(driverId: string) {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/admin/drivers/" + encodeURIComponent(driverId) + "/documents");
+      if (!Array.isArray(data.documents)) throw new Error("The API returned an invalid document list.");
+      setAdminDocuments(current => ({ ...current, [driverId]: data.documents as DriverDocument[] }));
+      setError("Private verification documents loaded. Review links expire after five minutes.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load driver documents."); }
+    finally { setBusy(false); }
+  }
+
+  async function reviewAdminDocument(driverId: string, documentId: string, status: "verified" | "rejected") {
+    setBusy(true);
+    try {
+      await request("/api/v1/admin/drivers/" + encodeURIComponent(driverId) + "/documents/" + encodeURIComponent(documentId) + "/review", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, note: status === "rejected" ? "Please upload a clearer, valid document." : "" }),
+      });
+      await loadAdminDocuments(driverId);
+      await refreshDrivers();
+      setError("Document review saved and recorded in the administrative audit log.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Document review failed."); }
+    finally { setBusy(false); }
+  }
+
   async function provisionDriver(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -664,10 +689,25 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                 <button className="book-button" type="submit" disabled={busy || !driverEmail || !driverName || driverPassword.length < 12 || !vehicleRegistration}>Create pending driver <ArrowRight size={18} /></button>
               </form>
               <div className="driver-queue"><h3>Driver review ({drivers.length})</h3>
-                {drivers.length === 0 ? <p>Refresh the driver list to review provisioned accounts.</p> : drivers.map(driver => <div className="ride-confirmation" key={driver.driverId}>
-                  <div><strong>{driver.displayName}</strong><span>{driver.email} · {driver.vehicleRegistration}</span><small>{driver.approved ? "Approved" : "Pending approval"} · {driver.online ? "Online" : "Offline"}</small></div>
-                  <button className="text-action" onClick={() => changeDriverApproval(driver)} disabled={busy}>{driver.approved ? "Suspend" : "Approve"}</button>
-                </div>)}
+                {drivers.length === 0 ? <p>Refresh the driver list to review registered applications.</p> : drivers.map(driver => {
+                  const documentsReady = ["driving_license","vehicle_rc","insurance"].every(type => driver.documents?.some(document => document.documentType === type && document.status === "verified"));
+                  return <div className="driver-queue" key={driver.driverId}>
+                    <div className="ride-confirmation">
+                      <div><strong>{driver.displayName}</strong><span>{driver.email} · {driver.vehicleRegistration}</span><small>{driver.approved ? "Approved" : "Pending approval"} · {driver.online ? "Online" : "Offline"} · {(driver.documents ?? []).length} document uploads</small></div>
+                      <button className="text-action" onClick={() => changeDriverApproval(driver)} disabled={busy || (!driver.approved && !documentsReady)}>{driver.approved ? "Suspend" : "Approve"}</button>
+                    </div>
+                    <button className="outline-button" onClick={() => loadAdminDocuments(driver.driverId)} disabled={busy}>Review private documents</button>
+                    {(adminDocuments[driver.driverId] ?? []).map(document => <div className="ride-confirmation" key={document.id}>
+                      <div><strong>{document.document_type.replaceAll("_"," ")}</strong><small>{document.original_name} · {document.review_status}</small></div>
+                      {document.signedUrl && <a className="text-action" href={document.signedUrl} target="_blank" rel="noreferrer">Open securely</a>}
+                      {document.review_status === "pending" && <div className="ride-actions">
+                        <button className="text-action" onClick={() => reviewAdminDocument(driver.driverId, document.id, "verified")} disabled={busy}>Verify</button>
+                        <button className="text-action" onClick={() => reviewAdminDocument(driver.driverId, document.id, "rejected")} disabled={busy}>Reject</button>
+                      </div>}
+                    </div>)}
+                    {!documentsReady && <p className="auth-caption">Approval is locked until the licence, vehicle RC and insurance are all verified.</p>}
+                  </div>;
+                })}
               </div>
               <div className="driver-queue">
                 <div className="driver-panel-head"><h3>Support and incident reports ({supportReports.length})</h3><button className="outline-button" onClick={refreshSupportReports} disabled={busy}><RefreshCw size={15} /> Refresh reports</button></div>
