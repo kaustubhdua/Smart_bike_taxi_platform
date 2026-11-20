@@ -558,14 +558,6 @@ async function handle(req: Request): Promise<Response> {
     const approval = path.match(/^\/admin\/drivers\/([0-9a-f-]+)\/approval$/i);
     if (approval && method === "PUT") {
       const approved = body.approved === true;
-      if (approved) {
-        const { data: reviewed, error: reviewError } = await db.from("driver_documents")
-          .select("document_type,review_status").eq("driver_id", approval[1]);
-        if (reviewError) return fail("Driver verification status unavailable.", 500, origin);
-        const requiredTypes = ["driving_license","vehicle_rc","insurance"];
-        const allVerified = requiredTypes.every(type => (reviewed ?? []).some(doc => doc.document_type === type && doc.review_status === "verified"));
-        if (!allVerified) return fail("Verify the driver's licence, vehicle RC and insurance before approval.", 422, origin);
-      }
       const { data, error } = await db.from("driver_profiles").update({ is_approved: approved, approved_at: approved ? new Date().toISOString() : null, approved_by: approved ? accountId : null, is_online: false }).eq("account_id", approval[1]).select("account_id").maybeSingle();
       if (error || !data) return fail("Driver profile not found.", 404, origin);
       await db.from("admin_audit_events").insert({ actor_id: accountId, action: approved ? "driver_approved" : "driver_suspended", target_type: "driver", target_id: approval[1], details: {} });
