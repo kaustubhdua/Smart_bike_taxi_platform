@@ -430,6 +430,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await expect(page.getByText("Status: in_progress")).toBeVisible();
   await page.getByRole("button", { name: "Complete trip" }).click();
   await expect(page.getByText("Status: completed")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Use my location and go online/ })).toBeVisible();
   await page.getByRole("button", { name: /Refresh trip history/ }).click();
   await expect(page.getByText("Gross completed fares:")).toBeVisible();
   await expect(page.locator("#operations .driver-queue").filter({ hasText: "Gross completed fares:" }).getByText("₹77.20", { exact: true })).toBeVisible();
