@@ -3,6 +3,7 @@ import { createClient, type User } from "npm:@supabase/supabase-js@2.119.0";
 import { getRateLimitClientIp } from "./client_ip.ts";
 import { createCorsHeaders } from "./cors.ts";
 import { buildGeocodingUrl, parseCoordinatePair, parseGeocodingCoordinates } from "./geocoding.ts";
+import { missingVerifiedDriverDocuments } from "./driver_approval.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -681,12 +682,10 @@ async function handle(req: Request): Promise<Response> {
     if (approval && method === "PUT") {
       const approved = body.approved === true;
       if (approved) {
-        const requiredDocuments = ["driving_license", "vehicle_rc", "insurance"];
         const { data: documents, error: documentsError } = await db.from("driver_documents")
-          .select("document_type,review_status").eq("driver_id", approval[1]).in("document_type", requiredDocuments);
+          .select("document_type,review_status").eq("driver_id", approval[1]);
         if (documentsError) return fail("Could not verify driver documents; approval was not changed.", 503, origin);
-        const verifiedTypes = new Set((documents ?? []).filter(document => document.review_status === "verified").map(document => document.document_type));
-        const missing = requiredDocuments.filter(type => !verifiedTypes.has(type));
+        const missing = missingVerifiedDriverDocuments(documents ?? []);
         if (missing.length) return fail("Driver approval requires verified driving licence, vehicle RC and insurance documents. Missing verification: " + missing.join(", ") + ".", 409, origin);
       }
       const { data, error } = await db.from("driver_profiles").update({ is_approved: approved, approved_at: approved ? new Date().toISOString() : null, approved_by: approved ? accountId : null, is_online: false }).eq("account_id", approval[1]).select("account_id").maybeSingle();
