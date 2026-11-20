@@ -68,7 +68,7 @@ test("geocodes only on quote request and sends coordinates for server-side fare 
   });
   await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
 
-  await page.goto("/");
+  await page.goto("/passenger");
   await fillJourney(page);
   expect(geocodingRequests).toBe(0);
 
@@ -106,7 +106,7 @@ test("does not display a fare when browser geocoding fails", async ({ page }) =>
   });
   await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
 
-  await page.goto("/");
+  await page.goto("/passenger");
   await fillJourney(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
 
@@ -134,7 +134,7 @@ test("uses GPS coordinates even if reverse address lookup is unavailable", async
   });
   await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
 
-  await page.goto("/");
+  await page.goto("/passenger");
   await page.getByRole("button", { name: /Use my current location/ }).click();
   await expect(page.getByRole("combobox", { name: "Pickup point" })).toHaveValue("Current GPS location");
   await page.getByRole("combobox", { name: "Drop-off point" }).fill("Sector 18 Market, Noida");

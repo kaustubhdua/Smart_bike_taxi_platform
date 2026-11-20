@@ -18,6 +18,7 @@ const json = (data: unknown, status = 200, origin: string | null = null) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders(origin), "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const fail = (message: string, status = 400, origin: string | null = null) => json({ error: message }, status, origin);
 const parseBody = async (req: Request): Promise<Record<string, unknown>> => {
+  if (!(req.headers.get("Content-Type") ?? "").toLowerCase().includes("application/json")) return {};
   try { const value = await req.json(); return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
   catch { return {}; }
 };
@@ -198,6 +199,41 @@ async function handle(req: Request): Promise<Response> {
     const { data: account } = await db.from("accounts").select("*").eq("id", data.user!.id).single();
     return json({ accessToken: data.session.access_token, account: accountView(account) }, 201, origin);
   }
+  if (path === "/auth/driver/register" && method === "POST") {
+    const email = clean(body.email, 254).toLowerCase();
+    const password = typeof body.password === "string" ? body.password : "";
+    const displayName = clean(body.displayName, 120);
+    const vehicleRegistration = clean(body.vehicleRegistration, 32).toUpperCase();
+    if (!email.includes("@") || password.length < 12 || password.length > 128 || !displayName || vehicleRegistration.length < 3) {
+      return fail("Enter a valid email, full name, vehicle registration and password of at least 12 characters.", 422, origin);
+    }
+    const emailRedirectTo = Deno.env.get("RIDEFORGE_AUTH_REDIRECT_URL") ?? "https://smart-bike-taxi-platform.vercel.app/driver";
+    const { data, error } = await publicAuth.auth.signUp({
+      email, password,
+      options: { data: { display_name: displayName }, emailRedirectTo },
+    });
+    if (error || !data.user || (data.user.identities?.length ?? 0) === 0) return fail("Could not create this driver account. If you already registered, sign in instead.", error?.status ?? 409, origin);
+    const { error: roleError } = await db.from("accounts").update({ role: "driver", display_name: displayName }).eq("id", data.user.id);
+    const { error: profileError } = await db.from("driver_profiles").upsert({
+      account_id: data.user.id, vehicle_registration: vehicleRegistration, is_approved: false, is_online: false,
+    }, { onConflict: "account_id", ignoreDuplicates: true });
+    if (roleError || profileError) {
+      await db.auth.admin.deleteUser(data.user.id);
+      return fail("Driver application could not be created. Please retry or contact support.", 409, origin);
+    }
+    const { data: account, error: accountError } = await db.from("accounts").select("*").eq("id", data.user.id).single();
+    if (accountError || !account || account.role !== "driver") {
+      await db.auth.admin.deleteUser(data.user.id);
+      return fail("Driver account setup could not be completed.", 500, origin);
+    }
+    if (!data.session) {
+      return json({ verificationRequired: true, message: "Driver application created. Verify your email and sign in to the driver portal. Document uploads are optional for now; an administrator can approve your driver account." }, 202, origin);
+    }
+    return json({
+      accessToken: data.session.access_token, account: accountView(account),
+      approved: false, applicationStatus: "pending_approval",
+    }, 201, origin);
+  }
   if (path === "/auth/login" && method === "POST") {
     const { data, error } = await publicAuth.auth.signInWithPassword({ email: clean(body.email, 254).toLowerCase(), password: typeof body.password === "string" ? body.password : "" });
     if (error || !data.session || !data.user) return fail("Email or password is incorrect.", 401, origin);
@@ -222,6 +258,57 @@ async function handle(req: Request): Promise<Response> {
   const accountId = ctx.user.id;
   const account = ctx.account;
 
+  if (path === "/driver/profile" && method === "GET") {
+    if (account.role !== "driver") return fail("Driver account required.", 403, origin);
+    const { data, error } = await db.from("driver_profiles")
+      .select("vehicle_registration,is_approved,is_online,approved_at,created_at")
+      .eq("account_id", accountId).maybeSingle();
+    return error || !data ? fail("Driver application profile unavailable.", 404, origin) : json({
+      vehicleRegistration: data.vehicle_registration, approved: data.is_approved,
+      online: data.is_online, approvedAt: data.approved_at, createdAt: data.created_at,
+    }, 200, origin);
+  }
+  if (path === "/driver/documents" && method === "GET") {
+    if (account.role !== "driver") return fail("Driver account required.", 403, origin);
+    const { data, error } = await db.from("driver_documents")
+      .select("id,document_type,original_name,mime_type,byte_size,review_status,review_note,created_at")
+      .eq("driver_id", accountId).order("created_at", { ascending: false });
+    return error ? fail("Could not load verification documents.", 500, origin) : json({ documents: data ?? [] }, 200, origin);
+  }
+  if (path === "/driver/documents" && method === "POST") {
+    if (account.role !== "driver") return fail("Driver account required.", 403, origin);
+    const form = await req.formData();
+    const documentType = clean(form.get("documentType"), 32);
+    const file = form.get("file");
+    if (!["driving_license","vehicle_rc","insurance"].includes(documentType) || !(file instanceof File)) {
+      return fail("Choose a supported document type and file.", 422, origin);
+    }
+    if (file.size < 1 || file.size > 10 * 1024 * 1024 || !["application/pdf","image/jpeg","image/png"].includes(file.type)) {
+      return fail("Documents must be PDF, JPG or PNG and no larger than 10 MB.", 422, origin);
+    }
+    const bytes = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+    const validSignature = file.type === "application/pdf"
+      ? new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-"
+      : file.type === "image/jpeg" ? bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+      : bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+    if (!validSignature) return fail("The uploaded file does not match its declared document format.", 422, origin);
+    const extension = file.type === "application/pdf" ? "pdf" : file.type === "image/jpeg" ? "jpg" : "png";
+    const objectPath = accountId + "/" + documentType + "/" + crypto.randomUUID() + "." + extension;
+    const { error: uploadError } = await db.storage.from("driver-verification").upload(objectPath, file, {
+      contentType: file.type, upsert: false,
+    });
+    if (uploadError) return fail("Secure document upload failed. Please retry.", 503, origin);
+    const { data, error } = await db.from("driver_documents").insert({
+      driver_id: accountId, document_type: documentType, object_path: objectPath,
+      original_name: clean(file.name, 180) || documentType + "." + extension,
+      mime_type: file.type, byte_size: file.size,
+    }).select("id,document_type,original_name,review_status,created_at").single();
+    if (error || !data) {
+      await db.storage.from("driver-verification").remove([objectPath]);
+      return fail("Document metadata could not be saved. The upload was rolled back.", 500, origin);
+    }
+    return json({ document: data }, 201, origin);
+  }
   if (path === "/me" && method === "GET") return json({ email: account.email, displayName: account.display_name, role: account.role }, 200, origin);
   if (path === "/me" && method === "PATCH") {
     const displayName = clean(body.displayName, 120);
@@ -525,13 +612,53 @@ async function handle(req: Request): Promise<Response> {
       await db.from("admin_audit_events").insert({ actor_id: accountId, action: "support_report_" + status, target_type: "support_report", target_id: String(data.id), details: { resolutionNote: note } });
       return json({ report: mapReport(data) }, 200, origin);
     }
+    const adminDocumentPath = path.match(/^\/admin\/drivers\/([0-9a-f-]+)\/documents$/i);
+    if (adminDocumentPath && method === "GET") {
+      const { data, error } = await db.from("driver_documents")
+        .select("id,driver_id,document_type,object_path,original_name,mime_type,byte_size,review_status,review_note,created_at")
+        .eq("driver_id", adminDocumentPath[1]).order("created_at", { ascending: false });
+      if (error) return fail("Driver documents unavailable.", 500, origin);
+      const documents = await Promise.all((data ?? []).map(async doc => {
+        const { data: signed } = await db.storage.from("driver-verification").createSignedUrl(doc.object_path, 300);
+        return { ...doc, signedUrl: signed?.signedUrl ?? null };
+      }));
+      return json({ documents }, 200, origin);
+    }
+    const adminReviewPath = path.match(/^\/admin\/drivers\/([0-9a-f-]+)\/documents\/([0-9a-f-]+)\/review$/i);
+    if (adminReviewPath && method === "PUT") {
+      const reviewStatus = clean(body.status, 16);
+      const note = clean(body.note, 500);
+      if (!["verified","rejected"].includes(reviewStatus) || (reviewStatus === "rejected" && note.length < 8)) {
+        return fail("Choose verified or rejected; rejected documents require a reason.", 422, origin);
+      }
+      const { data, error } = await db.from("driver_documents").update({
+        review_status: reviewStatus, review_note: note || null,
+        reviewed_by: accountId, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      }).eq("id", adminReviewPath[2]).eq("driver_id", adminReviewPath[1])
+        .select("id,document_type,review_status,review_note").maybeSingle();
+      if (error || !data) return fail("Document not found or review could not be saved.", 404, origin);
+      await db.from("admin_audit_events").insert({
+        actor_id: accountId, action: "driver_document_" + reviewStatus,
+        target_type: "driver_document", target_id: data.id,
+        details: { driverId: adminReviewPath[1], documentType: data.document_type, note },
+      });
+      return json({ document: data }, 200, origin);
+    }
     if (path === "/admin/drivers" && method === "GET") {
       const { data: profiles, error } = await db.from("driver_profiles").select("*").order("created_at", { ascending: false }).limit(100);
       if (error) return fail("Driver list unavailable.", 500, origin);
       const ids = (profiles ?? []).map(x => x.account_id);
       const { data: people } = await db.from("accounts").select("id,email,display_name").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
       const byId = new Map((people ?? []).map(x => [x.id, x]));
-      return json({ drivers: (profiles ?? []).map(x => ({ driverId: x.account_id, email: byId.get(x.account_id)?.email ?? "", displayName: byId.get(x.account_id)?.display_name ?? "", vehicleRegistration: x.vehicle_registration, approved: x.is_approved, online: x.is_online, createdAt: x.created_at })) }, 200, origin);
+      const { data: documents } = await db.from("driver_documents").select("driver_id,document_type,review_status").in("driver_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+      const docsByDriver = new Map<string, Array<{ documentType: string; status: string }>>();
+      for (const doc of documents ?? []) docsByDriver.set(doc.driver_id, [...(docsByDriver.get(doc.driver_id) ?? []), { documentType: doc.document_type, status: doc.review_status }]);
+      return json({ drivers: (profiles ?? []).map(x => ({
+        driverId: x.account_id, email: byId.get(x.account_id)?.email ?? "",
+        displayName: byId.get(x.account_id)?.display_name ?? "",
+        vehicleRegistration: x.vehicle_registration, approved: x.is_approved, online: x.is_online,
+        createdAt: x.created_at, documents: docsByDriver.get(x.account_id) ?? [],
+      })) }, 200, origin);
     }
     if (path === "/admin/drivers" && method === "POST") {
       const email = clean(body.email, 254).toLowerCase(), password = typeof body.password === "string" ? body.password : "";

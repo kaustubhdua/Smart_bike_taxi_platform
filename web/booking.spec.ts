@@ -439,6 +439,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await expect(page.getByText("Status: in_progress")).toBeVisible();
   await page.getByRole("button", { name: "Complete trip" }).click();
   await expect(page.getByText("Status: completed")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Use my location and go online/ })).toBeVisible();
   await page.getByRole("button", { name: /Refresh trip history/ }).click();
   await expect(page.getByText("Gross completed fares:")).toBeVisible();
   await expect(page.locator("#operations .driver-queue").filter({ hasText: "Gross completed fares:" }).getByText("₹77.20", { exact: true })).toBeVisible();
@@ -891,4 +892,63 @@ test("public landing page describes backend dispatch accurately", async ({ page 
   await expect(page.getByText(/backend creates time-limited offers for eligible, approved drivers/i)).toBeVisible();
   await expect(page.getByText(/no historical GPS trail is retained/i)).toBeVisible();
   await expect(page.getByText(/no automated driver dispatch is provided/i)).toHaveCount(0);
+});
+
+test("passenger can select a pickup from the Noida map picker", async ({ page }) => {
+  await page.route("https://tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://photon.komoot.io/reverse**", async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        features: [{
+          properties: { name: "Noida City Centre", city: "Noida", state: "Uttar Pradesh", country: "India" },
+          geometry: { type: "Point", coordinates: [77.356, 28.574] },
+        }],
+      }),
+    });
+  });
+  await page.goto("/passenger");
+  await page.getByRole("button", { name: "Pick pickup on map" }).click();
+  const map = page.getByRole("application", { name: /Noida map/ });
+  await expect(map).toBeVisible();
+  await map.click({ position: { x: 180, y: 130 } });
+  await expect(page.getByLabel("Pickup point")).toHaveValue(/Noida City Centre/);
+  await expect(page.getByText(/Pickup selected from the map/)).toBeVisible();
+});
+
+
+test("offers a no-login demo with a shared sample passenger-driver-admin lifecycle", async ({ page }) => {
+  await page.goto("/demo");
+  await expect(page.getByText(/SIMULATED DEMO MODE/)).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Passenger/ })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", { name: /Request sample ride/ }).click();
+  await page.getByRole("tab", { name: /Driver/ }).click();
+  await page.getByRole("button", { name: /Accept sample offer/ }).click();
+  await page.getByRole("button", { name: /Mark arrived/ }).click();
+  await page.getByRole("button", { name: /Start sample trip/ }).click();
+  await page.getByRole("button", { name: /Complete sample trip/ }).click();
+  await page.getByRole("tab", { name: /Passenger/ }).click();
+  await expect(page.getByText(/Sample trip receipt/)).toBeVisible();
+  await page.getByRole("tab", { name: /Admin/ }).click();
+  await expect(page.getByText(/Admin controls are simulated/)).toBeVisible();
+  await expect(page.getByText(/DEMO SESSION/)).toBeVisible();
+  await page.getByRole("button", { name: /Reset demo trip/ }).click();
+  await expect(page.getByText(/Demo trip reset/)).toBeVisible();
+});
+
+test("saves and restores favourite routes locally without creating a quote", async ({ page }) => {
+  await blockMapTiles(page);
+  await page.goto("/live");
+  await fillRideLocations(page);
+  await page.getByRole("button", { name: /Save current route to this device/ }).click();
+  await expect(page.getByLabel("Saved favourite routes")).toContainText("JIIT Sector 128, Noida");
+  await page.reload();
+  await expect(page.getByLabel("Saved favourite routes")).toContainText("Sector 18 Market, Noida");
+  await page.getByLabel("Saved favourite routes").getByRole("button", { name: /JIIT Sector 128/ }).click();
+  await expect(page.getByLabel("Pickup point")).toHaveValue("JIIT Sector 128, Noida");
+  await expect(page.getByLabel("Drop-off point")).toHaveValue("Sector 18 Market, Noida");
+  await expect(page.locator(".fare-amount")).toContainText("—");
+  await page.getByRole("button", { name: /Remove saved route/ }).click();
+  await expect(page.getByLabel("Saved favourite routes")).toHaveCount(0);
 });

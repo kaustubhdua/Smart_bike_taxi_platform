@@ -3,9 +3,10 @@ import { geocodeNoidaLocation, reverseGeocodeNoidaLocation, type Coordinates } f
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import RideSafetyAndFeedback from "./components/RideSafetyAndFeedback";
 const RouteMap = lazy(() => import("./components/RouteMap"));
+const MapPicker = lazy(() => import("./components/MapPicker"));
 import {
   ArrowLeft, ArrowRight, Bike, Check, CircleHelp, Clock3, Crosshair,
-  Gauge, LocateFixed, MapPin, Menu, Route, ShieldCheck, Wallet, X,
+  Gauge, LocateFixed, MapPin, Menu, Route, ShieldCheck, Wallet, X, Bookmark, Trash2,
 } from "lucide-react";
 
 const locations = [
@@ -36,6 +37,8 @@ function isRouteGeometry(value: unknown): value is Array<[number, number]> {
 export default function App() {
   const reduceMotion = useReducedMotion();
   const [pickup, setPickup] = useState("");
+  const [savedRoutes, setSavedRoutes] = useState<Array<{ id: string; pickup: string; destination: string }>>([]);
+  const [savedRoutesReady, setSavedRoutesReady] = useState(false);
   const [destination, setDestination] = useState("");
   const [pickupCoordinates, setPickupCoordinates] = useState<Coordinates | null>(null);
   const [destinationCoordinates, setDestinationCoordinates] = useState<Coordinates | null>(null);
@@ -53,6 +56,12 @@ export default function App() {
   const [authName, setAuthName] = useState("");
   const [profileName, setProfileName] = useState("");
   const [profileBusy, setProfileBusy] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [bookingBusy, setBookingBusy] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [mapTarget, setMapTarget] = useState<"pickup" | "destination">("pickup");
+  const [mapPointBusy, setMapPointBusy] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
@@ -67,6 +76,54 @@ export default function App() {
   const [passengerHistory, setPassengerHistory] = useState<Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; finalFarePaise?: number; currency: string; createdAt: string; completedAt?: string }>>([]);
   const [historyBusy, setHistoryBusy] = useState(false);
   const [receiptRideId, setReceiptRideId] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("rideforge:saved-routes:v1");
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setSavedRoutes(parsed.filter((item): item is { id: string; pickup: string; destination: string } =>
+            item && typeof item.id === "string" && typeof item.pickup === "string" &&
+            typeof item.destination === "string" && item.pickup.length <= 240 && item.destination.length <= 240
+          ).slice(0, 8));
+        }
+      }
+    } catch {
+      // Saved shortcuts are optional; a blocked or malformed browser store must not block booking.
+    } finally {
+      setSavedRoutesReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!savedRoutesReady) return;
+    try { window.localStorage.setItem("rideforge:saved-routes:v1", JSON.stringify(savedRoutes)); }
+    catch { /* Private browsing or storage limits can disable this convenience without affecting rides. */ }
+  }, [savedRoutes, savedRoutesReady]);
+
+  function saveCurrentRoute() {
+    const from = pickup.trim();
+    const to = destination.trim();
+    if (from.length < 3 || to.length < 3 || from.toLocaleLowerCase("en-US") === to.toLocaleLowerCase("en-US")) {
+      setNotice("Enter two different locations before saving this route.");
+      return;
+    }
+    const duplicate = savedRoutes.some(item => item.pickup.toLowerCase() === from.toLowerCase() && item.destination.toLowerCase() === to.toLowerCase());
+    if (duplicate) { setNotice("This route is already in your saved places."); return; }
+    if (savedRoutes.length >= 8) { setNotice("You can save up to eight favourite routes. Remove one before adding another."); return; }
+    setSavedRoutes(current => [...current, { id: crypto.randomUUID(), pickup: from, destination: to }]);
+    setNotice("Favourite route saved on this device only. It is not uploaded to your account.");
+  }
+
+  function applySavedRoute(item: { pickup: string; destination: string }) {
+    setPickup(item.pickup);
+    setDestination(item.destination);
+    setPickupCoordinates(null);
+    setDestinationCoordinates(null);
+    clearBookingState();
+    setNotice("Saved route loaded. Request a fresh server quote before booking.");
+  }
+
   const fare = quote ? (quote.farePaise / 100).toFixed(2) : null;
   const valid = pickup.trim().length >= 3 && destination.trim().length >= 3 &&
     pickup.trim().toLocaleLowerCase("en-US") !== destination.trim().toLocaleLowerCase("en-US") && !routeLoading;
@@ -355,11 +412,13 @@ export default function App() {
   }
 
   async function authenticate() {
+    if (authBusy) return;
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (base === undefined) {
       setNotice("Configure VITE_API_BASE_URL to connect to the RideForge API.");
       return;
     }
+    setAuthBusy(true);
     try {
       const payload = authMode === "register"
         ? { email: authEmail, displayName: authName, password: authPassword }
@@ -368,6 +427,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
       });
       const data = await response.json() as {
         accessToken?: string;
@@ -386,12 +446,21 @@ export default function App() {
           : response.status === 401 ? "Email or password is incorrect."
           : data.error || `Authentication failed (HTTP ${response.status}).`);
       }
-      setAccount({ token: data.accessToken, email: data.account.email, displayName: data.account.displayName, role: data.account.role ?? "passenger" });
+      if (data.account.role !== "passenger") {
+        throw new Error(data.account.role === "driver"
+          ? "This is a driver account. Choose Driver on the RideForge home screen to manage ride offers."
+          : "Passenger access is required to book rides.");
+      }
+      setAccount({ token: data.accessToken, email: data.account.email, displayName: data.account.displayName, role: "passenger" });
       setProfileName(data.account.displayName ?? "");
       setAuthPassword("");
       setNotice(`Signed in as ${data.account.email}. Your access token stays in memory for this session.`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not connect to the authentication service.");
+      setNotice(error instanceof Error && error.name === "TimeoutError"
+        ? "Authentication took too long. Check your connection and try again."
+        : error instanceof Error ? error.message : "Could not connect to the authentication service.");
+    } finally {
+      setAuthBusy(false);
     }
   }
 
@@ -436,6 +505,7 @@ export default function App() {
   }
 
   async function createBooking() {
+    if (bookingBusy) return;
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (base === undefined || !quote || !account) {
       setNotice("Get a valid quote and sign in before confirming a ride.");
@@ -449,6 +519,7 @@ export default function App() {
     }
     const key = bookingKey || ("rideforge-" + crypto.randomUUID());
     setBookingKey(key);
+    setBookingBusy(true);
     try {
       const response = await fetch(apiUrl(base, "/api/v1/rides"), {
         method: "POST",
@@ -459,6 +530,7 @@ export default function App() {
           "Idempotency-Key": key,
         },
         body: JSON.stringify({ quoteId: quote.quoteId }),
+        signal: AbortSignal.timeout(15000),
       });
       const data = await response.json() as { rideId?: string; status?: string; error?: string };
       if (!response.ok || !data.rideId || !data.status) {
@@ -469,24 +541,35 @@ export default function App() {
       setRide({ rideId: data.rideId, status: data.status });
       setNotice(`Ride request created. Reference: ${data.rideId}. Status: ${data.status}.`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not create the ride request.");
+      setNotice(error instanceof Error && error.name === "TimeoutError"
+        ? "The booking request timed out. Retry safely; the same request reference will be reused."
+        : error instanceof Error ? error.message : "Could not create the ride request.");
+    } finally {
+      setBookingBusy(false);
     }
   }
 
   async function cancelRide() {
+    if (cancelBusy) return;
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (base === undefined || !account || !ride) return;
+    setCancelBusy(true);
     try {
       const response = await fetch(apiUrl(base, "/api/v1/rides/" + encodeURIComponent(ride.rideId) + "/cancel"), {
         method: "POST",
         headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
+        signal: AbortSignal.timeout(15000),
       });
       const data = await response.json() as { status?: string; error?: string };
       if (!response.ok || !data.status) throw new Error(data.error || "Cancellation failed (HTTP " + response.status + ").");
       setRide({ ...ride, status: data.status });
       setNotice("Ride request cancelled.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not cancel this ride request.");
+      setNotice(error instanceof Error && error.name === "TimeoutError"
+        ? "Cancellation timed out. Refresh the ride status before retrying."
+        : error instanceof Error ? error.message : "Could not cancel this ride request.");
+    } finally {
+      setCancelBusy(false);
     }
   }
 
@@ -596,6 +679,33 @@ export default function App() {
     setRoute(null); setRouteError(""); setQuote(null); setBookingKey(null); setRide(null);
   }
 
+  async function selectMapPoint(coordinates: Coordinates) {
+    if (mapPointBusy) return;
+    if (coordinates.latitude < 28.25 || coordinates.latitude > 28.75 ||
+        coordinates.longitude < 77.15 || coordinates.longitude > 77.65) {
+      setNotice("Choose a point within the Noida service preview area.");
+      return;
+    }
+    setMapPointBusy(true);
+    try {
+      const place = await reverseGeocodeNoidaLocation(coordinates);
+      if (mapTarget === "pickup") {
+        setPickup(place.displayName);
+        setPickupCoordinates(coordinates);
+      } else {
+        setDestination(place.displayName);
+        setDestinationCoordinates(coordinates);
+      }
+      clearBookingState();
+      setMapPickerOpen(false);
+      setNotice((mapTarget === "pickup" ? "Pickup" : "Drop-off") + " selected from the map. Review the address before requesting a quote.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not resolve that map location. Try a nearby public landmark.");
+    } finally {
+      setMapPointBusy(false);
+    }
+  }
+
   function scrollToBooking() {
     document.getElementById("booking")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }
@@ -659,11 +769,29 @@ export default function App() {
               <datalist id="rideforge-location-suggestions">{locations.map(item => <option key={item} value={item} />)}</datalist>
             </div>
 
+            <div className="map-picker-actions" aria-label="Choose locations on map">
+              <button type="button" className="location-action" onClick={() => { setMapTarget("pickup"); setMapPickerOpen(true); }} disabled={routeLoading || mapPointBusy}>
+                <MapPin size={15} /> Pick pickup on map
+              </button>
+              <button type="button" className="location-action" onClick={() => { setMapTarget("destination"); setMapPickerOpen(true); }} disabled={routeLoading || mapPointBusy}>
+                <Crosshair size={15} /> Pick drop-off on map
+              </button>
+            </div>
+            {mapPickerOpen && <div className="map-picker-panel">
+              <div className="map-picker-heading">
+                <strong>{mapPointBusy ? "Resolving selected location…" : <>Tap the map to choose {mapTarget === "pickup" ? "pickup" : "drop-off"}</>}</strong>
+                <button type="button" className="text-action" onClick={() => setMapPickerOpen(false)} disabled={mapPointBusy}>Close map</button>
+              </div>
+              <Suspense fallback={<div className="route-map-empty" role="status">Loading location map…</div>}>
+                <MapPicker target={mapTarget} pickupCoordinates={pickupCoordinates} destinationCoordinates={destinationCoordinates} onSelect={selectMapPoint} />
+              </Suspense>
+            </div>}
+
             <div className="booking-quick-actions">
               <button className="location-action" type="button" onClick={() => void useCurrentLocation()} disabled={locationBusy || routeLoading}>
                 <LocateFixed size={15} /> {locationBusy ? "Finding your location…" : "Use my current location"}
               </button>
-              <span>Noida-focused suggestions. Address lookup runs only when you request a quote; road distance and fare are calculated by the server. © OpenStreetMap contributors.</span>
+              <span>Noida-focused suggestions. Use public landmarks in this preview; do not enter home addresses or sensitive locations. Address lookup uses a public geocoding service only after you request a quote. © OpenStreetMap contributors.</span>
             </div>
 
             <div className="route-presets" aria-label="Suggested real routes">
@@ -674,7 +802,19 @@ export default function App() {
               <button type="button" onClick={() => { setPickup("JIIT Sector 128, Noida"); setDestination("Botanical Garden Metro, Noida"); setPickupCoordinates(null); setDestinationCoordinates(null); clearBookingState(); setNotice("Suggested route selected. Get a fresh server quote to see live route data."); }} disabled={routeLoading}>
                 JIIT → Botanical Garden <ArrowRight size={13} />
               </button>
+              <button type="button" onClick={saveCurrentRoute} disabled={routeLoading || !pickup.trim() || !destination.trim()} aria-label="Save current route to this device">
+                <Bookmark size={13} /> Save route
+              </button>
             </div>
+            {savedRoutes.length > 0 && <div className="saved-routes" aria-label="Saved favourite routes">
+              <span>YOUR SAVED ROUTES · THIS DEVICE</span>
+              {savedRoutes.map(item => <div className="saved-route-item" key={item.id}>
+                <button type="button" onClick={() => applySavedRoute(item)} disabled={routeLoading} title={item.pickup + " to " + item.destination}>
+                  <MapPin size={13} /><span>{item.pickup} <b>→</b> {item.destination}</span>
+                </button>
+                <button type="button" className="saved-route-remove" aria-label={"Remove saved route " + item.pickup + " to " + item.destination} onClick={() => setSavedRoutes(current => current.filter(route => route.id !== item.id))}><Trash2 size={13}/></button>
+              </div>)}
+            </div>}
 
             <div className="quote-row">
               <div className="quote-icon"><Route size={18} /></div>
@@ -698,13 +838,13 @@ export default function App() {
             {!pickup.trim() || !destination.trim() ? <p className="form-hint">Add both locations to continue. Try “JIIT Sector 128, Noida” and “Botanical Garden Metro, Noida”.</p> : !valid ? <p className="form-hint">Pickup and drop-off must be different locations.</p> : null}
             {apiHealth === "offline" && <div className="service-warning" role="status">The RideForge API did not respond to the last health check. You can still try a quote; the result will show whether booking services are available.</div>}
 
-            {((quote && !ride) || account) && account?.role !== "driver" && account?.role !== "admin" && (
+            {account?.role !== "driver" && account?.role !== "admin" && (
               <div className="auth-panel booking-auth-panel">
                 {account ? (
                   <div className="auth-session">
                     <div className="session-identity"><span className="confirmation-icon"><Check size={15} /></span><span><strong>You're signed in</strong><small>{account.displayName || account.email}</small></span></div>
                     <button className="text-action" onClick={() => { setAccount(null); setProfileName(""); setSupportReports([]); setPassengerHistory([]); setReceiptRideId(null); }}>Sign out</button>
-                    {quote && !ride && <button className="book-button" onClick={createBooking}>Confirm ride request <ArrowRight size={17} /></button>}
+                    {quote && !ride && <button className="book-button" onClick={createBooking} disabled={bookingBusy}>{bookingBusy ? "Requesting ride…" : "Confirm ride request"} <ArrowRight size={17} /></button>}
                   </div>
                 ) : (
                   <>
@@ -716,7 +856,7 @@ export default function App() {
                     {authMode === "register" && <label className="auth-field"><span>Your name</span><input required value={authName} onChange={event => setAuthName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Full name" /></label>}
                     <label className="auth-field"><span>Email address</span><input required type="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></label>
                     <label className="auth-field"><span>Password</span><input required type="password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} maxLength={128} minLength={authMode === "register" ? 12 : 1} autoComplete={authMode === "register" ? "new-password" : "current-password"} placeholder={authMode === "register" ? "At least 12 characters" : "Your password"} /></label>
-                    <button className="book-button" onClick={authenticate} disabled={!authEmail.trim() || !authPassword || (authMode === "register" && (!authName.trim() || authPassword.length < 12))}>{authMode === "register" ? "Create passenger account" : "Sign in and continue"} <ArrowRight size={17} /></button>
+                    <button className="book-button" onClick={authenticate} disabled={authBusy || !authEmail.trim() || !authPassword || (authMode === "register" && (!authName.trim() || authPassword.length < 12))}>{authBusy ? "Authenticating…" : authMode === "register" ? "Create passenger account" : "Sign in and continue"} <ArrowRight size={17} /></button>
                     <p className="auth-caption">Email verification may be required. Your access token stays in memory and is cleared when you refresh or sign out.</p>
                   </>
                 )}
@@ -727,7 +867,7 @@ export default function App() {
               <div className="confirmation-icon"><Check size={16} /></div>
               <div className="ride-status-copy"><span className="card-eyebrow">03 / RIDE STATUS</span><strong>{ride.status === "failed" ? "No driver found" : ride.status === "matching" || ride.status === "requested" ? "Finding your driver" : "Your ride request is active"}</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status.replaceAll("_", " ")} · Updates refresh automatically while this page is open.</small></div>
               <div className="ride-status-actions">
-                {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && <button className="outline-button" onClick={cancelRide}>Cancel request</button>}
+                {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && <button className="outline-button" onClick={cancelRide} disabled={cancelBusy}>{cancelBusy ? "Cancelling…" : "Cancel request"}</button>}
                 <button className="text-action" onClick={() => { setRide(null); setQuote(null); setBookingKey(null); setNotice("Your previous ride remains in trip history. You can plan another ride."); }}>New ride</button>
               </div>
             </div>}

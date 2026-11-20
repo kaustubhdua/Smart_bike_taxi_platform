@@ -54,7 +54,7 @@ Confirm exactly one row is returned. This is intentionally a manual privileged o
 - Authenticated users receive only participant/self SELECT policies needed for Realtime. Internal tables have explicit deny policies and no browser write grants.
 - All mutations go through the Edge Function and service-role-only RPCs after JWT, account-state and role checks.
 - The service-role key is used only inside the Supabase Edge Function runtime.
-- Driver accounts are created by an administrator and remain ineligible for dispatch until explicitly approved.
+- Drivers can self-register or be provisioned by an administrator. Every new driver remains pending and ineligible for dispatch until an administrator explicitly approves the account. Document uploads are privately stored and optional only for the classroom demonstration; this does not establish real-world driver or vehicle eligibility.
 - Driver location is considered fresh for two minutes; offers expire after 45 seconds; a ride is offered to at most five distinct eligible drivers, one offer at a time.
 - The fare quote is server-calculated, persisted for five minutes and consumed transactionally during booking. Public quote requests are limited to 10 per client IP per minute, and database-backed provider slots serialize Nominatim requests across Edge Function instances.
 - This remains a demonstration platform, not a live transport, payment or emergency-response service.
@@ -88,6 +88,6 @@ supabase functions deploy rideforge-api --no-verify-jwt --yes
 
 CLI v3 runs local database commands locally by default and requires explicit `--remote` for hosted database operations. Hosted changes require `--yes` in unattended automation. Never use `db reset --remote` against production.
 
-The live migrations `016_supabase_native_backend` through `024_retire_legacy_outbox_trigger` establish the Auth bridge, participant-scoped RLS, Realtime publication, transactional ride RPCs, bounded sequential dispatch with one active offer per ride, per-IP quote rate limits, serialized Nominatim requests, driver approval/location revalidation, and retirement of the legacy outbox notification trigger.
+The live migrations through `028_driver_documents_deny_client_access` establish the Auth bridge, participant-scoped RLS, Realtime publication, transactional booking and dispatch, bounded sequential driver offers, quote/provider rate limits, driver approval and cancellation, self-registration, private driver-document storage, and deny-all browser access to driver-document records. The hosted database was last verified with migrations through 028.
 
 The Vercel project `smart-bike-taxi-platform` serves the built React app from `web/`; the production browser API base is `https://ghcufcegfvvjhsnqnrzr.supabase.co/functions/v1/rideforge-api`. The Render static site is a legacy deployment and the old Render API services are not part of the active Supabase-native architecture. Do not delete legacy resources until the Vercel production domain, Auth redirect allowlist, first-admin bootstrap, driver onboarding, and external browser booking/dispatch acceptance tests are complete.

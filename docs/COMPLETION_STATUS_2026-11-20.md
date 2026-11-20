@@ -110,3 +110,54 @@ This addendum supersedes earlier deployment/CI statements above where they confl
 
 - Vercel build logs for `dpl_4jg9sbU45qvsBnx2NNTUEVmpeYGC` show `tsc -b && vite build`, 1,989 modules transformed, and `Deployment completed`; the deployment state is READY.
 - The latest source change after the tested code HEAD is documentation-only. The 15-job workflow run `44647862357` remains the CI evidence for code HEAD `440afb...`; do not imply that the docs-only commit itself had a new Actions run.
+
+
+---
+
+## 7. Pre-presentation execution update — 20 November 2026
+
+This addendum supersedes the earlier deployment, Edge Function and database-count snapshots above where they differ.
+
+### Current verified infrastructure
+
+- Supabase project `ghcufcegfvvjhsnqnrzr` is `ACTIVE_HEALTHY`, PostgreSQL 17.11.
+- `rideforge-api` is ACTIVE at **version 20**.
+- Hosted migrations are applied through `028_driver_documents_deny_client_access`.
+- Security Advisor: zero findings. Health Advisor: zero findings.
+- Performance Advisor: 16 informational unused-index findings and one informational unindexed foreign key on `driver_documents.reviewed_by`. No index was removed: the live workload has no accounts, drivers or rides, so unused-index evidence is not representative.
+- Latest live counts: 0 Auth users, 0 application accounts, 0 driver profiles, 0 rides, 0 driver documents, and 9 persisted route quotes.
+
+### Code changes now on main
+
+The pre-presentation pass has:
+- Corrected driver registration copy so optional documents are not described as mandatory.
+- Removed obsolete admin-document state that caused TypeScript and Docker build failures.
+- Added confirmation before suspending a driver.
+- Added passenger authentication, booking and cancellation busy guards and request timeouts; booking retries retain the same idempotency key.
+- Synchronized the driver UI to go offline after the backend completes a ride, and added a regression assertion.
+- Added explicit academic-preview, non-commercial and public-geocoder privacy disclaimers.
+- Updated the Supabase backend documentation for driver self-registration and migrations 025–028.
+
+These are source changes, not proof of a live hosted ride lifecycle.
+
+### Deployment and CI boundary
+
+- Latest verified READY production deployment: `dpl_GGzV1qw9TbdDS8bRkdysQMK5TBmk`, built from commit `11fb9dd161c83fef5fb6f10e2d9e289f5700a4bf`.
+- Later main commits are not yet deployed. Vercel returned `build-rate-limit` for subsequent commit deployments. Do not tell a reviewer the latest main changes are live until a READY deployment is built from the final main SHA.
+- The release-readiness workflow is being rerun for the latest source changes. A queued or in-progress run is not a green release gate; verify the final exact-head run before presenting.
+
+### Unmerged feature proposal
+
+PR [#108](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/108) proposes ride-start OTP, ratings, receipts, SOS, saved places and driver earnings. It remains open and GitHub reports it as not mergeable. Its migration timestamp `20261120010000` predates already-applied migrations through `20261120040000`; it must be rebased and its migration regenerated in correct order, then independently tested. None of those PR features should be claimed as deployed.
+
+### Remaining owner-only and real-world gates
+
+- Configure Supabase Auth Site URL, allowed redirect URLs, email verification and recovery delivery.
+- Register and verify a real passenger identity; register a separate driver identity; provision an owner-controlled admin identity using the manual bootstrap in `docs/SUPABASE_BACKEND.md`. No fake production accounts.
+- Complete the full multi-account hosted booking/dispatch/status/history journey.
+- Provision backup credentials and GitHub Actions secrets privately, then complete encrypted backup and isolated restore.
+- Configure branch protection, MFA, monitoring/alerts and manual Android/mobile/accessibility QA.
+- Keep payments, payouts, staffed emergency response, real driver/vehicle verification and commercial transport authorization marked unavailable until implemented and verified.
+- Obtain current written UP/NCR legal and vehicle-eligibility confirmation before any real ride or payment.
+
+**Presentation decision:** source changes improve the prototype, but RideForge remains an academic/portfolio preview. The complete production passenger-to-driver journey is not verified, and the latest main commit is not yet deployed.
