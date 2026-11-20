@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { geocodeNoidaLocation, reverseGeocodeNoidaLocation, type Coordinates } from "./geocoding";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import RideSafetyAndFeedback from "./components/RideSafetyAndFeedback";
 const RouteMap = lazy(() => import("./components/RouteMap"));
 import {
   ArrowLeft, ArrowRight, Bike, Check, CircleHelp, Clock3, Crosshair,
@@ -55,6 +56,8 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
+  const [rideStartCode, setRideStartCode] = useState<string | null>(null);
+  const [rideDriverRating, setRideDriverRating] = useState<{ count: number; average: number | null } | null>(null);
   const [rideDriverLocation, setRideDriverLocation] = useState<{ latitude: number; longitude: number; updatedAt: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [supportCategory, setSupportCategory] = useState("technical");
@@ -152,8 +155,12 @@ export default function App() {
           signal: AbortSignal.timeout(8000),
         });
         if (!response.ok) return;
-        const data = await response.json() as { rideId?: string; status?: string; driverLocation?: { latitude?: number; longitude?: number; updatedAt?: string } };
+        const data = await response.json() as { rideId?: string; status?: string; startCode?: string; driverRating?: { count?: number; average?: number | null }; driverLocation?: { latitude?: number; longitude?: number; updatedAt?: string } };
         applyStatus(data);
+        if (data.rideId === ride.rideId) {
+          setRideStartCode(typeof data.startCode === "string" ? data.startCode : null);
+          setRideDriverRating(data.driverRating && typeof data.driverRating.count === "number" ? { count: data.driverRating.count, average: data.driverRating.average ?? null } : null);
+        }
         if (data.rideId === ride.rideId && data.driverLocation &&
             typeof data.driverLocation.latitude === "number" && Number.isFinite(data.driverLocation.latitude) &&
             typeof data.driverLocation.longitude === "number" && Number.isFinite(data.driverLocation.longitude) &&
@@ -724,6 +731,10 @@ export default function App() {
                 <button className="text-action" onClick={() => { setRide(null); setQuote(null); setBookingKey(null); setNotice("Your previous ride remains in trip history. You can plan another ride."); }}>New ride</button>
               </div>
             </div>}
+
+            {ride && account?.role === "passenger" && import.meta.env.VITE_API_BASE_URL !== undefined && (
+              <RideSafetyAndFeedback base={String(import.meta.env.VITE_API_BASE_URL)} token={account.token} rideId={ride.rideId} status={ride.status} role="passenger" startCode={rideStartCode} driverRating={rideDriverRating} />
+            )}
 
             {account?.role === "passenger" && (
               <div className="passenger-tools">

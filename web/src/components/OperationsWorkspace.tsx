@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Check, RefreshCw, ShieldCheck, X } from "lucide-react";
+import RideSafetyAndFeedback from "./RideSafetyAndFeedback";
 
 type WorkspaceMode = "driver" | "admin";
 type RideRequest = {
@@ -38,6 +39,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [vehicleRegistration, setVehicleRegistration] = useState("");
   const [supportReports, setSupportReports] = useState<SupportReport[]>([]);
   const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
+  const [startOtp, setStartOtp] = useState("");
   const [rideSearch, setRideSearch] = useState("");
   const [rideStatusFilter, setRideStatusFilter] = useState("");
   const [adminRideResults, setAdminRideResults] = useState<AdminRideSearchItem[]>([]);
@@ -323,11 +325,12 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       const data = await request("/api/v1/driver/rides/" + encodeURIComponent(rideId) + suffix, {
         method: action === "driver_arriving" || action === "in_progress" || action === "completed" ? "PUT" : "POST",
         ...(action === "driver_arriving" || action === "in_progress" || action === "completed" || action === "cancel"
-          ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(action === "cancel" ? { reason: "Driver unavailable" } : { status: action }) }
+          ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(action === "cancel" ? { reason: "Driver unavailable" } : action === "in_progress" ? { status: action, otp: startOtp } : { status: action }) }
           : {}),
       });
       if (typeof data.rideId !== "string" || typeof data.status !== "string") throw new Error("The API returned an invalid ride state.");
       if (action !== "decline") setActiveRide({ rideId: data.rideId, status: data.status });
+      if (action === "in_progress") setStartOtp("");
       setRides(current => current.filter(ride => ride.rideId !== rideId));
       setError(action === "decline"
         ? "Request declined for your driver account. The passenger's booking remains active for other drivers."
@@ -497,8 +500,10 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               {activeRide && <div className="ride-confirmation" role="status"><span className="confirmation-icon"><Check size={16} /></span><div><strong>Active ride</strong><span>{activeRide.rideId}</span><small>Status: {activeRide.status}</small></div>
                 {activeRide.status === "assigned" && <button className="text-action" onClick={() => rideAction(activeRide.rideId, "driver_arriving")} disabled={busy}>Mark arriving</button>}
                 {(activeRide.status === "assigned" || activeRide.status === "driver_arriving") && <button className="text-action" onClick={() => rideAction(activeRide.rideId, "cancel")} disabled={busy}>Cancel ride</button>}
-                {activeRide.status === "driver_arriving" && <button className="text-action" onClick={() => rideAction(activeRide.rideId, "in_progress")} disabled={busy}>Start trip</button>}
+                {activeRide.status === "driver_arriving" && <label className="auth-field"><span>Start code from passenger</span><input inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="one-time-code" value={startOtp} onChange={event => setStartOtp(event.target.value.replace(/\D/g, ""))} placeholder="4 digits" /></label>}
+                {activeRide.status === "driver_arriving" && <button className="text-action" onClick={() => rideAction(activeRide.rideId, "in_progress")} disabled={busy || startOtp.length !== 4}>Start trip</button>}
                 {activeRide.status === "in_progress" && <button className="text-action" onClick={() => rideAction(activeRide.rideId, "completed")} disabled={busy}>Complete trip</button>}
+                {apiBase !== undefined && token && <RideSafetyAndFeedback base={apiBase} token={token} rideId={activeRide.rideId} status={activeRide.status} role="driver" />}
               </div>}
               <div className="driver-queue"><h3>Available requests ({rides.length})</h3>
                 {rides.length === 0 ? <p>Queue is empty or has not been loaded yet.</p> : rides.map(ride => <div className="ride-confirmation" key={ride.rideId}><div><strong>{ride.pickup} → {ride.destination}</strong><span>{typeof ride.pickupDistanceMeters === "number" ? "Pickup " + (ride.pickupDistanceMeters / 1000).toFixed(1) + " km away · " : ""}{ride.distanceMeters ? (ride.distanceMeters / 1000).toFixed(1) + " km trip · " : ""}₹{(ride.farePaise / 100).toFixed(2)}{ride.offerExpiresAt ? " · Offer expires " + new Date(ride.offerExpiresAt).toLocaleTimeString() : ""}</span><small>{ride.rideId}</small></div><div className="ride-actions"><button className="text-action" onClick={() => rideAction(ride.rideId, "accept")} disabled={busy}><Check size={15} /> Accept</button><button className="text-action" onClick={() => rideAction(ride.rideId, "decline")} disabled={busy}><X size={15} /> Decline</button></div></div>)}

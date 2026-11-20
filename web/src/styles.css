@@ -1142,3 +1142,17 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
   .rideforge-app.role-workspace #operations .ride-actions .text-action{flex:1}
   .rideforge-app.role-workspace #operations .button-row>*{width:100%}
 }
+
+
+/* Ride start code, SOS, rating and receipt */
+.ride-extras { display: grid; gap: 12px; margin-top: 12px; }
+.start-code { display: grid; gap: 4px; padding: 14px 16px; border-radius: 14px; background: #fff; border: 1px solid rgba(20, 60, 40, 0.18); }
+.start-code-digits { font-size: 2rem; letter-spacing: 0.4em; font-variant-numeric: tabular-nums; }
+.sos-row { display: grid; gap: 6px; }
+.sos-button { border-color: #b3261e; color: #b3261e; }
+.sos-button:focus-visible { outline: 3px solid #b3261e; outline-offset: 2px; }
+.feedback-panel, .receipt-card { display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; background: #fff; border: 1px solid rgba(20, 60, 40, 0.18); }
+.star-row { display: flex; gap: 4px; }
+.star { font-size: 1.6rem; line-height: 1; background: none; border: 0; color: #b9b9a8; cursor: pointer; min-width: 44px; min-height: 44px; }
+.star.selected { color: #e08a00; }
+.star:focus-visible { outline: 3px solid #1b4d3e; outline-offset: 2px; }

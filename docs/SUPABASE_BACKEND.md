@@ -59,6 +59,19 @@ Confirm exactly one row is returned. This is intentionally a manual privileged o
 - The fare quote is server-calculated, persisted for five minutes and consumed transactionally during booking. Public quote requests are limited to 10 per client IP per minute, and database-backed provider slots serialize Nominatim requests across Edge Function instances.
 - This remains a demonstration platform, not a live transport, payment or emergency-response service.
 
+## Ride safety and feedback (migration 027)
+
+| Capability | Endpoint | Notes |
+|---|---|---|
+| Start-trip OTP | `PUT /driver/rides/:id/status` with `{status:"in_progress", otp}` | A 4-digit code is issued when the ride is assigned and shown only to the passenger (`GET /rides/:id` → `startCode`). Five wrong codes lock the start; the ride can still be cancelled. |
+| Ratings | `POST /rides/:id/rating` | Completed rides only, one rating per participant, passenger rates driver and driver rates passenger. |
+| Receipt | `GET /rides/:id/receipt` | Completed rides only. States plainly that no payment was collected. |
+| SOS | `POST /rides/:id/sos`; admin `GET /admin/sos`, `PUT /admin/sos/:id` | Records an alert with location for an administrator. RideForge has no staffed control room: the UI tells users to call 112. |
+| Saved places | `GET/POST /saved-places`, `DELETE /saved-places/:id` | Up to 20 per account. |
+| Driver earnings | `GET /driver/earnings` | Gross completed fares for 24h/7d/30d plus rating. Not a payout ledger. |
+
+The new tables have RLS enabled with deny-all policies and no client grants. Apply the migration with `supabase db push`, then redeploy the Edge Function.
+
 ## Deployment
 
 The repository's CI pins Supabase CLI v3.0.0 rather than floating on `latest`. This avoids silently changing migration/deployment semantics when a new major CLI is released.

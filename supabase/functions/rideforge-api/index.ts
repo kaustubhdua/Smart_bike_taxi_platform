@@ -254,7 +254,22 @@ async function handle(req: Request): Promise<Response> {
       const { data: dp } = await db.from("driver_profiles").select("current_latitude,current_longitude,last_location_at").eq("account_id", ride.driver_id).maybeSingle();
       if (dp?.last_location_at && Date.now() - Date.parse(dp.last_location_at) < 120_000) driverLocation = { latitude: dp.current_latitude, longitude: dp.current_longitude, updatedAt: dp.last_location_at };
     }
-    return json({ ...mapRide(ride), ...(driverLocation ? { driverLocation } : {}) }, 200, origin);
+    let startCode: string | undefined;
+    if (ride.passenger_id === accountId && ["assigned", "driver_arriving"].includes(String(ride.status))) {
+      const { data: sc } = await db.from("ride_start_codes").select("code").eq("ride_id", ride.id).maybeSingle();
+      if (sc?.code) startCode = String(sc.code);
+    }
+    let driverRating: unknown;
+    if (ride.driver_id && ride.passenger_id === accountId) {
+      const { data: summary } = await db.rpc("rideforge_rating_summary", { p_account_id: ride.driver_id });
+      driverRating = summary ?? undefined;
+    }
+    return json({
+      ...mapRide(ride),
+      ...(driverLocation ? { driverLocation } : {}),
+      ...(startCode ? { startCode } : {}),
+      ...(driverRating ? { driverRating } : {}),
+    }, 200, origin);
   }
   if (ridePath && ridePath[2] === "cancel" && method === "POST") {
     const { data, error } = await db.rpc("rideforge_cancel_ride", { p_passenger_id: accountId, p_ride_id: ridePath[1] });
@@ -284,6 +299,81 @@ async function handle(req: Request): Promise<Response> {
       },
     });
     return new Response(stream, { headers: { ...corsHeaders(origin), "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" } });
+  }
+
+  const rideAction = path.match(/^\/rides\/([0-9a-f-]{36})\/(receipt|rating|sos)$/i);
+  if (rideAction) {
+    const [, rideId, action] = rideAction;
+    if (action === "receipt" && method === "GET") {
+      const { data: ride } = await db.from("rides").select("*").eq("id", rideId).maybeSingle();
+      if (!ride || (ride.passenger_id !== accountId && ride.driver_id !== accountId)) return fail("Ride not found.", 404, origin);
+      if (ride.status !== "completed") return fail("A receipt is available once the ride is completed.", 409, origin);
+      const { data: driver } = ride.driver_id
+        ? await db.from("accounts").select("display_name").eq("id", ride.driver_id).maybeSingle()
+        : { data: null };
+      const fare = Number(ride.final_fare_paise ?? ride.quoted_fare_paise);
+      const baseFare = Math.min(2000, fare);
+      return json({
+        receiptNumber: `RF-${String(ride.id).slice(0, 8).toUpperCase()}`,
+        rideId: ride.id, pickup: ride.pickup_label, destination: ride.destination_label,
+        distanceKm: ride.route_distance_m ? Number(ride.route_distance_m) / 1000 : null,
+        driverName: driver?.display_name ?? null,
+        startedAt: ride.started_at, completedAt: ride.completed_at,
+        currency: ride.currency, totalPaise: fare,
+        fareBreakdown: { baseFarePaise: baseFare, distanceFarePaise: fare - baseFare, pricingModel: "demo_base_plus_distance" },
+        payment: { collected: false, note: "No payment was collected. RideForge does not process payments yet." },
+      }, 200, origin);
+    }
+    if (action === "rating" && method === "POST") {
+      const stars = Number(body.stars);
+      if (!Number.isInteger(stars) || stars < 1 || stars > 5) return fail("Stars must be a whole number from 1 to 5.", 422, origin);
+      const { data, error } = await db.rpc("rideforge_rate_ride", { p_rater_id: accountId, p_ride_id: rideId, p_stars: stars, p_comment: clean(body.comment, 500) || null });
+      if (error) return error.code === "23505" ? fail("You already rated this ride.", 409, origin) : fail("This ride cannot be rated.", 409, origin);
+      return json(data, 201, origin);
+    }
+    if (action === "sos" && method === "POST") {
+      const lat = num(body.latitude), lon = num(body.longitude);
+      if ((lat === null) !== (lon === null)) return fail("Send latitude and longitude together.", 422, origin);
+      const { data, error } = await db.rpc("rideforge_raise_sos", { p_account_id: accountId, p_ride_id: rideId, p_latitude: lat, p_longitude: lon, p_note: clean(body.note, 500) || null });
+      if (error) return fail("SOS is only available during an active ride you are part of.", 409, origin);
+      return json({ ...data, guidance: "If you are in immediate danger, call 112 now. RideForge has no staffed control room, so this alert is recorded for an administrator but may not be seen in time." }, (data as { duplicate?: boolean }).duplicate ? 200 : 201, origin);
+    }
+  }
+
+  if (path === "/saved-places" && method === "GET") {
+    const { data, error } = await db.from("saved_places").select("id,label,address,latitude,longitude").eq("account_id", accountId).order("created_at", { ascending: true }).limit(20);
+    return error ? fail("Could not load saved places.", 500, origin) : json({ places: data ?? [] }, 200, origin);
+  }
+  if (path === "/saved-places" && method === "POST") {
+    const label = clean(body.label, 40), address = clean(body.address, 240);
+    const coords = parseCoordinatePair(body.latitude, body.longitude);
+    if (!label || address.length < 3 || !coords) return fail("A label, an address and valid coordinates are required.", 422, origin);
+    const { data, error } = await db.from("saved_places").insert({ account_id: accountId, label, address, latitude: coords.lat, longitude: coords.lon }).select("id,label,address,latitude,longitude").single();
+    if (error) return fail(error.code === "23505" ? "You already have a place with that label." : error.message.includes("limit") ? "You can save up to 20 places." : "Could not save the place.", error.code === "23505" || error.message.includes("limit") ? 409 : 500, origin);
+    return json(data, 201, origin);
+  }
+  const placePath = path.match(/^\/saved-places\/([0-9a-f-]{36})$/i);
+  if (placePath && method === "DELETE") {
+    const { data } = await db.from("saved_places").delete().eq("id", placePath[1]).eq("account_id", accountId).select("id");
+    return data?.length ? json({ deleted: true }, 200, origin) : fail("Saved place not found.", 404, origin);
+  }
+
+  if (path === "/driver/earnings" && method === "GET") {
+    if (account.role !== "driver") return fail("Driver account required.", 403, origin);
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const { data } = await db.from("rides").select("final_fare_paise,completed_at").eq("driver_id", accountId).eq("status", "completed").gte("completed_at", since).limit(1000);
+    const sum = (days: number) => (data ?? []).filter(r => Date.parse(String(r.completed_at)) >= Date.now() - days * 86_400_000)
+      .reduce((total, r) => total + Number(r.final_fare_paise ?? 0), 0);
+    const trips = (days: number) => (data ?? []).filter(r => Date.parse(String(r.completed_at)) >= Date.now() - days * 86_400_000).length;
+    const { data: rating } = await db.rpc("rideforge_rating_summary", { p_account_id: accountId });
+    return json({
+      currency: "INR",
+      last24h: { trips: trips(1), grossFarePaise: sum(1) },
+      last7d: { trips: trips(7), grossFarePaise: sum(7) },
+      last30d: { trips: trips(30), grossFarePaise: sum(30) },
+      rating: rating ?? { count: 0, average: null },
+      note: "Gross completed fares only. This is not a payout ledger; no platform fee, tax or settlement is calculated.",
+    }, 200, origin);
   }
 
   if (path === "/driver/availability" && method === "PUT") {
@@ -338,8 +428,12 @@ async function handle(req: Request): Promise<Response> {
     }
     if (action === "status" && method === "PUT") {
       const status = clean(body.status, 32);
-      const { data, error } = await db.rpc("rideforge_advance_ride", { p_driver_id: accountId, p_ride_id: rideId, p_status: status });
-      return error ? fail("Ride transition is not allowed.", 409, origin) : json(data, 200, origin);
+      const otp = clean(body.otp, 8);
+      if (status === "in_progress" && !/^\d{4}$/.test(otp)) return fail("Enter the 4-digit start code shown to the passenger.", 422, origin);
+      const { data, error } = await db.rpc("rideforge_advance_ride", { p_driver_id: accountId, p_ride_id: rideId, p_status: status, p_otp: status === "in_progress" ? otp : null });
+      if (error) return fail("Ride transition is not allowed.", 409, origin);
+      if (data?.otpRejected) return json({ error: data.attemptsRemaining > 0 ? `Incorrect start code. ${data.attemptsRemaining} attempt${data.attemptsRemaining === 1 ? "" : "s"} left.` : "Too many incorrect codes. Ask support or cancel the ride.", attemptsRemaining: data.attemptsRemaining }, 422, origin);
+      return json(data, 200, origin);
     }
   }
 
@@ -373,7 +467,35 @@ async function handle(req: Request): Promise<Response> {
       if (statusCounts.some(result => result.error) || drivers.error) return fail("Operational metrics unavailable.", 500, origin);
       const ridesByStatus: Record<string, number> = {};
       statuses.forEach((status, index) => { ridesByStatus[status] = statusCounts[index].count ?? 0; });
-      return json({ ridesByStatus, onlineDrivers: drivers.count ?? 0 }, 200, origin);
+      const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+      const [openSos, recent] = await Promise.all([
+        db.from("sos_events").select("id", { count: "exact", head: true }).neq("status", "resolved"),
+        db.from("rides").select("final_fare_paise").eq("status", "completed").gte("completed_at", dayAgo).limit(5000),
+      ]);
+      return json({
+        ridesByStatus, onlineDrivers: drivers.count ?? 0,
+        openSos: openSos.count ?? 0,
+        completedLast24h: (recent.data ?? []).length,
+        grossFarePaiseLast24h: (recent.data ?? []).reduce((total, r) => total + Number(r.final_fare_paise ?? 0), 0),
+      }, 200, origin);
+    }
+    if (path === "/admin/sos" && method === "GET") {
+      const { data, error } = await db.from("sos_events").select("*").order("created_at", { ascending: false }).limit(100);
+      if (error) return fail("SOS alerts unavailable.", 500, origin);
+      const ids = [...new Set((data ?? []).map(x => x.account_id))];
+      const { data: people } = await db.from("accounts").select("id,email,display_name,role").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+      const byId = new Map((people ?? []).map(x => [x.id, x]));
+      return json({ alerts: (data ?? []).map(x => ({ id: String(x.id), rideId: x.ride_id, status: x.status, note: x.note, latitude: x.latitude, longitude: x.longitude, raisedBy: byId.get(x.account_id)?.email ?? "", raisedByRole: byId.get(x.account_id)?.role ?? "", createdAt: x.created_at, handledAt: x.handled_at })) }, 200, origin);
+    }
+    const sosUpdate = path.match(/^\/admin\/sos\/(\d+)$/);
+    if (sosUpdate && method === "PUT") {
+      const status = clean(body.status, 16);
+      if (!["acknowledged", "resolved"].includes(status)) return fail("Status must be acknowledged or resolved.", 422, origin);
+      const from = status === "acknowledged" ? ["open"] : ["open", "acknowledged"];
+      const { data, error } = await db.from("sos_events").update({ status, handled_by: accountId, handled_at: new Date().toISOString() }).eq("id", Number(sosUpdate[1])).in("status", from).select("id,status").maybeSingle();
+      if (error || !data) return fail("Alert is already resolved or does not exist.", 409, origin);
+      await db.from("admin_audit_events").insert({ actor_id: accountId, action: "sos_" + status, target_type: "sos_event", target_id: String(data.id), details: {} });
+      return json({ id: String(data.id), status: data.status }, 200, origin);
     }
     if (path === "/admin/audit" && method === "GET") {
       const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? 50) || 50));
