@@ -486,17 +486,24 @@ test("admin workspace reads metrics from the protected API", async ({ page }) =>
 });
 
 
-test("admin provisions a driver and explicitly approves or suspends dispatch eligibility", async ({ page }) => {
+test("admin must verify all driver documents before approval and can review SOS alerts", async ({ page }) => {
   await blockMapTiles(page);
   const drivers: Array<{
     driverId: string; email: string; displayName: string; vehicleRegistration: string;
     approved: boolean; online: boolean; createdAt: string;
+    documents?: Array<{ documentType: string; status: string }>;
   }> = [];
-  const supportReports: Array<{
-    id: string; rideId: string | null; category: string; description: string; status: string;
-    resolutionNote: string; createdAt: string; updatedAt: string; resolvedAt: string | null;
-    reporterId: string; reporterEmail: string; reporterName: string;
-  }> = [{
+  const documents = [
+    { id: "doc-license", document_type: "driving_license", original_name: "licence.pdf", mime_type: "application/pdf", byte_size: 1024, review_status: "pending", review_note: null, created_at: new Date().toISOString(), signedUrl: "https://storage.example.test/licence.pdf" },
+    { id: "doc-rc", document_type: "vehicle_rc", original_name: "vehicle-rc.pdf", mime_type: "application/pdf", byte_size: 1024, review_status: "pending", review_note: null, created_at: new Date().toISOString(), signedUrl: "https://storage.example.test/vehicle-rc.pdf" },
+    { id: "doc-insurance", document_type: "insurance", original_name: "insurance.pdf", mime_type: "application/pdf", byte_size: 1024, review_status: "pending", review_note: null, created_at: new Date().toISOString(), signedUrl: "https://storage.example.test/insurance.pdf" },
+  ];
+  const sosAlerts = [{
+    id: "77", rideId: "ride-test-0001", status: "open", note: "Passenger requested assistance.",
+    latitude: 28.53, longitude: 77.35, raisedBy: "rider@example.test", raisedByRole: "passenger",
+    createdAt: new Date().toISOString(), handledAt: null,
+  }];
+  const supportReports = [{
     id: "42", rideId: null, category: "technical",
     description: "A trip status failed to refresh after reconnecting.",
     status: "open", resolutionNote: "", createdAt: new Date().toISOString(),
@@ -505,8 +512,7 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   }];
   await page.route("http://api.test/api/v1/auth/login", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-      accessToken: "test-admin-token",
-      account: { email: "admin@example.test", role: "admin" },
+      accessToken: "test-admin-token", account: { email: "admin@example.test", role: "admin" },
     }) });
   });
   await page.route("http://api.test/api/v1/admin/audit?limit=50", async route => {
@@ -538,35 +544,63 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
     supportReports[0].resolvedAt = input.status === "resolved" || input.status === "rejected" ? new Date().toISOString() : null;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(supportReports[0]) });
   });
+  await page.route("http://api.test/api/v1/admin/sos**", async route => {
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-admin-token");
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ alerts: sosAlerts }) });
+      return;
+    }
+    const input = route.request().postDataJSON() as { status: "acknowledged" | "resolved" };
+    sosAlerts[0].status = input.status;
+    sosAlerts[0].handledAt = new Date().toISOString();
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: sosAlerts[0].id, status: sosAlerts[0].status }) });
+  });
   await page.route("http://api.test/api/v1/admin/drivers**", async route => {
     const request = route.request();
     expect(request.headers()["authorization"]).toBe("Bearer test-admin-token");
+    const url = new URL(request.url());
+    const reviewMatch = url.pathname.match(/\/admin\/drivers\/([^/]+)\/documents\/([^/]+)\/review$/);
+    if (request.method() === "GET" && url.pathname.endsWith("/documents")) {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents }) });
+      return;
+    }
+    if (request.method() === "PUT" && reviewMatch) {
+      const input = request.postDataJSON() as { status: "verified" | "rejected"; note?: string };
+      const document = documents.find(item => item.id === reviewMatch[2]);
+      if (!document) { await route.fulfill({ status: 404, body: JSON.stringify({ error: "not_found" }) }); return; }
+      document.review_status = input.status;
+      document.review_note = input.note ?? null;
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ document }) });
+      return;
+    }
     if (request.method() === "GET") {
+      const driver = drivers[0];
+      if (driver) driver.documents = documents.map(document => ({ documentType: document.document_type, status: document.review_status }));
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ drivers }) });
       return;
     }
     if (request.method() === "POST") {
       const input = request.postDataJSON() as { email: string; displayName: string; vehicleRegistration: string };
       const driver = {
-        driverId: "driver-test-0001",
-        email: input.email,
-        displayName: input.displayName,
-        vehicleRegistration: input.vehicleRegistration.toUpperCase(),
-        approved: false,
-        online: false,
-        createdAt: new Date().toISOString(),
+        driverId: "driver-test-0001", email: input.email, displayName: input.displayName,
+        vehicleRegistration: input.vehicleRegistration.toUpperCase(), approved: false, online: false,
+        createdAt: new Date().toISOString(), documents: documents.map(document => ({ documentType: document.document_type, status: document.review_status })),
       };
       drivers.push(driver);
       await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(driver) });
       return;
     }
-    if (request.method() === "PUT") {
+    if (request.method() === "PUT" && url.pathname.endsWith("/approval")) {
       const driver = drivers[0];
-      driver.approved = (request.postDataJSON() as { approved: boolean }).approved;
+      const input = request.postDataJSON() as { approved: boolean };
+      const allVerified = ["driving_license", "vehicle_rc", "insurance"].every(type => documents.some(document => document.document_type === type && document.review_status === "verified"));
+      if (input.approved && !allVerified) {
+        await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "verification_required" }) });
+        return;
+      }
+      driver.approved = input.approved;
       driver.online = false;
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-        driverId: driver.driverId, approved: driver.approved, online: false,
-      }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ driverId: driver.driverId, approved: driver.approved, online: false }) });
       return;
     }
     await route.fulfill({ status: 405, contentType: "application/json", body: JSON.stringify({ error: "method_not_allowed" }) });
@@ -581,6 +615,12 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await page.locator("#operations").getByLabel("Password").fill("a-long-admin-password-123");
   await page.locator("#operations").getByRole("button", { name: "Sign in securely" }).click();
   await expect(page.getByRole("heading", { name: "Operations and driver approval" })).toBeVisible();
+  await expect(page.getByText("Alert #77 · open")).toBeVisible();
+  await page.getByRole("button", { name: "Acknowledge" }).click();
+  await expect(page.getByText("Alert #77 · acknowledged")).toBeVisible();
+  await page.getByRole("button", { name: "Mark resolved" }).click();
+  await expect(page.getByText("Alert #77 · resolved")).toBeVisible();
+
   await page.getByRole("button", { name: /Refresh drivers/ }).click();
   await page.locator("#operations").getByLabel("Driver name").fill("Demo Driver");
   await page.locator("#operations").getByLabel("Email", { exact: true }).fill("driver@example.test");
@@ -590,7 +630,16 @@ test("admin provisions a driver and explicitly approves or suspends dispatch eli
   await expect(createDriverButton).toBeEnabled();
   await createDriverButton.click();
   await expect(page.getByText("Pending approval")).toBeVisible();
-  await page.getByRole("button", { name: "Approve" }).click();
+  const reviewDocuments = page.getByRole("button", { name: "Review documents" });
+  await reviewDocuments.click();
+  await expect(page.getByText("driving license", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve driver" })).toBeDisabled();
+  await expect(page.getByRole("link", { name: /Open private document/ })).toHaveCount(3);
+  for (let index = 0; index < 3; index += 1) {
+    await page.getByRole("button", { name: "Verify" }).first().click();
+  }
+  await expect(page.getByRole("button", { name: "Approve driver" })).toBeEnabled();
+  await page.getByRole("button", { name: "Approve driver" }).click();
   await expect.poll(() => drivers[0]?.approved).toBe(true);
   await expect(page.getByRole("button", { name: "Suspend" })).toBeVisible();
   await page.getByRole("button", { name: /Refresh audit history/ }).click();
