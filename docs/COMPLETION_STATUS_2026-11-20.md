@@ -97,10 +97,16 @@ Do not claim that real passenger signup, driver onboarding, full ride completion
 
 This addendum supersedes earlier deployment/CI statements above where they conflict.
 
-- **Current GitHub main HEAD:** `440afb157c7981368252eed55745024e8255165c` (`test(e2e): target current Vercel production for live quote acceptance`).
-- **Latest observed READY Vercel production deployment:** `dpl_8mZasVUEQ2AGMtKyX8ZUYrj6j2Lc`, built from `8ecfe94a5a249b3d808377778982b48f3e9d2859`. The later main HEAD is therefore **not yet proven deployed**.
-- **Vercel status for current main HEAD:** failure with Vercel's `build-rate-limit` response. This is a deployment quota/account limit, not a confirmed application build failure. Do not claim the latest driver/admin workspace styling is live until a deployment built from the current HEAD is READY.
+- **Code HEAD under test:** `440afb157c7981368252eed55745024e8255165c` (`test(e2e): target current Vercel production for live quote acceptance`), including the driver/admin workspace styling commit `3bde61f...`.
+- **Latest READY Vercel production deployment:** `dpl_4jg9sbU45qvsBnx2NNTUEVmpeYGC`, built successfully from main commit `1c123be56eea5d59c70ce7ec575332681a0acc90` (a documentation-only release addendum on top of the code HEAD). Vercel confirms the public production alias `https://smart-bike-taxi-platform.vercel.app` is attached. Thus the current code tree, including driver/admin styling, is deployed.
+- The earlier Vercel status for code HEAD `440afb...` showed `build-rate-limit`; a subsequent main deployment completed successfully. The current production deployment is READY, so that earlier transient quota failure is no longer a deployment blocker.
 - **GitHub Actions run:** [run 44647862357](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44647862357). All 15 returned jobs completed successfully, including both CodeQL analyses, dependency audit, API smoke at 5 km and 20 km, Supabase schema/RLS and Edge API tests, PostgreSQL backup/restore test, container scans, and web build/typecheck/browser suite.
 - **Web acceptance:** 56 Playwright tests; 53 passed and 3 skipped. The route-preset regression test passed. The one-time live production passenger quote acceptance step was skipped. The live route quote remains demonstrated in the prior deployed build/runbook, but this workflow does not establish a fresh live quote on the latest source commit.
 - **Latest hosted DB counts rechecked:** 0 Auth users, 0 application accounts, 0 rides, 7 route quotes. Security Advisor and Health Advisor both returned zero findings.
 - **Release decision remains:** deployed academic/portfolio MVP only; not a completed commercial ride-hailing operation. The owner must still provision real passenger/driver/admin identities, configure Auth redirects and email delivery, complete real multi-account ride lifecycle acceptance, provision backup credentials/secrets and run hosted recovery, configure repository rules/MFA/monitoring, and obtain written transport/legal clearance before any real passenger service.
+
+
+### Deployment follow-up
+
+- Vercel build logs for `dpl_4jg9sbU45qvsBnx2NNTUEVmpeYGC` show `tsc -b && vite build`, 1,989 modules transformed, and `Deployment completed`; the deployment state is READY.
+- The latest source change after the tested code HEAD is documentation-only. The 15-job workflow run `44647862357` remains the CI evidence for code HEAD `440afb...`; do not imply that the docs-only commit itself had a new Actions run.
