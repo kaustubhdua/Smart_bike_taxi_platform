@@ -89,7 +89,7 @@ export default function RideSafetyAndFeedback({ base, token, rideId, status, rol
       {ACTIVE.includes(status) && (
         <div className="sos-row">
           <button className="outline-button sos-button" onClick={sendSos} disabled={busy}>Send SOS alert</button>
-          <small>Records an alert with your location for an administrator. There is no staffed control room, so call 112 in an emergency.</small>
+          <small>Records this alert in the admin review queue, which is not continuously monitored. For immediate danger, call 112.</small>
         </div>
       )}
       {status === "completed" && (
