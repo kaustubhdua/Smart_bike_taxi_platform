@@ -703,6 +703,15 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               <div className="driver-queue"><h3>Available requests ({rides.length})</h3>
                 {rides.length === 0 ? <p>Queue is empty or has not been loaded yet.</p> : rides.map(ride => <div className="ride-confirmation" key={ride.rideId}><div><strong>{ride.pickup} → {ride.destination}</strong><span>{typeof ride.pickupDistanceMeters === "number" ? "Pickup " + (ride.pickupDistanceMeters / 1000).toFixed(1) + " km away · " : ""}{ride.distanceMeters ? (ride.distanceMeters / 1000).toFixed(1) + " km trip · " : ""}₹{(ride.farePaise / 100).toFixed(2)}{ride.offerExpiresAt ? " · Offer expires " + new Date(ride.offerExpiresAt).toLocaleTimeString() : ""}</span><small>{ride.rideId}</small></div><div className="ride-actions"><button className="text-action" onClick={() => rideAction(ride.rideId, "accept")} disabled={busy}><Check size={15} /> Accept</button><button className="text-action" onClick={() => rideAction(ride.rideId, "decline")} disabled={busy}><X size={15} /> Decline</button></div></div>)}
               </div>
+              {driverEarnings && <div className="driver-queue driver-earnings">
+                <div className="driver-panel-head"><h3>Earnings overview</h3><button className="outline-button" onClick={refreshDriverEarnings} disabled={busy}><RefreshCw size={15} /> Refresh</button></div>
+                <div className="earnings-period-grid">
+                  <div><small>LAST 24 HOURS</small><strong>₹{(driverEarnings.last24h.grossFarePaise / 100).toFixed(2)}</strong><span>{driverEarnings.last24h.trips} completed trips</span></div>
+                  <div><small>LAST 7 DAYS</small><strong>₹{(driverEarnings.last7d.grossFarePaise / 100).toFixed(2)}</strong><span>{driverEarnings.last7d.trips} completed trips</span></div>
+                  <div><small>LAST 30 DAYS</small><strong>₹{(driverEarnings.last30d.grossFarePaise / 100).toFixed(2)}</strong><span>{driverEarnings.last30d.trips} completed trips</span></div>
+                </div>
+                <p className="auth-caption">Driver rating: {driverEarnings.rating.average === null ? "Not rated yet" : driverEarnings.rating.average.toFixed(1) + " / 5"} · {driverEarnings.rating.count} rating(s). {driverEarnings.note}</p>
+              </div>}
               <div className="driver-queue">
                 <div className="driver-panel-head"><h3>Trip history</h3><button className="outline-button" onClick={refreshDriverHistory} disabled={busy}><RefreshCw size={15} /> Refresh trip history</button></div>
                 {driverHistory && <>
@@ -716,11 +725,12 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
             </>
           ) : (
             <>
-              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); setSupportReports([]); setResolutionNotes({}); setAdminRideResults([]); setRideSearch(""); setRideStatusFilter(""); setError("Signed out of the administrator console."); }}>Sign out</button></div>
+              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); setSupportReports([]); setSosAlerts([]); setResolutionNotes({}); setAdminRideResults([]); setRideSearch(""); setRideStatusFilter(""); setError("Signed out of the administrator console."); }}>Sign out</button></div>
               <div className="button-row">
                 <button className="book-button" onClick={refreshMetrics} disabled={busy}>Refresh metrics <ArrowRight size={18} /></button>
                 <button className="outline-button" onClick={refreshDrivers} disabled={busy}><RefreshCw size={15} /> Refresh drivers</button>
                 <button className="outline-button" onClick={refreshAudit} disabled={busy}><ShieldCheck size={15} /> Refresh audit history</button>
+                <button className="outline-button" onClick={refreshSosAlerts} disabled={busy}><ShieldCheck size={15} /> Refresh safety alerts</button>
               </div>
               <form className="auth-panel" onSubmit={searchAdminRides}>
                 <div className="card-heading"><div><span className="card-eyebrow">RIDE INVESTIGATION</span><h3>Search rides</h3></div></div>
@@ -735,7 +745,34 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                   <div><strong>{item.status.replaceAll("_", " ")} · ₹{(item.farePaise / 100).toFixed(2)}</strong><span>{item.pickup} → {item.destination}</span><small>Passenger: {item.passengerEmail} · Driver: {item.driverEmail ?? "unassigned"} · {item.rideId}</small><small>{new Date(item.createdAt).toLocaleString()}</small></div>
                 </article>)}
               </div>
-              {metrics && <div className="driver-queue"><h3>PostgreSQL-backed counts</h3><p>Drivers online with a location updated in the last two minutes: <strong>{metrics.onlineDrivers}</strong></p>{Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}</div>}
+              {metrics && <div className="driver-queue"><h3>Live operational snapshot</h3>
+                <div className="admin-metric-grid">
+                  <div><small>DRIVERS ONLINE</small><strong>{metrics.onlineDrivers}</strong></div>
+                  <div><small>OPEN SAFETY ALERTS</small><strong>{metrics.openSos ?? 0}</strong></div>
+                  <div><small>COMPLETED · 24H</small><strong>{metrics.completedLast24h ?? 0}</strong></div>
+                  <div><small>GROSS FARES · 24H</small><strong>₹{((metrics.grossFarePaiseLast24h ?? 0) / 100).toFixed(2)}</strong></div>
+                </div>
+                {Object.entries(metrics.ridesByStatus).map(([status, count]) => <div className="ride-confirmation" key={status}><strong>{status.replaceAll("_", " ")}</strong><span>{count} ride(s)</span></div>)}
+              </div>}
+              <div className="driver-queue admin-sos-panel">
+                <div className="driver-panel-head"><h3>Safety alerts ({sosAlerts.length})</h3><button className="outline-button" onClick={refreshSosAlerts} disabled={busy}><RefreshCw size={15} /> Refresh alerts</button></div>
+                <p className="auth-caption">Alerts are database records for operations follow-up, not emergency dispatch. An immediate emergency still requires calling 112.</p>
+                {sosAlerts.length === 0 ? <p>Refresh alerts to inspect passenger and driver SOS events.</p> : sosAlerts.map(alert => (
+                  <article className="ride-confirmation admin-sos-card" key={alert.id}>
+                    <div>
+                      <strong>Alert #{alert.id} · {alert.status.replaceAll("_", " ")}</strong>
+                      <span>{alert.raisedByRole} · {alert.raisedBy || "Account unavailable"} · Ride {alert.rideId}</span>
+                      {alert.note && <small>{alert.note}</small>}
+                      <small>Raised {new Date(alert.createdAt).toLocaleString()}{alert.handledAt ? " · Handled " + new Date(alert.handledAt).toLocaleString() : ""}</small>
+                      {alert.latitude !== null && alert.longitude !== null && <a href={"https://www.openstreetmap.org/?mlat=" + alert.latitude + "&mlon=" + alert.longitude + "#map=16/" + alert.latitude + "/" + alert.longitude} target="_blank" rel="noreferrer">Open reported location</a>}
+                    </div>
+                    {alert.status !== "resolved" && <div className="button-row">
+                      {alert.status === "open" && <button className="outline-button" onClick={() => updateSosAlert(alert, "acknowledged")} disabled={busy}>Acknowledge</button>}
+                      <button className="outline-button" onClick={() => updateSosAlert(alert, "resolved")} disabled={busy}>Mark resolved</button>
+                    </div>}
+                  </article>
+                ))}
+              </div>
               <div className="driver-queue"><h3>Privileged action audit ({auditEvents.length})</h3>
                 {auditEvents.length === 0 ? <p>Refresh audit history to inspect driver provisioning, approval and suspension events.</p> : auditEvents.map(event => <div className="ride-confirmation" key={event.id}>
                   <div><strong>{event.action.replaceAll(".", " ")}</strong><span>{event.actorEmail} · {event.targetType} · {event.targetId}</span><small>{new Date(event.createdAt).toLocaleString()} · {JSON.stringify(event.details)}</small></div>
