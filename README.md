@@ -17,21 +17,21 @@ Shortest-path routing · Durable 45-second driver offers · Automatic expiry/red
 
 ---
 
-> **Latest verified evidence — 20 November 2026:** `main` includes the Nirdhoom-inspired product UI and route-quote work at commit `c38cfe46f38bf2bc507900fa8311a24c1efe1e2b`; the earlier `b0c319484d39138202cd4ca275cc080aadffa622` snapshot is superseded. PR [#106](https://github.com/kaustubhdua/Smart_bike_taxi_platform/pull/106) is merged: the Nirdhoom-inspired cream/forest-green/saffron/navy design system, browser-side Photon address resolution, GPS-coordinate fallback, and server-authoritative route/fare quotes. Full release-readiness run [#44588482642](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44588482642) passed all 15 jobs; the web job passed 51 browser tests and the one-time live Noida quote acceptance. Supabase `rideforge-api` is ACTIVE at version 15; the project is ACTIVE_HEALTHY and Security/Health Advisors report zero findings. The live route quote test returned HTTP 200 with actual OSRM road geometry and a clearly labelled preview tariff. The current Vercel production deployment is READY on main commit `eb942c6e3eba61690c49f52fe0dfd9280f380528`, and `https://smart-bike-taxi-platform.vercel.app` is attached as its production alias; the Render static site remains a fallback target. The production database still has zero Auth users, application accounts and rides. Backup credentials/restore drill, first-admin bootstrap, hosted passenger/driver/admin lifecycle, enforced branch protection, manual device/accessibility review, and all commercial/legal/vehicle/insurance/payment/emergency-service approvals remain open. RideForge is an academic/portfolio preview, not an operating transport service. See the [current completion status](docs/COMPLETION_STATUS_2026-11-20.md) and [active operations runbook](docs/SUPABASE_OPERATIONS.md).
+> **Latest repository update — 20 November 2026:** The main branch now includes a Nirdhoom-inspired RideForge visual refresh (warm cream, forest green, saffron, navy, restrained motion), a more focused booking panel, responsive polish, and one-tap Noida route presets that still request a fresh live server quote. These frontend changes are committed but their Vercel production deployment is being verified; do not treat the previous production bundle as containing this latest refresh until the deployment check is green. The Supabase project is ACTIVE_HEALTHY and `rideforge-api` is ACTIVE at version 15. Security and Health Advisors report zero findings; Performance Advisor has 15 informational unused-index notices. The latest database check returned 0 Auth users, 0 application accounts, 0 rides and 7 persisted route quotes. The earlier full release-readiness run [#44588482642](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44588482642) passed all 15 jobs and its web job passed 51 browser tests; that historical run does not validate these latest CSS/UI changes. Backup credentials/restore drill, first-admin bootstrap, hosted passenger/driver/admin lifecycle, enforced branch protection, manual device/accessibility review, and all commercial/legal/vehicle/insurance/payment/emergency-service approvals remain open. RideForge is an academic/portfolio preview, not an operating transport service. See the [current completion status](docs/COMPLETION_STATUS_2026-11-20.md), [live demo runbook](docs/DEMO_RUNBOOK.md), and [active operations runbook](docs/SUPABASE_OPERATIONS.md).
 
 ## Quick live demo
 
-The currently verified passenger flow is the **real route-quote journey**:
+The quickest hosted walkthrough is the **real server-backed route-quote journey**:
 
 1. Open the live RideForge frontend and wait for the API connection indicator.
-2. Enter **JIIT Sector 128, Noida** as pickup.
-3. Enter **Sector 18 Market, Noida** as destination.
-4. Select **Get fare estimate**.
-5. Confirm that the server returns a quote, route distance/duration, expiry and a real road geometry map.
+2. In the booking card, select **JIIT → Sector 18** or **JIIT → Botanical Garden**. These buttons only fill the address fields.
+3. Select **Get fare estimate**.
+4. Wait for address resolution and the server-side routing provider.
+5. Show the returned route geometry, distance, duration, INR preview quote and quote expiry.
 
-Latest hosted acceptance returned HTTP 200 for this route; the last measured result was 9.753 km, 15 minutes and ₹127.28 under the explicitly labelled **preview tariff**. Route estimates can vary as the routing dataset changes.
+The route presets do not contain coordinates, fares, travel times, driver profiles or ride records. Every quote is requested from the connected Supabase Edge Function. For a step-by-step script and failure fallback, see [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md).
 
-**Honest demo boundary:** production currently has zero passenger accounts, driver accounts and rides. No active driver fleet, real payment processor, emergency-response integration or commercial transport authorization is connected. Do not present the preview tariff as a fare quote for a real trip or claim a real ride was booked. No synthetic drivers or fake bookings are seeded into production.
+**Honest demo boundary:** production currently has zero passenger accounts, driver accounts and rides. No active driver fleet, real payment processor, emergency-response integration or commercial transport authorization is connected. The preview tariff is not an approved commercial fare. Do not present a route quote as a completed ride or use this preview to arrange real-world travel.
 
 ## Run the complete verification suite
 
