@@ -308,7 +308,17 @@ async function handle(req: Request): Promise<Response> {
       await db.storage.from("driver-verification").remove([objectPath]);
       return fail("Document metadata could not be saved. The upload was rolled back.", 500, origin);
     }
-    return json({ document: data }, 201, origin);
+    // Any replacement upload invalidates the previous approval until operations
+    // reviews the newest file. The RPC serializes this with approval updates.
+    const { error: suspensionError } = await db.rpc("suspend_driver_for_document_reverification", {
+      p_driver_id: accountId,
+    });
+    if (suspensionError) {
+      await db.from("driver_documents").delete().eq("id", data.id);
+      await db.storage.from("driver-verification").remove([objectPath]);
+      return fail("Could not suspend the driver for document re-review; the upload was rolled back.", 503, origin);
+    }
+    return json({ document: data, approvalReset: true }, 201, origin);
   }
   if (path === "/me" && method === "GET") return json({ email: account.email, displayName: account.display_name, role: account.role }, 200, origin);
   if (path === "/me" && method === "PATCH") {
@@ -692,11 +702,25 @@ async function handle(req: Request): Promise<Response> {
         if (documentsError) return fail("Could not verify driver documents; approval was not changed.", 503, origin);
         const missing = missingVerifiedDriverDocuments(documents ?? []);
         if (missing.length) return fail("Driver approval requires verified driving licence, vehicle RC and insurance documents. Missing verification: " + missing.join(", ") + ".", 409, origin);
+        // The database function locks the driver row and rechecks the latest
+        // document versions in the same transaction as the approval update.
+        const { error: approvalError } = await db.rpc("approve_driver_if_documents_verified", {
+          p_driver_id: approval[1], p_admin_id: accountId,
+        });
+        if (approvalError) {
+          if (approvalError.message.includes("driver_not_found")) return fail("Driver profile not found.", 404, origin);
+          if (approvalError.message.includes("driver_documents_not_verified")) return fail("The latest required documents must all be verified before approval.", 409, origin);
+          return fail("Driver approval could not be completed safely.", 503, origin);
+        }
+        await db.from("admin_audit_events").insert({ actor_id: accountId, action: "driver_approved", target_type: "driver", target_id: approval[1], details: { requiredDocumentsVerified: true } });
+        return json({ driverId: approval[1], approved: true, online: false }, 200, origin);
       }
-      const { data, error } = await db.from("driver_profiles").update({ is_approved: approved, approved_at: approved ? new Date().toISOString() : null, approved_by: approved ? accountId : null, is_online: false }).eq("account_id", approval[1]).select("account_id").maybeSingle();
+      const { data, error } = await db.from("driver_profiles")
+        .update({ is_approved: false, approved_at: null, approved_by: null, is_online: false })
+        .eq("account_id", approval[1]).select("account_id").maybeSingle();
       if (error || !data) return fail("Driver profile not found.", 404, origin);
-      await db.from("admin_audit_events").insert({ actor_id: accountId, action: approved ? "driver_approved" : "driver_suspended", target_type: "driver", target_id: approval[1], details: {} });
-      return json({ driverId: data.account_id, approved }, 200, origin);
+      await db.from("admin_audit_events").insert({ actor_id: accountId, action: "driver_suspended", target_type: "driver", target_id: approval[1], details: {} });
+      return json({ driverId: data.account_id, approved: false, online: false }, 200, origin);
     }
     if (path === "/admin/rides" && method === "GET") {
       const q = clean(url.searchParams.get("q"), 160), status = clean(url.searchParams.get("status"), 32);
