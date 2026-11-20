@@ -59,6 +59,17 @@ async function fillRideLocations(page: import("@playwright/test").Page) {
   await page.getByLabel("Pickup point").fill("JIIT Sector 128, Noida");
   await page.getByLabel("Drop-off point").fill("Sector 18 Market, Noida");
 }
+async function mockApprovedDriverApplication(page: import("@playwright/test").Page) {
+  await page.route("http://api.test/api/v1/driver/profile", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      vehicleRegistration: "TEST-0001", approved: true, online: false,
+    }) });
+  });
+  await page.route("http://api.test/api/v1/driver/documents", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
+  });
+}
+
 test("route presets only fill locations and still require a fresh server quote", async ({ page }) => {
   await blockMapTiles(page);
   let quotePayload: Record<string, unknown> | null = null;
@@ -168,7 +179,7 @@ test("registers a passenger, creates a persisted ride request, and cancels it", 
   });
   await page.route("http://api.test/api/v1/auth/register", async route => {
     await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({
-      accessToken: "test-access-token", account: { email: "rider@example.test", displayName: "Test Rider" },
+      accessToken: "test-access-token", account: { email: "rider@example.test", displayName: "Test Rider", role: "passenger" },
     }) });
   });
   let bookingAttempts = 0;
@@ -374,6 +385,7 @@ test("driver workspace uses protected API routes for availability and ride lifec
       accessToken: "driver-access-token", account: { email: "driver@example.test", role: "driver" },
     }) });
   });
+  await mockApprovedDriverApplication(page);
   await page.route("http://api.test/api/v1/driver/availability", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer driver-access-token");
     expect(route.request().method()).toBe("PUT");
@@ -866,7 +878,7 @@ test("driver and admin portals have same-origin routes and driver polls offers b
 
 test("the home page is the live API-backed planner, not a simulation", async ({ page }) => {
   await blockMapTiles(page);
-  await page.goto("/");
+  await page.goto("/passenger");
   await expect(page.getByRole("heading", { name: /Where to\?/ })).toBeVisible();
   await expect(page.getByText(/SIMULATION ONLY|INTERACTIVE DEMO|fictional ride records/i)).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeVisible();
