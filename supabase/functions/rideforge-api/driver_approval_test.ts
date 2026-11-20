@@ -17,10 +17,10 @@ Deno.test("pending and rejected documents do not satisfy approval", () => {
   ]), ["vehicle_rc", "insurance"]);
 });
 
-Deno.test("duplicate uploads do not hide a missing verified document", () => {
+Deno.test("a newer pending upload invalidates an older verified document", () => {
   assertEquals(missingVerifiedDriverDocuments([
-    { document_type: "driving_license", review_status: "pending" },
-    { document_type: "driving_license", review_status: "rejected" },
-    { document_type: "vehicle_rc", review_status: "verified" },
+    { document_type: "driving_license", review_status: "pending", created_at: "2026-11-20T12:00:00Z" },
+    { document_type: "driving_license", review_status: "verified", created_at: "2026-11-19T12:00:00Z" },
+    { document_type: "vehicle_rc", review_status: "verified", created_at: "2026-11-19T12:00:00Z" },
   ]), ["driving_license", "insurance"]);
 });
