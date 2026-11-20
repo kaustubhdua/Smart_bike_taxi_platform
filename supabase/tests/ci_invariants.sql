@@ -17,6 +17,20 @@ BEGIN
   IF unsafe_definer_functions <> 0 THEN RAISE EXCEPTION 'Found % SECURITY DEFINER functions without a pinned search_path', unsafe_definer_functions; END IF;
   SELECT count(*) INTO callable_client_rpcs FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.proname LIKE 'rideforge_%' AND (has_function_privilege('anon', p.oid, 'EXECUTE') OR has_function_privilege('authenticated', p.oid, 'EXECUTE'));
   IF callable_client_rpcs <> 0 THEN RAISE EXCEPTION 'Found % RideForge functions executable by anon/authenticated', callable_client_rpcs; END IF;
+  IF NOT has_function_privilege('service_role', 'public.approve_driver_if_documents_verified(uuid,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'service_role cannot execute the atomic driver approval function';
+  END IF;
+  IF has_function_privilege('anon', 'public.approve_driver_if_documents_verified(uuid,uuid)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.approve_driver_if_documents_verified(uuid,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Driver approval function is executable by a client role';
+  END IF;
+  IF NOT has_function_privilege('service_role', 'public.suspend_driver_for_document_reverification(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'service_role cannot execute the document re-review suspension function';
+  END IF;
+  IF has_function_privilege('anon', 'public.suspend_driver_for_document_reverification(uuid)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.suspend_driver_for_document_reverification(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Document re-review suspension function is executable by a client role';
+  END IF;
   SELECT count(*) INTO auth_account_triggers FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'auth' AND c.relname = 'users' AND t.tgname = 'rideforge_auth_user_created' AND NOT t.tgisinternal;
   IF auth_account_triggers <> 1 THEN RAISE EXCEPTION 'Expected auth.users account-bridge trigger exactly once, found %', auth_account_triggers; END IF;
   SELECT count(*) INTO realtime_tables FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename IN ('rides', 'ride_events');
