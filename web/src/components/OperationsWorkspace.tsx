@@ -587,8 +587,23 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           ) : mode === "driver" ? (
             <>
               <div className="card-heading"><div><span className="card-eyebrow">DRIVER SESSION</span><h3>Availability and rides</h3></div><button className="text-action" onClick={() => { void signOutDriver(); }} disabled={busy}>Sign out</button></div>
+              {driverProfile && !driverProfile.approved && <div className="inline-notice" role="status">Your driver application is pending verification. Upload all three documents below. You will be able to go online only after operations verifies them.</div>}
+              <div className="driver-queue">
+                <h3>Driver verification documents</h3>
+                <p className="auth-caption">Upload a clear, genuine PDF, JPG or PNG (maximum 10 MB each). Documents are stored privately and visible only to authorised operations reviewers.</p>
+                {(["driving_license","vehicle_rc","insurance"] as const).map(documentType => {
+                  const latest = driverDocuments.find(document => document.document_type === documentType);
+                  const label = documentType === "driving_license" ? "Driving licence" : documentType === "vehicle_rc" ? "Vehicle registration certificate (RC)" : "Vehicle insurance";
+                  return <div className="ride-confirmation" key={documentType}>
+                    <div><strong>{label}</strong><small>{latest ? "Latest upload: " + latest.review_status.replaceAll("_"," ") : "Not uploaded yet"}{latest?.review_note ? " · " + latest.review_note : ""}</small></div>
+                    <label className="auth-field"><span className="sr-only">{label} file</span><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event => setDocumentFiles(current => ({ ...current, [documentType]: event.currentTarget.files?.[0] ?? null }))} /></label>
+                    <button className="text-action" onClick={() => uploadDriverDocument(documentType)} disabled={busy || !documentFiles[documentType]}>Upload</button>
+                  </div>;
+                })}
+                <button className="outline-button" onClick={() => loadDriverApplication()} disabled={busy}><RefreshCw size={15}/> Refresh verification status</button>
+              </div>
               <p className="auth-caption">Location permission is used to refresh your dispatch eligibility while online. The queue requires a recent location.</p>
-              <button className="book-button" onClick={toggleAvailability} disabled={busy}>{online ? "Go offline" : "Use my location and go online"} <ArrowRight size={18} /></button>
+              <button className="book-button" onClick={toggleAvailability} disabled={busy || !driverProfile?.approved}>{online ? "Go offline" : driverProfile?.approved ? "Use my location and go online" : "Awaiting driver approval"} <ArrowRight size={18} /></button>
               {driverLocation && <p className="auth-caption" aria-live="polite">Last location: {driverLocation.latitude.toFixed(4)}, {driverLocation.longitude.toFixed(4)}</p>}
               {online && <button className="outline-button" onClick={refreshLocationNow} disabled={busy}><RefreshCw size={15} /> Refresh my location</button>}
               <button className="outline-button" onClick={refreshQueue} disabled={busy}><RefreshCw size={15} /> Refresh ride queue</button>
