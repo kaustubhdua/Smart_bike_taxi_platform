@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION public.approve_driver_if_documents_verified(
 )
 RETURNS boolean
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
@@ -49,7 +49,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.suspend_driver_for_document_reverification(p_driver_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
@@ -85,7 +85,7 @@ CREATE OR REPLACE FUNCTION public.review_driver_document(
 )
 RETURNS TABLE(id uuid, document_type text, review_status text, review_note text)
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $review_fn$
 BEGIN
