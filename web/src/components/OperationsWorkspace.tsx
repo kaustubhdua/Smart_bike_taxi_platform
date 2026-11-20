@@ -30,7 +30,6 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [driverProfile, setDriverProfile] = useState<{ vehicleRegistration: string; approved: boolean; online: boolean } | null>(null);
   const [driverDocuments, setDriverDocuments] = useState<DriverDocument[]>([]);
   const [documentFiles, setDocumentFiles] = useState<Record<string, File | null>>({ driving_license: null, vehicle_rc: null, insurance: null });
-  const [adminDocuments, setAdminDocuments] = useState<Record<string, DriverDocument[]>>({});
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
