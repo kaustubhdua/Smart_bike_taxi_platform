@@ -1142,3 +1142,66 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
   .rideforge-app.role-workspace #operations .ride-actions .text-action{flex:1}
   .rideforge-app.role-workspace #operations .button-row>*{width:100%}
 }
+
+/* First-run role gateway: separate passenger booking and approved driver operations. */
+.rideforge-app.role-entry{
+  min-height:100vh;background:#f6f5f0;color:#14251c;
+  display:flex;flex-direction:column;
+}
+.role-entry .role-header{
+  width:min(1240px,calc(100% - 56px));margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  min-height:82px;border-bottom:1px solid #e4e5dc;
+}
+.role-entry .role-header .brand{color:#183b2a;text-decoration:none}
+.role-entry .role-header nav a{color:#456052;font-size:12px;font-weight:700;text-decoration:none}
+.role-entry-main{
+  width:min(1040px,calc(100% - 48px));margin:auto;
+  padding:clamp(54px,9vh,100px) 0 70px;
+}
+.role-entry-intro{max-width:650px;margin:0 auto 38px;text-align:center}
+.role-entry-intro .section-kicker{color:#277247;letter-spacing:.16em;font-size:10px;font-weight:850}
+.role-entry-intro h1{
+  margin:16px 0;color:#173b2b;font-size:clamp(42px,7vw,72px);
+  line-height:.99;letter-spacing:-.055em;font-weight:780;
+}
+.role-entry-intro h1 em{font-family:Georgia,serif;font-weight:500;color:#37845a}
+.role-entry-intro p{max-width:520px;margin:20px auto 0;color:#64746a;font-size:15px;line-height:1.75}
+.role-entry-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.role-entry-card{
+  min-height:290px;padding:28px;border:1px solid #e1e5dc;border-radius:22px;
+  background:#fff;display:flex;flex-direction:column;align-items:flex-start;
+  text-decoration:none;color:#173b2b;box-shadow:0 14px 40px #173b2b0a;
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.role-entry-card:hover{transform:translateY(-4px);border-color:#9bbda3;box-shadow:0 22px 52px #173b2b14}
+.role-entry-icon{
+  width:54px;height:54px;display:grid;place-items:center;border-radius:16px;
+  background:#eaf3e9;color:#23663e;margin-bottom:24px;
+}
+.role-entry-card.driver .role-entry-icon{background:#f3eee1;color:#8b6726}
+.role-entry-overline{font-size:9px;letter-spacing:.16em;font-weight:850;color:#829086}
+.role-entry-card strong{font-size:25px;letter-spacing:-.035em;margin:9px 0}
+.role-entry-card>span:not(.role-entry-icon):not(.role-entry-overline){font-size:13px;line-height:1.7;color:#66766c;max-width:390px}
+.role-entry-card b{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:24px;color:#247044;font-size:12px}
+.role-entry-footnote{
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  max-width:700px;margin:28px auto 0;color:#738076;font-size:11px;line-height:1.6;text-align:center;
+}
+.role-entry-footnote svg{flex:none;color:#39845a}
+.role-entry .site-footer{
+  width:min(1240px,calc(100% - 56px));margin:0 auto;padding:22px 0;
+  border-top:1px solid #e4e5dc;display:flex;justify-content:space-between;
+  color:#879188;font-size:10px;
+}
+.role-entry .site-footer a{color:#64766a;text-decoration:none}
+@media(max-width:640px){
+  .role-entry .role-header{width:calc(100% - 36px);min-height:68px}
+  .role-entry-main{width:calc(100% - 36px);padding:52px 0 44px}
+  .role-entry-cards{grid-template-columns:1fr;gap:12px}
+  .role-entry-card{min-height:245px;padding:23px;border-radius:18px}
+  .role-entry-intro{text-align:left;margin-bottom:28px}
+  .role-entry-intro p{margin-left:0;font-size:13px}
+  .role-entry-footnote{align-items:flex-start;text-align:left}
+  .role-entry .site-footer{width:calc(100% - 36px)}
+}
