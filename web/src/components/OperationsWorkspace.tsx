@@ -625,7 +625,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           ) : mode === "driver" ? (
             <>
               <div className="card-heading"><div><span className="card-eyebrow">DRIVER SESSION</span><h3>Availability and rides</h3></div><button className="text-action" onClick={() => { void signOutDriver(); }} disabled={busy}>Sign out</button></div>
-              {driverProfile && !driverProfile.approved && <div className="inline-notice" role="status">Your driver account is awaiting administrator approval. You do not need to upload documents for this demonstration.</div>}
+              {driverProfile && !driverProfile.approved && <div className="inline-notice" role="status">Your driver account is awaiting administrator approval. Upload all three required documents and wait for each review to be verified.</div>}
               <div className="driver-queue">
                 <h3>Required verification documents</h3>
                 <p className="auth-caption">Upload a driving licence, vehicle RC and current insurance. Files are stored in private verification storage and must be reviewed before the account can go online.</p>
