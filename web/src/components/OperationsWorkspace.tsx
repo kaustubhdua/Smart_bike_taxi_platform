@@ -12,7 +12,9 @@ type RideRequest = {
   pickupDistanceMeters?: number;
   offerExpiresAt?: string;
 };
-type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number };
+type Metrics = { ridesByStatus: Record<string, number>; onlineDrivers: number; openSos?: number; completedLast24h?: number; grossFarePaiseLast24h?: number };
+type DriverEarnings = { currency: string; last24h: { trips: number; grossFarePaise: number }; last7d: { trips: number; grossFarePaise: number }; last30d: { trips: number; grossFarePaise: number }; rating: { count: number; average: number | null }; note: string };
+type SosAlert = { id: string; rideId: string; status: "open" | "acknowledged" | "resolved"; note: string | null; latitude: number | null; longitude: number | null; raisedBy: string; raisedByRole: string; createdAt: string; handledAt: string | null };
 type AuditEvent = { id: string; actorEmail: string; action: string; targetType: string; targetId: string; details: Record<string, unknown>; createdAt: string };
 type DriverDocument = { id: string; document_type: string; original_name: string; mime_type: string; byte_size: number; review_status: string; review_note: string | null; created_at: string; signedUrl?: string | null };
 type Driver = { driverId: string; email: string; displayName: string; vehicleRegistration: string; approved: boolean; online: boolean; createdAt: string; documents?: Array<{ documentType: string; status: string }> };
@@ -39,12 +41,14 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [rides, setRides] = useState<RideRequest[]>([]);
   const [activeRide, setActiveRide] = useState<{ rideId: string; status: string } | null>(null);
   const [driverHistory, setDriverHistory] = useState<DriverHistory | null>(null);
+  const [driverEarnings, setDriverEarnings] = useState<DriverEarnings | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [adminDriverDocuments, setAdminDriverDocuments] = useState<Record<string, DriverDocument[]>>({});
   const [expandedDriverDocuments, setExpandedDriverDocuments] = useState<string | null>(null);
   const [documentReviewNotes, setDocumentReviewNotes] = useState<Record<string, string>>({});
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [sosAlerts, setSosAlerts] = useState<SosAlert[]>([]);
   const [driverEmail, setDriverEmail] = useState("");
   const [driverName, setDriverName] = useState("");
   const [driverPassword, setDriverPassword] = useState("");
@@ -210,6 +214,22 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Driver history unavailable."); }
     finally { setBusy(false); }
   }
+
+  async function refreshDriverEarnings() {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/driver/earnings");
+      if (!data.last24h || !data.last7d || !data.last30d || typeof data.last30d.grossFarePaise !== "number") throw new Error("The API returned invalid earnings data.");
+      setDriverEarnings(data as unknown as DriverEarnings);
+      setError("Driver earnings summary refreshed from completed ride records.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Earnings summary unavailable."); }
+    finally { setBusy(false); }
+  }
+
+  useEffect(() => {
+    if (mode !== "driver" || !token || apiBase === undefined) { setDriverEarnings(null); return; }
+    void refreshDriverEarnings();
+  }, [mode, token, apiBase]);
 
   useEffect(() => {
     if (mode !== "driver" || !online || !token || apiBase === undefined) return;
@@ -453,6 +473,9 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       setMetrics({
         ridesByStatus: data.ridesByStatus as Record<string, number>,
         onlineDrivers: data.onlineDrivers,
+        openSos: typeof data.openSos === "number" ? data.openSos : 0,
+        completedLast24h: typeof data.completedLast24h === "number" ? data.completedLast24h : 0,
+        grossFarePaiseLast24h: typeof data.grossFarePaiseLast24h === "number" ? data.grossFarePaiseLast24h : 0,
       });
       setError("Operational metrics refreshed from PostgreSQL.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Metrics unavailable."); }
@@ -478,6 +501,30 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       setSupportReports(data.reports as SupportReport[]);
       setError("Support reports refreshed from PostgreSQL.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Support reports unavailable."); }
+    finally { setBusy(false); }
+  }
+
+  async function refreshSosAlerts() {
+    setBusy(true);
+    try {
+      const data = await request("/api/v1/admin/sos");
+      if (!Array.isArray(data.alerts)) throw new Error("The API returned an invalid SOS alert list.");
+      setSosAlerts(data.alerts as SosAlert[]);
+      setError("Safety alerts refreshed from PostgreSQL.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Safety alerts unavailable."); }
+    finally { setBusy(false); }
+  }
+
+  async function updateSosAlert(alert: SosAlert, status: "acknowledged" | "resolved") {
+    setBusy(true);
+    try {
+      await request("/api/v1/admin/sos/" + encodeURIComponent(alert.id), {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+      });
+      setError("Safety alert #" + alert.id + " marked " + status + ".");
+      await refreshSosAlerts();
+      await refreshAudit();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Safety alert update failed."); }
     finally { setBusy(false); }
   }
 
