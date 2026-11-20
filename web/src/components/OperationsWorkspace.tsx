@@ -584,7 +584,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                 </>
               )}
             </div>
-          )          ) : mode === "driver" ? (
+          ) : mode === "driver" ? (
             <>
               <div className="card-heading"><div><span className="card-eyebrow">DRIVER SESSION</span><h3>Availability and rides</h3></div><button className="text-action" onClick={() => { void signOutDriver(); }} disabled={busy}>Sign out</button></div>
               <p className="auth-caption">Location permission is used to refresh your dispatch eligibility while online. The queue requires a recent location.</p>
