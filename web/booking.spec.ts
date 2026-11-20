@@ -402,7 +402,11 @@ test("driver workspace uses protected API routes for availability and ride lifec
     }) });
   });
   await page.route("http://api.test/api/v1/driver/rides/*/status", async route => {
-    const status = route.request().postDataJSON().status;
+    const { status, otp } = route.request().postDataJSON();
+    if (status === "in_progress" && otp !== "4821") {
+      await route.fulfill({ status: 422, contentType: "application/json", body: JSON.stringify({ error: "Incorrect start code. 4 attempts left." }) });
+      return;
+    }
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       rideId: "30000000-0000-4000-8000-000000000001", status,
     }) });
@@ -426,6 +430,11 @@ test("driver workspace uses protected API routes for availability and ride lifec
   await expect(page.getByText("Status: assigned")).toBeVisible();
   await page.getByRole("button", { name: "Mark arriving" }).click();
   await expect(page.getByText("Status: driver_arriving")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start trip" })).toBeDisabled();
+  await page.getByLabel("Start code from passenger").fill("1234");
+  await page.getByRole("button", { name: "Start trip" }).click();
+  await expect(page.getByText("Incorrect start code. 4 attempts left.")).toBeVisible();
+  await page.getByLabel("Start code from passenger").fill("4821");
   await page.getByRole("button", { name: "Start trip" }).click();
   await expect(page.getByText("Status: in_progress")).toBeVisible();
   await page.getByRole("button", { name: "Complete trip" }).click();

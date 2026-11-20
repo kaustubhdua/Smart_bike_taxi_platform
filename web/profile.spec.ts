@@ -2,6 +2,19 @@ import { expect, test } from "@playwright/test";
 
 test("passenger can read the authenticated profile and update their display name", async ({ page }) => {
   await page.route("https://tile.openstreetmap.org/**", route => route.abort());
+  // Never depend on a live third-party geocoder in tests.
+  await page.route("https://photon.komoot.io/api/**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    const pickup = /jiit/i.test(query);
+    await route.fulfill({
+      status: 200,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      contentType: "application/json",
+      body: JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature",
+        properties: { name: pickup ? "JIIT Sector 128" : "Sector 18 Market", city: "Noida", state: "Uttar Pradesh", country: "India" },
+        geometry: { type: "Point", coordinates: pickup ? [77.3659633, 28.5193178] : [77.3228443, 28.5702711] } }] }),
+    });
+  });
   await page.route("http://api.test/api/v1/routes/quote", async route => {
     await route.fulfill({
       status: 200,
