@@ -227,7 +227,7 @@ async function handle(req: Request): Promise<Response> {
       return fail("Driver account setup could not be completed.", 500, origin);
     }
     if (!data.session) {
-      return json({ verificationRequired: true, message: "Driver application created. Verify your email and sign in to the driver portal. Document uploads are optional for now; an administrator can approve your driver account." }, 202, origin);
+      return json({ verificationRequired: true, message: "Driver application created. Verify your email and sign in to the driver portal. Upload your driving licence, vehicle registration certificate and insurance. An administrator must verify all three before approval." }, 202, origin);
     }
     return json({
       accessToken: data.session.access_token, account: accountView(account),
@@ -681,14 +681,11 @@ async function handle(req: Request): Promise<Response> {
     if (approval && method === "PUT") {
       const approved = body.approved === true;
       if (approved) {
-        const requiredDocuments = ["driving_license", "vehicle_rc", "insurance"];
         const { data: documents, error: documentsError } = await db.from("driver_documents")
           .select("document_type,review_status").eq("driver_id", approval[1]);
         if (documentsError) return fail("Driver verification documents could not be checked.", 500, origin);
-        const verifiedTypes = new Set((documents ?? [])
-          .filter(document => document.review_status === "verified")
-          .map(document => document.document_type));
-        if (requiredDocuments.some(documentType => !verifiedTypes.has(documentType))) {
+        const missingDocuments = missingRequiredDriverDocuments(documents ?? []);
+        if (missingDocuments.length) {
           return fail("Driver approval requires verified driving licence, vehicle registration certificate and insurance documents.", 409, origin);
         }
       }
