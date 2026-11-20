@@ -1,4 +1,4 @@
--- Disposable integration tests for migration 027: ride-start OTP, ratings, saved places, SOS.
+-- Disposable integration tests for migrations 029/030: expiring ride-start OTP, ratings, saved places, SOS.
 -- Every fixture is rolled back; no production data is touched.
 BEGIN;
 
@@ -10,6 +10,7 @@ DECLARE
   drv2 uuid := gen_random_uuid();
   ride_a uuid := gen_random_uuid();
   ride_b uuid := gen_random_uuid();
+  ride_c uuid := gen_random_uuid();
   secret text;
   wrong text;
   result jsonb;
@@ -28,7 +29,8 @@ BEGIN
     destination_label,destination_latitude,destination_longitude,route_distance_m,quoted_fare_paise,idempotency_key)
   VALUES
     (ride_a,pax,'matching','Pickup A',28.6139,77.2090,'Dest A',28.6200,77.2150,1000,3100,'otp-a-'||substr(ride_a::text,1,8)),
-    (ride_b,pax,'matching','Pickup B',28.6139,77.2090,'Dest B',28.6200,77.2150,1000,3100,'otp-b-'||substr(ride_b::text,1,8));
+    (ride_b,pax,'matching','Pickup B',28.6139,77.2090,'Dest B',28.6200,77.2150,1000,3100,'otp-b-'||substr(ride_b::text,1,8)),
+    (ride_c,pax,'matching','Pickup C',28.6139,77.2090,'Dest C',28.6200,77.2150,1000,3100,'otp-c-'||substr(ride_c::text,1,8));
 
   -- ---------------------------------------------------------- start code issuance
   IF EXISTS (SELECT 1 FROM public.ride_start_codes WHERE ride_id IN (ride_a,ride_b)) THEN
@@ -138,6 +140,20 @@ BEGIN
   END IF;
   IF public.rideforge_rating_summary(outsider)->>'average' IS NOT NULL THEN
     RAISE EXCEPTION 'unrated account should have a null average';
+  END IF;
+
+  -- ---------------------------------------------------------- OTP expiry (ride C)
+  INSERT INTO public.ride_offers(ride_id,driver_id,status,offered_at,expires_at)
+    VALUES (ride_c,drv2,'offered',now(),now()+interval '45 seconds');
+  PERFORM public.rideforge_accept_offer(drv2,ride_c);
+  SELECT code INTO secret FROM public.ride_start_codes WHERE ride_id=ride_c;
+  PERFORM public.rideforge_advance_ride(drv2,ride_c,'driver_arriving');
+  UPDATE public.ride_start_codes SET expires_at=now()-interval '1 second' WHERE ride_id=ride_c;
+  result := public.rideforge_advance_ride(drv2,ride_c,'in_progress',secret);
+  IF NOT coalesce((result->>'otpExpired')::boolean,false)
+     OR result->>'status' <> 'driver_arriving'
+     OR (SELECT failed_attempts FROM public.ride_start_codes WHERE ride_id=ride_c) <> 0 THEN
+    RAISE EXCEPTION 'expired start code was accepted or counted as a wrong attempt: %', result;
   END IF;
 
   -- --------------------------------------------------------- OTP lockout (ride B)
