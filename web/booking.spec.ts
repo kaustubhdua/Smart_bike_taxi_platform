@@ -59,6 +59,47 @@ async function fillRideLocations(page: import("@playwright/test").Page) {
   await page.getByLabel("Pickup point").fill("JIIT Sector 128, Noida");
   await page.getByLabel("Drop-off point").fill("Sector 18 Market, Noida");
 }
+test("route presets only fill locations and still require a fresh server quote", async ({ page }) => {
+  await blockMapTiles(page);
+  let quotePayload: Record<string, unknown> | null = null;
+  await page.route("http://api.test/api/v1/routes/quote", async route => {
+    quotePayload = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        quoteId: "2a4e1bb0-4ed9-4bb2-a5a2-44f2f4ed8f4d",
+        distanceKm: 7.1,
+        durationMinutes: 18,
+        farePaise: 9800,
+        fareBreakdown: { baseFarePaise: 2000, distanceFarePaise: 7800, pricingModel: "demo_base_plus_distance" },
+        currency: "INR",
+        expiresAt: new Date(Date.now() + 120_000).toISOString(),
+        geometry: [[77.3659633, 28.5193178], [77.35, 28.54], [77.3228443, 28.5702711]],
+      }),
+    });
+  });
+
+  await page.goto("/live");
+  await page.getByRole("button", { name: /JIIT.*Sector 18/ }).click();
+  await expect(page.getByLabel("Pickup point")).toHaveValue("JIIT Sector 128, Noida");
+  await expect(page.getByLabel("Drop-off point")).toHaveValue("Sector 18 Market, Noida");
+  await expect(page.locator(".fare-amount")).toContainText("—");
+
+  await page.getByRole("button", { name: /JIIT.*Botanical Garden/ }).click();
+  await expect(page.getByLabel("Drop-off point")).toHaveValue("Botanical Garden Metro, Noida");
+  await expect(page.locator(".fare-amount")).toContainText("—");
+
+  await page.getByRole("button", { name: /Get server fare quote/ }).click();
+  await expect(page.getByText(/7\.1 km · 18 min · Road route/)).toBeVisible({ timeout: 15_000 });
+  expect(quotePayload).toMatchObject({
+    pickup: { label: "JIIT Sector 128, Noida", latitude: 28.5193178, longitude: 77.3659633 },
+    destination: { label: "Botanical Garden Metro, Noida" },
+  });
+  expect((quotePayload?.destination as Record<string, unknown>).latitude).toBeCloseTo(28.5702711, 4);
+  expect((quotePayload?.destination as Record<string, unknown>).longitude).toBeCloseTo(77.3228443, 4);
+});
+
 test("calculates road route and shows a fare only after a valid server quote", async ({ page }) => {
   const tileHosts = await blockMapTiles(page);
   await page.route("http://api.test/api/v1/routes/quote", async route => {
