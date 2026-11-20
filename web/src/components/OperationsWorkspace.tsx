@@ -56,6 +56,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [adminDriverDocuments, setAdminDriverDocuments] = useState<Record<string, DriverDocument[]>>({});
   const [expandedDriverDocuments, setExpandedDriverDocuments] = useState<Record<string, boolean>>({});
   const [sosAlerts, setSosAlerts] = useState<SosAlert[]>([]);
+  const [sosAlertsLoaded, setSosAlertsLoaded] = useState(false);
   const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
 
   async function signIn() {
@@ -565,10 +566,34 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       const data = await request("/api/v1/admin/sos");
       if (!Array.isArray(data.alerts)) throw new Error("The API returned an invalid emergency alert list.");
       setSosAlerts(data.alerts as SosAlert[]);
+      setSosAlertsLoaded(true);
       setError("Emergency alerts refreshed from PostgreSQL.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Emergency alerts unavailable."); }
     finally { setBusy(false); }
   }
+
+  useEffect(() => {
+    if (mode !== "admin" || !token || !apiBase) return;
+    let disposed = false;
+    const load = async () => {
+      try {
+        const response = await fetch(apiBase + "/api/v1/admin/sos", {
+          headers: { Accept: "application/json", Authorization: "Bearer " + token },
+          signal: AbortSignal.timeout(10000),
+        });
+        const data = await response.json() as { alerts?: SosAlert[] };
+        if (!disposed && response.ok && Array.isArray(data.alerts)) {
+          setSosAlerts(data.alerts);
+          setSosAlertsLoaded(true);
+        }
+      } catch { /* Keep the last known alert queue; manual refresh remains available. */ }
+    };
+    void load();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 15000);
+    return () => { disposed = true; window.clearInterval(timer); };
+  }, [mode, token, apiBase]);
 
   async function updateSosAlert(alert: SosAlert, status: "acknowledged" | "resolved") {
     setBusy(true);
@@ -697,7 +722,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
             </>
           ) : (
             <>
-              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); setSupportReports([]); setResolutionNotes({}); setAdminRideResults([]); setRideSearch(""); setRideStatusFilter(""); setError("Signed out of the administrator console."); }}>Sign out</button></div>
+              <div className="card-heading"><div><span className="card-eyebrow">ADMIN SESSION</span><h3>Operations and driver approval</h3></div><button className="text-action" onClick={() => { setToken(""); setMetrics(null); setDrivers([]); setAuditEvents([]); setSupportReports([]); setResolutionNotes({}); setAdminRideResults([]); setRideSearch(""); setRideStatusFilter(""); setAdminDriverDocuments({}); setExpandedDriverDocuments({}); setSosAlerts([]); setSosAlertsLoaded(false); setError("Signed out of the administrator console."); }}>Sign out</button></div>
               <div className="button-row">
                 <button className="book-button" onClick={refreshMetrics} disabled={busy}>Refresh metrics <ArrowRight size={18} /></button>
                 <button className="outline-button" onClick={refreshDrivers} disabled={busy}><RefreshCw size={15} /> Refresh drivers</button>
@@ -759,7 +784,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               <div className="driver-queue">
                 <div className="driver-panel-head"><h3>Emergency alerts ({sosAlerts.filter(alert => alert.status !== "resolved").length} unresolved)</h3><button className="outline-button" onClick={refreshSosAlerts} disabled={busy}><RefreshCw size={15} /> Refresh alerts</button></div>
                 <p className="auth-caption">This is an admin review queue, not a staffed emergency response service. For immediate danger, contact local emergency services (112 in India).</p>
-                {sosAlerts.length === 0 ? <p>No SOS alerts are currently recorded. Refresh to check the backend.</p> : sosAlerts.map(alert => <article className="ride-confirmation support-review-item" key={alert.id}>
+                {sosAlerts.length === 0 ? <p>{sosAlertsLoaded ? "No SOS alerts are currently recorded." : "Loading emergency alerts from the backend…"}</p> : sosAlerts.map(alert => <article className="ride-confirmation support-review-item" key={alert.id}>
                   <div><strong>Alert #{alert.id} · {alert.status.replaceAll("_", " ")}</strong><span>{alert.raisedByRole} · {alert.raisedBy || "Account unavailable"}{alert.rideId ? " · Ride " + alert.rideId : ""}</span><small>{new Date(alert.createdAt).toLocaleString()}</small>{alert.note && <p>{alert.note}</p>}{typeof alert.latitude === "number" && typeof alert.longitude === "number" ? <a href={"https://www.google.com/maps?q=" + alert.latitude + "," + alert.longitude} target="_blank" rel="noopener noreferrer">Open reported location</a> : <small>No location captured</small>}{alert.handledAt && <small>Last handled: {new Date(alert.handledAt).toLocaleString()}</small>}</div>
                   {alert.status !== "resolved" && <div className="button-row">{alert.status === "open" && <button className="outline-button" onClick={() => updateSosAlert(alert, "acknowledged")} disabled={busy}>Acknowledge</button>}<button className="text-action" onClick={() => updateSosAlert(alert, "resolved")} disabled={busy}>Mark resolved</button></div>}
                 </article>)}
