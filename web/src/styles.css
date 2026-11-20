@@ -976,3 +976,32 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
   .rideforge-app .booking-card-primary{transition:none}
   .rideforge-app .booking-card-primary:hover{transform:none}
 }
+
+
+.rideforge-app .route-presets{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin:13px 0 3px;
+}
+.rideforge-app .route-presets>span{
+  margin-right:3px;
+  color:#657265;
+  font:700 8px 'JetBrains Mono',monospace;
+  letter-spacing:.12em;
+}
+.rideforge-app .route-presets button{
+  display:inline-flex;align-items:center;gap:7px;
+  min-height:31px;padding:6px 10px;
+  border:1px solid #d9e5d5;border-radius:999px;
+  background:#edf5eb;color:#0c5a30;
+  font-size:9px;font-weight:750;
+  transition:background .18s var(--rf-ease),border-color .18s,transform .18s var(--rf-ease);
+}
+.rideforge-app .route-presets button:hover:not(:disabled){
+  background:#e1efdf;border-color:#a8d8b7;transform:translateY(-1px);
+}
+.rideforge-app .route-presets button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:760px){
+  .rideforge-app .route-presets{gap:6px}
+  .rideforge-app .route-presets>span{width:100%;margin-bottom:1px}
+  .rideforge-app .route-presets button{font-size:8px;padding:6px 9px}
+}
