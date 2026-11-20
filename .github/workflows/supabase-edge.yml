@@ -46,6 +46,8 @@ jobs:
         run: deno test supabase/functions/rideforge-api/geocoding_test.ts
       - name: Test exact-origin CORS policy
         run: deno test supabase/functions/rideforge-api/cors_test.ts
+      - name: Test mandatory driver document approval policy
+        run: deno test supabase/functions/rideforge-api/driver_approval_test.ts
       - uses: actions/setup-node@v4
         with:
           node-version: 22

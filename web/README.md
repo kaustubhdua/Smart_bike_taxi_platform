@@ -24,16 +24,17 @@ Set `VITE_API_BASE_URL` to the API origin when developing against a separately r
 - Pickup/destination geocoding and road geometry using configurable Nominatim-compatible and OSRM-compatible providers, with an interactive Leaflet/OpenStreetMap map.
 - Server-authoritative fare quotes in integer paise, with validated ₹20 base + ₹11/km demo breakdown and quote expiry validation.
 - Passenger registration/login, persistent booking, cancellation, trip history, ride-status updates, support reports, and printable **demo receipts** (not tax invoices or proof of payment).
-- Driver login, online/offline availability with browser geolocation, a fresh-location/radius-filtered request queue, transactional Accept, persisted per-driver Decline, trip-state transitions, and trip history.
+- Driver registration/login, private driving-licence/vehicle-RC/insurance uploads, online/offline availability with browser geolocation, a fresh-location/radius-filtered request queue, transactional Accept, persisted per-driver Decline, ride-start OTP, trip-state transitions, and trip history.
 - A driver decline hides that request only from that driver's queue. It does **not** cancel the passenger booking. The same driver cannot accept a request after declining it; another eligible driver may still accept.
-- Admin-only driver provisioning/approval/suspension, ride search, metrics, audit history and support-report triage. In a deployed build, the protected admin sign-in workspace is available at `/admin` on the passenger host; backend role checks remain authoritative.
+- Admin-only driver provisioning, signed private document previews, per-document verification/rejection with review notes, approval/suspension, ride search, metrics, audit history and support-report triage. Driver approval is rejected by the Edge API unless the latest upload for all three required document types is verified; uploading a replacement document immediately takes the driver offline and resets approval. In a deployed build, the protected admin sign-in workspace is available at `/admin` on the passenger host; backend role checks remain authoritative.
+- Rapido-inspired booking clarity and responsive role workspaces, implemented with the existing React, Motion and Lucide stack plus a project-owned CSS design layer. No runtime dependency was added for the visual refresh.
 - Authenticated server-sent ride events with persisted replay; the client also refreshes state to recover after reconnects.
 
 ## Important limitations
 
 - The backend dispatch worker creates durable 45-second offers, expires unanswered offers, and advances sequentially to the next eligible driver. The driver workspace refreshes its queue every five seconds while online so offers are visible before expiry. There is no browser push, SMS delivery, or guarantee of notification when the page is closed.
 - The public Nominatim and OSRM demo services are evaluation defaults, not production capacity or uptime guarantees. Configure contracted or self-hosted services before a public pilot.
-- Payment collection, refunds, payouts, commercial driver/vehicle verification and real emergency response are not implemented. A support report is not an emergency service.
+- Payment collection, refunds, payouts, automated identity/vehicle verification (including government registry checks), and real emergency response are not implemented. Manual document review is an operational workflow, not a legal or regulatory verification. A support report is not an emergency service.
 - The repository includes a deployment template, not proof of a deployed public service. No live passenger or driver URL is claimed.
 
 ## Environment

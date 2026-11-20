@@ -19,5 +19,6 @@ test("driver portal offers secure sign-in and driver application", async ({ page
   await expect(page.getByRole("heading", { name: "Driver sign in" })).toBeVisible();
   await page.getByRole("button", { name: "New driver application" }).click();
   await expect(page.getByRole("heading", { name: "Apply to drive" })).toBeVisible();
+  await expect(page.getByText(/Approval requires a verified driving licence/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Create driver application" })).toBeVisible();
 });

@@ -76,6 +76,9 @@ export default function App() {
   const [passengerHistory, setPassengerHistory] = useState<Array<{ rideId: string; status: string; pickup: string; destination: string; farePaise: number; finalFarePaise?: number; currency: string; createdAt: string; completedAt?: string }>>([]);
   const [historyBusy, setHistoryBusy] = useState(false);
   const [receiptRideId, setReceiptRideId] = useState<string | null>(null);
+  const [savedPlaces, setSavedPlaces] = useState<Array<{ id: string; label: string; address: string; latitude: number; longitude: number }>>([]);
+  const [savedPlaceLabel, setSavedPlaceLabel] = useState("Home");
+  const [savedPlacesBusy, setSavedPlacesBusy] = useState(false);
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem("rideforge:saved-routes:v1");
@@ -94,6 +97,14 @@ export default function App() {
       setSavedRoutesReady(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!account || account.role !== "passenger") {
+      setSavedPlaces([]);
+      return;
+    }
+    void loadAccountSavedPlaces(account.token);
+  }, [account?.token, account?.role]);
 
   useEffect(() => {
     if (!savedRoutesReady) return;
@@ -504,6 +515,77 @@ export default function App() {
     }
   }
 
+  async function loadAccountSavedPlaces(accessToken = account?.token) {
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base || !accessToken) return;
+    try {
+      const response = await fetch(apiUrl(base, "/api/v1/saved-places"), {
+        headers: { Accept: "application/json", Authorization: "Bearer " + accessToken },
+        signal: AbortSignal.timeout(10000),
+      });
+      const data = await response.json() as { places?: Array<{ id: string; label: string; address: string; latitude: number; longitude: number }>; error?: string };
+      if (!response.ok || !Array.isArray(data.places)) throw new Error(data.error || "Saved places could not be loaded.");
+      setSavedPlaces(data.places.filter(place => typeof place.id === "string" && typeof place.latitude === "number" && Number.isFinite(place.latitude) && typeof place.longitude === "number" && Number.isFinite(place.longitude)));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Saved places could not be loaded.");
+    }
+  }
+
+  async function saveAccountPlace(target: "pickup" | "destination") {
+    if (!account || savedPlacesBusy) return;
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    const address = (target === "pickup" ? pickup : destination).trim();
+    const currentCoordinates = target === "pickup" ? pickupCoordinates : destinationCoordinates;
+    const label = savedPlaceLabel.trim();
+    if (!base) { setNotice("Saved places require the configured RideForge API."); return; }
+    if (label.length < 1 || label.length > 40 || address.length < 3) { setNotice("Enter a saved-place label and a valid address first."); return; }
+    setSavedPlacesBusy(true);
+    try {
+      const coordinates = currentCoordinates ?? await geocodeNoidaLocation(address);
+      const response = await fetch(apiUrl(base, "/api/v1/saved-places"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: "Bearer " + account.token },
+        body: JSON.stringify({ label, address, latitude: coordinates.latitude, longitude: coordinates.longitude }),
+        signal: AbortSignal.timeout(12000),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Could not save this place.");
+      if (target === "pickup") setPickupCoordinates(coordinates);
+      else setDestinationCoordinates(coordinates);
+      await loadAccountSavedPlaces();
+      setNotice(label + " saved to your RideForge account.");
+      setSavedPlaceLabel(label === "Home" ? "Work" : "Home");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not save this place.");
+    } finally { setSavedPlacesBusy(false); }
+  }
+
+  async function removeAccountPlace(id: string) {
+    if (!account || savedPlacesBusy) return;
+    const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!base) return;
+    setSavedPlacesBusy(true);
+    try {
+      const response = await fetch(apiUrl(base, "/api/v1/saved-places/" + encodeURIComponent(id)), {
+        method: "DELETE", headers: { Accept: "application/json", Authorization: "Bearer " + account.token },
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Could not remove this place.");
+      setSavedPlaces(current => current.filter(place => place.id !== id));
+      setNotice("Saved place removed from your account.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not remove this place.");
+    } finally { setSavedPlacesBusy(false); }
+  }
+
+  function applyAccountPlace(place: { address: string; latitude: number; longitude: number }, target: "pickup" | "destination") {
+    const coordinates = { latitude: place.latitude, longitude: place.longitude };
+    if (target === "pickup") { setPickup(place.address); setPickupCoordinates(coordinates); }
+    else { setDestination(place.address); setDestinationCoordinates(coordinates); }
+    clearBookingState();
+    setNotice("Saved place applied. Request a fresh fare quote before booking.");
+  }
+
   async function createBooking() {
     if (bookingBusy) return;
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -878,6 +960,26 @@ export default function App() {
 
             {account?.role === "passenger" && (
               <div className="passenger-tools">
+                <details className="tool-disclosure" open={savedPlaces.length > 0}>
+                  <summary>Saved places · account synced</summary>
+                  <p className="auth-caption">Save up to 20 places to your account. They are available after you sign in on another device.</p>
+                  <label className="auth-field"><span>Place label</span><input value={savedPlaceLabel} onChange={event => setSavedPlaceLabel(event.target.value)} maxLength={40} placeholder="Home, Work or another name" /></label>
+                  <div className="button-row">
+                    <button className="outline-button" onClick={() => void saveAccountPlace("pickup")} disabled={savedPlacesBusy || !pickup.trim()}>Save current pickup</button>
+                    <button className="outline-button" onClick={() => void saveAccountPlace("destination")} disabled={savedPlacesBusy || !destination.trim()}>Save current drop-off</button>
+                  </div>
+                  {savedPlacesBusy && <p className="auth-caption" role="status">Updating your saved places…</p>}
+                  {savedPlaces.length === 0 ? <p className="auth-caption">No account-saved places yet. Save a pickup or drop-off after entering an address.</p> : savedPlaces.map(place => (
+                    <article className="ride-confirmation saved-place-account" key={place.id}>
+                      <div><strong>{place.label}</strong><span>{place.address}</span></div>
+                      <div className="saved-place-actions">
+                        <button className="text-action" onClick={() => applyAccountPlace(place, "pickup")}>Use as pickup</button>
+                        <button className="text-action" onClick={() => applyAccountPlace(place, "destination")}>Use as drop-off</button>
+                        <button className="text-action" onClick={() => void removeAccountPlace(place.id)} disabled={savedPlacesBusy} aria-label={"Remove saved place " + place.label}>Remove</button>
+                      </div>
+                    </article>
+                  ))}
+                </details>
                 <details className="tool-disclosure"><summary>My profile</summary>
                   <label className="auth-field"><span>Display name</span><input value={profileName} onChange={event => setProfileName(event.target.value)} maxLength={120} autoComplete="name" /></label>
                   <button className="outline-button" onClick={saveProfile} disabled={profileBusy || !profileName.trim()}>{profileBusy ? "Saving…" : "Save profile"}</button>

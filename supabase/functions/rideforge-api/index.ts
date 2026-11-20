@@ -3,6 +3,7 @@ import { createClient, type User } from "npm:@supabase/supabase-js@2.119.0";
 import { getRateLimitClientIp } from "./client_ip.ts";
 import { createCorsHeaders } from "./cors.ts";
 import { buildGeocodingUrl, parseCoordinatePair, parseGeocodingCoordinates } from "./geocoding.ts";
+import { missingVerifiedDriverDocuments } from "./driver_approval.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -307,7 +308,17 @@ async function handle(req: Request): Promise<Response> {
       await db.storage.from("driver-verification").remove([objectPath]);
       return fail("Document metadata could not be saved. The upload was rolled back.", 500, origin);
     }
-    return json({ document: data }, 201, origin);
+    // Any replacement upload invalidates the previous approval until operations
+    // reviews the newest file. The RPC serializes this with approval updates.
+    const { error: suspensionError } = await db.rpc("suspend_driver_for_document_reverification", {
+      p_driver_id: accountId,
+    });
+    if (suspensionError) {
+      await db.from("driver_documents").delete().eq("id", data.id);
+      await db.storage.from("driver-verification").remove([objectPath]);
+      return fail("Could not suspend the driver for document re-review; the upload was rolled back.", 503, origin);
+    }
+    return json({ document: data, approvalReset: true }, 201, origin);
   }
   if (path === "/me" && method === "GET") return json({ email: account.email, displayName: account.display_name, role: account.role }, 200, origin);
   if (path === "/me" && method === "PATCH") {
@@ -631,18 +642,21 @@ async function handle(req: Request): Promise<Response> {
       if (!["verified","rejected"].includes(reviewStatus) || (reviewStatus === "rejected" && note.length < 8)) {
         return fail("Choose verified or rejected; rejected documents require a reason.", 422, origin);
       }
-      const { data, error } = await db.from("driver_documents").update({
-        review_status: reviewStatus, review_note: note || null,
-        reviewed_by: accountId, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }).eq("id", adminReviewPath[2]).eq("driver_id", adminReviewPath[1])
-        .select("id,document_type,review_status,review_note").maybeSingle();
-      if (error || !data) return fail("Document not found or review could not be saved.", 404, origin);
+      const { data: reviewedRows, error } = await db.rpc("review_driver_document", {
+        p_driver_id: adminReviewPath[1],
+        p_document_id: adminReviewPath[2],
+        p_review_status: reviewStatus,
+        p_note: note || null,
+        p_admin_id: accountId,
+      });
+      const data = Array.isArray(reviewedRows) ? reviewedRows[0] : reviewedRows;
+      if (error || !data) return fail("Document not found or review could not be saved.", error?.message.includes("driver_not_found") ? 404 : 409, origin);
       await db.from("admin_audit_events").insert({
         actor_id: accountId, action: "driver_document_" + reviewStatus,
         target_type: "driver_document", target_id: data.id,
-        details: { driverId: adminReviewPath[1], documentType: data.document_type, note },
+        details: { driverId: adminReviewPath[1], documentType: data.document_type, note, driverSuspended: reviewStatus === "rejected" },
       });
-      return json({ document: data }, 200, origin);
+      return json({ document: data, driverSuspended: reviewStatus === "rejected" }, 200, origin);
     }
     if (path === "/admin/drivers" && method === "GET") {
       const { data: profiles, error } = await db.from("driver_profiles").select("*").order("created_at", { ascending: false }).limit(100);
@@ -650,9 +664,14 @@ async function handle(req: Request): Promise<Response> {
       const ids = (profiles ?? []).map(x => x.account_id);
       const { data: people } = await db.from("accounts").select("id,email,display_name").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
       const byId = new Map((people ?? []).map(x => [x.id, x]));
-      const { data: documents } = await db.from("driver_documents").select("driver_id,document_type,review_status").in("driver_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+      const { data: documents } = await db.from("driver_documents").select("driver_id,document_type,review_status,created_at").in("driver_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("created_at", { ascending: false });
       const docsByDriver = new Map<string, Array<{ documentType: string; status: string }>>();
-      for (const doc of documents ?? []) docsByDriver.set(doc.driver_id, [...(docsByDriver.get(doc.driver_id) ?? []), { documentType: doc.document_type, status: doc.review_status }]);
+      for (const doc of documents ?? []) {
+        const current = docsByDriver.get(doc.driver_id) ?? [];
+        if (!current.some(item => item.documentType === doc.document_type)) {
+          docsByDriver.set(doc.driver_id, [...current, { documentType: doc.document_type, status: doc.review_status }]);
+        }
+      }
       return json({ drivers: (profiles ?? []).map(x => ({
         driverId: x.account_id, email: byId.get(x.account_id)?.email ?? "",
         displayName: byId.get(x.account_id)?.display_name ?? "",
@@ -680,10 +699,31 @@ async function handle(req: Request): Promise<Response> {
     const approval = path.match(/^\/admin\/drivers\/([0-9a-f-]+)\/approval$/i);
     if (approval && method === "PUT") {
       const approved = body.approved === true;
-      const { data, error } = await db.from("driver_profiles").update({ is_approved: approved, approved_at: approved ? new Date().toISOString() : null, approved_by: approved ? accountId : null, is_online: false }).eq("account_id", approval[1]).select("account_id").maybeSingle();
+      if (approved) {
+        const { data: documents, error: documentsError } = await db.from("driver_documents")
+          .select("document_type,review_status,created_at").eq("driver_id", approval[1]).order("created_at", { ascending: false });
+        if (documentsError) return fail("Could not verify driver documents; approval was not changed.", 503, origin);
+        const missing = missingVerifiedDriverDocuments(documents ?? []);
+        if (missing.length) return fail("Driver approval requires verified driving licence, vehicle RC and insurance documents. Missing verification: " + missing.join(", ") + ".", 409, origin);
+        // The database function locks the driver row and rechecks the latest
+        // document versions in the same transaction as the approval update.
+        const { error: approvalError } = await db.rpc("approve_driver_if_documents_verified", {
+          p_driver_id: approval[1], p_admin_id: accountId,
+        });
+        if (approvalError) {
+          if (approvalError.message.includes("driver_not_found")) return fail("Driver profile not found.", 404, origin);
+          if (approvalError.message.includes("driver_documents_not_verified")) return fail("The latest required documents must all be verified before approval.", 409, origin);
+          return fail("Driver approval could not be completed safely.", 503, origin);
+        }
+        await db.from("admin_audit_events").insert({ actor_id: accountId, action: "driver_approved", target_type: "driver", target_id: approval[1], details: { requiredDocumentsVerified: true } });
+        return json({ driverId: approval[1], approved: true, online: false }, 200, origin);
+      }
+      const { data, error } = await db.from("driver_profiles")
+        .update({ is_approved: false, approved_at: null, approved_by: null, is_online: false })
+        .eq("account_id", approval[1]).select("account_id").maybeSingle();
       if (error || !data) return fail("Driver profile not found.", 404, origin);
-      await db.from("admin_audit_events").insert({ actor_id: accountId, action: approved ? "driver_approved" : "driver_suspended", target_type: "driver", target_id: approval[1], details: {} });
-      return json({ driverId: data.account_id, approved }, 200, origin);
+      await db.from("admin_audit_events").insert({ actor_id: accountId, action: "driver_suspended", target_type: "driver", target_id: approval[1], details: {} });
+      return json({ driverId: data.account_id, approved: false, online: false }, 200, origin);
     }
     if (path === "/admin/rides" && method === "GET") {
       const q = clean(url.searchParams.get("q"), 160), status = clean(url.searchParams.get("status"), 32);

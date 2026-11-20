@@ -1,0 +1,320 @@
+/* RideForge product refresh — Rapido-inspired clarity, original RideForge visual identity. */
+:root{
+  --rf-ink:#151a16;--rf-ink-soft:#303a32;--rf-muted:#68736b;--rf-line:#e7eae3;
+  --rf-paper:#f6f7f2;--rf-white:#fff;--rf-green:#176b3a;--rf-green-2:#24844c;
+  --rf-lime:#d9f36a;--rf-yellow:#ffd84d;--rf-tint:#eff5e8;--rf-shadow:0 24px 70px rgba(21,32,23,.09);
+}
+html{scroll-behavior:smooth}
+body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-sans-serif,system-ui,sans-serif}
+button,input,select,textarea{font-family:inherit}
+.app-shell{overflow:clip}
+.rideforge-app .app-announcement{min-height:34px;padding:7px 24px;background:#171c18;color:#eaf3e6;font-size:9px;letter-spacing:.11em;font-weight:800}
+.rideforge-app .app-announcement .status-indicator{width:7px;height:7px;background:#d9f36a;box-shadow:0 0 0 4px #d9f36a22}
+.rideforge-app .app-announcement .status-indicator[data-state=offline]{background:#ffb45d;box-shadow:0 0 0 4px #ffb45d22}
+.rideforge-app .app-header{position:sticky;top:0;height:76px;max-width:none;padding:0 max(28px,calc((100vw - 1240px)/2));background:#ffffffed;border-bottom:1px solid #e8ebe4;backdrop-filter:blur(18px);z-index:30}
+.rideforge-app .brand{font-size:23px;letter-spacing:-1.2px;color:var(--rf-ink)}
+.rideforge-app .brand-mark{width:42px;height:42px;border-radius:14px;background:var(--rf-lime);color:var(--rf-ink)}
+.rideforge-app .brand small{color:#879087;font-size:7px;letter-spacing:.16em}
+.rideforge-app .main-nav{gap:27px}
+.rideforge-app .nav-link{font-size:12px;color:#667168}
+.rideforge-app .nav-link.active,.rideforge-app .nav-link:hover{color:var(--rf-green)}
+.rideforge-app .nav-link.active:after{height:3px;border-radius:4px;background:var(--rf-green)}
+.rideforge-app .safety-link{font-size:11px;color:#455248}
+.rideforge-app .safety-link svg{color:var(--rf-green)}
+.rideforge-app .header-cta,.rideforge-app .book-button{background:var(--rf-ink);color:#fff;border-radius:12px;min-height:46px;padding:13px 17px;font-size:12px;box-shadow:0 5px 0 #0000000c;transition:transform .18s ease,background .18s ease,box-shadow .18s ease}
+.rideforge-app .header-cta{min-height:42px;border-radius:999px;background:var(--rf-green)}
+.rideforge-app .header-cta:hover,.rideforge-app .book-button:hover:not(:disabled){background:var(--rf-green);transform:translateY(-1px);box-shadow:0 9px 18px #176b3a24}
+.rideforge-app .app-main{background:var(--rf-paper)}
+.rideforge-app .booking-hero{width:min(1240px,calc(100% - 56px));margin:0 auto;padding:62px 0 76px;display:grid;grid-template-columns:minmax(0,.86fr) minmax(420px,1.14fr);gap:clamp(30px,5vw,72px);align-items:center}
+.rideforge-app .booking-hero-copy{padding:12px 0;max-width:500px}
+.rideforge-app .booking-hero-copy .eyebrow{display:inline-flex;padding:8px 12px;border:1px solid #dce6d7;border-radius:999px;background:#fff;color:#49634d;font:800 9px 'JetBrains Mono',monospace;letter-spacing:.09em}
+.rideforge-app .eyebrow-dot{width:7px;height:7px;border-radius:50%;background:var(--rf-green);box-shadow:0 0 0 4px #176b3a15}
+.rideforge-app .booking-hero h1{font-size:clamp(50px,6vw,78px);line-height:.98;letter-spacing:-.065em;font-weight:800;margin:24px 0 18px;color:var(--rf-ink)}
+.rideforge-app .booking-hero h1 em{font-family:'Plus Jakarta Sans',sans-serif;font-style:normal;color:var(--rf-green);font-weight:700}
+.rideforge-app .hero-description{max-width:430px;font-size:14px;line-height:1.8;color:var(--rf-muted)}
+.rideforge-app .hero-benefits{display:grid;gap:14px;margin:28px 0}
+.rideforge-app .hero-benefits>div{display:flex;align-items:center;gap:12px}
+.rideforge-app .benefit-icon{width:38px;height:38px;display:grid;place-items:center;border:1px solid #e1e9dc;border-radius:12px;background:#fff;color:var(--rf-green)}
+.rideforge-app .hero-benefits strong{font-size:12px;color:var(--rf-ink)}
+.rideforge-app .hero-benefits small{display:block;margin-top:3px;color:var(--rf-muted);font-size:10px}
+.rideforge-app .text-link{display:inline-flex;align-items:center;gap:10px;color:var(--rf-green);font-size:12px;font-weight:800}
+.rideforge-app .booking-card-primary{position:relative;padding:clamp(22px,3vw,34px);border:1px solid #e4e9df;border-radius:25px;background:#fff;box-shadow:var(--rf-shadow)}
+.rideforge-app .booking-card-heading{align-items:flex-start}
+.rideforge-app .card-eyebrow{color:#718071;font-size:8px;letter-spacing:.13em}
+.rideforge-app .booking-card-heading h2{font-size:31px;line-height:1.05;letter-spacing:-1.5px;margin:9px 0 6px;color:var(--rf-ink)}
+.rideforge-app .booking-card-heading p{font-size:11px;color:var(--rf-muted);margin:0}
+.rideforge-app .card-step{display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border-radius:999px;background:#f1f5ec;color:var(--rf-green);font:800 9px 'JetBrains Mono',monospace}
+.rideforge-app .card-step span{color:#9aa79a}
+.rideforge-app .location-fields{margin-top:25px;padding:17px 15px;border:1px solid #e4e9e1;border-radius:15px;background:#fafbf8;gap:10px}
+.rideforge-app .location-rail{padding-top:16px}
+.rideforge-app .rail-origin{background:var(--rf-yellow);border-color:var(--rf-ink);width:10px;height:10px}
+.rideforge-app .rail-line{height:32px;border-color:#c8d5c7}
+.rideforge-app .rail-destination{background:var(--rf-green);border-color:#fff;box-shadow:0 0 0 1px var(--rf-green)}
+.rideforge-app .location-field>span{color:#7a857b;font-size:8px;letter-spacing:.13em}
+.rideforge-app .field-control{min-height:27px}
+.rideforge-app .field-control>svg:first-child{color:var(--rf-green)}
+.rideforge-app .field-control input{font-size:13px;color:var(--rf-ink);font-weight:700}
+.rideforge-app .field-control input::placeholder{color:#a0aaa1;font-weight:500}
+.rideforge-app .field-separator{margin:13px 0 12px;background:#e9ede6}
+.rideforge-app .swap-button{width:34px;height:36px;border-radius:10px;background:#fff;color:var(--rf-green);border-color:#dce5d9}
+.rideforge-app .swap-button:hover{background:var(--rf-lime)}
+.rideforge-app .map-picker-actions,.rideforge-app .booking-quick-actions{margin-top:12px}
+.rideforge-app .location-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:8px 11px;border:1px solid #e2e9df;border-radius:10px;background:#fff;color:#45634b;font-size:10px;font-weight:750}
+.rideforge-app .location-action:hover{border-color:#b9d0b8;background:#f5f9f2}
+.rideforge-app .booking-quick-actions>span{font-size:9px;line-height:1.55;color:#8a958b}
+.rideforge-app .route-presets{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:14px}
+.rideforge-app .route-presets>span,.rideforge-app .saved-routes>span{font:800 8px 'JetBrains Mono',monospace;color:#8a958b;letter-spacing:.1em}
+.rideforge-app .route-presets button{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border:1px solid #e6ebe3;border-radius:999px;background:#f8faf6;color:#4e6552;font-size:9px;font-weight:750}
+.rideforge-app .route-presets button:hover{border-color:#bad1b8;background:#eff6e9}
+.rideforge-app .quote-row{margin-top:18px;padding:13px 0;border-top:1px solid #edf0eb;border-bottom:1px solid #edf0eb}
+.rideforge-app .quote-icon{background:#eef5e9;color:var(--rf-green);border-radius:11px}
+.rideforge-app .quote-details strong{font-size:11px;color:var(--rf-ink)}
+.rideforge-app .quote-details>span{font-size:9px;color:#7a857b}
+.rideforge-app .fare-row{padding:18px 0 15px}
+.rideforge-app .fare-label{color:#879187}
+.rideforge-app .fare-amount{font-size:35px;letter-spacing:-1.7px;color:var(--rf-ink)}
+.rideforge-app .fare-amount span{color:#879187}
+.rideforge-app .fare-note{color:var(--rf-green);font-size:9px}
+.rideforge-app .fare-note small{color:#89958b}
+.rideforge-app .fare-breakdown{padding:12px 13px;border:1px solid #e5ebdf;border-radius:12px;background:#f8faf5}
+.rideforge-app .fare-breakdown>div{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:10px;color:#6b786d}
+.rideforge-app .fare-breakdown strong{color:var(--rf-ink)}
+.rideforge-app .fare-breakdown p{margin:7px 0 0;font-size:9px;color:#879187}
+.rideforge-app .quote-button{margin-top:8px;min-height:52px}
+.rideforge-app .form-hint{font-size:9px;color:#849087;line-height:1.55}
+.rideforge-app .auth-panel{margin-top:18px;padding:18px;border:1px solid #e6ebe3;border-radius:15px;background:#fafbf8}
+.rideforge-app .auth-panel-heading h3{font-size:18px;letter-spacing:-.6px;color:var(--rf-ink);margin:7px 0}
+.rideforge-app .auth-panel-heading p,.rideforge-app .auth-caption{font-size:10px;line-height:1.6;color:#78847a}
+.rideforge-app .auth-switch{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:4px;margin:14px 0;border:1px solid #e4eae1;border-radius:11px;background:#f0f3ed}
+.rideforge-app .auth-tab{min-height:36px;border:0;border-radius:8px;background:transparent;color:#748075;font-size:10px;font-weight:800}
+.rideforge-app .auth-tab.selected{background:#fff;color:var(--rf-green);box-shadow:0 2px 8px #1a291a12}
+.rideforge-app .auth-field{display:grid;gap:6px;margin:12px 0;color:#627065;font-size:10px;font-weight:750}
+.rideforge-app .auth-field input,.rideforge-app .auth-field select,.rideforge-app .auth-field textarea{width:100%;min-height:42px;padding:10px 12px;border:1px solid #dfe6dc;border-radius:10px;background:#fff;color:var(--rf-ink);font-size:12px}
+.rideforge-app .auth-field input:focus,.rideforge-app .auth-field select:focus,.rideforge-app .auth-field textarea:focus{border-color:#79a783;outline:3px solid #176b3a18}
+.rideforge-app .inline-notice{border:1px solid #dce9d4;border-radius:11px;background:#f1f7eb;color:#315c38;font-size:10px}
+.rideforge-app .inline-notice.warning{border-color:#f2dfb4;background:#fff8e9;color:#805a1c}
+.rideforge-app .ride-status-card,.rideforge-app .ride-confirmation{border:1px solid #e5ebe2;border-radius:13px;background:#fff;padding:14px}
+.rideforge-app .confirmation-icon{border-radius:11px;background:#eaf4e6;color:var(--rf-green)}
+.rideforge-app .ride-status-copy strong{font-size:13px}
+.rideforge-app .ride-status-copy small{color:#7c887d;line-height:1.5}
+.rideforge-app .outline-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:9px 12px;border:1px solid #dce5d9;border-radius:10px;background:#fff;color:#3e6247;font-size:10px;font-weight:800}
+.rideforge-app .outline-button:hover{background:#f2f7ee;border-color:#bad0b9}
+.rideforge-app .tool-disclosure{margin-top:10px;padding:13px 14px;border:1px solid #e5ebe2;border-radius:12px;background:#fff}
+.rideforge-app .tool-disclosure summary{color:#354b39;font-size:11px;font-weight:800;cursor:pointer}
+.rideforge-app .tool-disclosure[open] summary{margin-bottom:12px;color:var(--rf-green)}
+.rideforge-app .route-section,.rideforge-app .how-section{width:min(1120px,calc(100% - 56px));margin:0 auto;padding:62px 0}
+.rideforge-app .route-section-heading{display:flex;align-items:end;justify-content:space-between;gap:30px;margin-bottom:24px}
+.rideforge-app .route-section-heading h2,.rideforge-app .how-section>h2{font-size:clamp(34px,4vw,48px);line-height:1.05;letter-spacing:-.06em;color:var(--rf-ink);margin:12px 0}
+.rideforge-app .route-section-heading h2 em,.rideforge-app .how-section>h2 em{font-style:normal;color:var(--rf-green)}
+.rideforge-app .route-section-heading p{max-width:340px;color:#758176;font-size:11px;line-height:1.7}
+.rideforge-app .route-card-large{padding:22px;border:1px solid #e4eae1;border-radius:20px;background:#fff;box-shadow:0 16px 50px #18251b08}
+.rideforge-app .route-card-top h3{font-size:17px;color:var(--rf-ink);letter-spacing:-.5px}
+.rideforge-app .route-live-badge{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:#f0f5eb;color:#58725b;font:800 8px 'JetBrains Mono',monospace}
+.rideforge-app .route-live-badge>span{width:6px;height:6px;border-radius:50%;background:#a9b8a8}
+.rideforge-app .route-live-badge:has(+*){white-space:nowrap}
+.rideforge-app .mini-map{height:330px;border:1px solid #e4eae1;border-radius:15px;background:#eef2e9}
+.rideforge-app .route-map-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:100%;padding:25px;text-align:center;color:#7a867b}
+.rideforge-app .route-map-empty strong{font-size:12px;color:#465b49}
+.rideforge-app .route-map-empty span{max-width:280px;font-size:10px;line-height:1.6}
+.rideforge-app .empty-map-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:#fff;color:var(--rf-green)}
+.rideforge-app .route-stats{padding:20px 0 14px}
+.rideforge-app .route-stats span{color:#879187;font-size:8px}
+.rideforge-app .route-stats strong{font-size:24px;color:var(--rf-ink)}
+.rideforge-app .route-disclaimer{font-size:9px;color:#7d887e}
+.rideforge-app .how-section{text-align:center;padding-top:52px;padding-bottom:76px}
+.rideforge-app .how-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:30px;text-align:left}
+.rideforge-app .how-grid article{position:relative;min-height:190px;padding:23px;border:1px solid #e4eae1;border-radius:17px;background:#fff}
+.rideforge-app .how-grid article>span{position:absolute;top:18px;right:19px;color:#9aa79a;font:800 9px 'JetBrains Mono',monospace}
+.rideforge-app .how-grid article>svg{width:40px;height:40px;padding:10px;border-radius:12px;background:#eff5e9;color:var(--rf-green)}
+.rideforge-app .how-grid h3{font-size:14px;letter-spacing:-.3px;margin:17px 0 7px}
+.rideforge-app .how-grid p{font-size:10px;line-height:1.7;color:#78847a;margin:0}
+.rideforge-app .safety-section{width:min(1120px,calc(100% - 56px));margin:0 auto 68px;padding:24px 26px;display:flex;align-items:center;gap:18px;border:1px solid #e4eae1;border-radius:18px;background:#fff}
+.rideforge-app .safety-icon{width:46px;height:46px;display:grid;place-items:center;flex:none;border-radius:14px;background:#eff5e9;color:var(--rf-green)}
+.rideforge-app .safety-section>div:nth-child(2){flex:1}
+.rideforge-app .safety-section h2{font-size:16px;letter-spacing:-.4px;margin:6px 0}
+.rideforge-app .safety-section p{max-width:720px;font-size:10px;line-height:1.65;color:#78847a;margin:0}
+.rideforge-app .site-footer{max-width:none;padding:30px max(28px,calc((100vw - 1120px)/2));background:#171c18;color:#e9f0e7;border:0}
+.rideforge-app .footer-brand{color:#fff}
+.rideforge-app .footer-brand small{color:#aab6aa}
+.rideforge-app .footer-note,.rideforge-app .copyright{color:#a9b4a9;font-size:9px}
+.rideforge-app .footer-links{display:flex;gap:17px;flex-wrap:wrap}
+.rideforge-app .footer-links a{color:#e2eadf;font-size:9px}
+.rideforge-app .mobile-bottom-bar{display:none}
+.rideforge-app .role-header{position:sticky;top:0;z-index:40;width:100%;padding:0 max(28px,calc((100vw - 1200px)/2));min-height:76px;background:#ffffffed;border-bottom:1px solid #e7ebe4;backdrop-filter:blur(18px)}
+.rideforge-app .role-header nav a{padding:9px 0;color:#627064;font-size:11px;font-weight:800}
+.rideforge-app .role-header nav a[aria-current=page]{color:var(--rf-green);border-bottom:2px solid var(--rf-green)}
+.rideforge-app .demo-disclaimer{padding:10px 18px;background:#fff8e4;border-bottom:1px solid #f1e3b9;color:#765d25;text-align:center;font-size:9px;line-height:1.5}
+.rideforge-app .booking-section{padding:58px 24px 76px;background:var(--rf-paper)}
+.rideforge-app .section-intro{max-width:700px;margin:0 auto 30px}
+.rideforge-app .section-intro h2{font-size:clamp(34px,4.5vw,52px);letter-spacing:-.06em;color:var(--rf-ink)}
+.rideforge-app .section-intro p{font-size:12px;line-height:1.7;color:#748075}
+.rideforge-app .booking-layout{max-width:930px;display:block}
+.rideforge-app .booking-layout>.booking-card{padding:clamp(18px,3vw,30px);border:1px solid #e3e9e1;border-radius:20px;background:#fff;box-shadow:var(--rf-shadow)}
+.rideforge-app .booking-layout .card-heading h3{font-size:21px;color:var(--rf-ink)}
+.rideforge-app .driver-queue{margin-top:16px;padding:17px;border:1px solid #e6ebe4;border-radius:14px;background:#fbfcfa}
+.rideforge-app .driver-queue>h3,.rideforge-app .driver-panel-head h3{font-size:13px;letter-spacing:-.2px;color:#263b2b}
+.rideforge-app .driver-queue>p{font-size:10px;line-height:1.6;color:#748075}
+.rideforge-app .driver-queue .ride-confirmation{margin:9px 0}
+.rideforge-app .ride-confirmation strong{font-size:11px;color:#273b2c}
+.rideforge-app .ride-confirmation span,.rideforge-app .ride-confirmation small{font-size:9px;line-height:1.6;color:#7a867b}
+.rideforge-app .button-row{display:flex;gap:9px;flex-wrap:wrap}
+.rideforge-app .button-row .book-button{width:auto;flex:1}
+.rideforge-app .support-review-item p{font-size:10px;line-height:1.65;color:#56665a}
+.rideforge-app .role-entry{background:var(--rf-paper)}
+.rideforge-app .role-entry-main{width:min(1120px,calc(100% - 56px));margin:0 auto;padding:66px 0 74px}
+.rideforge-app .role-entry-intro{max-width:700px;margin:0 auto 34px;text-align:center}
+.rideforge-app .role-entry-intro h1{font-size:clamp(43px,6vw,68px);line-height:1;letter-spacing:-.065em;color:var(--rf-ink);margin:15px 0}
+.rideforge-app .role-entry-intro h1 em{font-style:normal;color:var(--rf-green)}
+.rideforge-app .role-entry-intro p{max-width:570px;margin:0 auto;color:#748075;font-size:13px;line-height:1.7}
+.rideforge-app .role-entry-cards{gap:14px}
+.rideforge-app .role-entry-card{min-height:250px;padding:25px;border:1px solid #e3e9e1;border-radius:19px;background:#fff;box-shadow:0 12px 36px #17251a08;transition:transform .2s,border-color .2s,box-shadow .2s}
+.rideforge-app .role-entry-card:hover{transform:translateY(-4px);border-color:#b9d0b8;box-shadow:0 22px 45px #17251a10}
+.rideforge-app .role-entry-card .role-entry-icon{width:48px;height:48px;border-radius:15px;background:#eff5e9;color:var(--rf-green)}
+.rideforge-app .role-entry-card strong{font-size:20px;letter-spacing:-.6px;color:var(--rf-ink)}
+.rideforge-app .role-entry-card>span:nth-last-of-type(1){font-size:11px;line-height:1.65;color:#78847a}
+.rideforge-app .role-entry-card b{color:var(--rf-green);font-size:10px}
+.rideforge-app .role-entry-card.demo .role-entry-icon{background:#fff5d5;color:#876400}
+.rideforge-app .role-entry-card.demo b{color:#876400}
+.rideforge-app .role-entry-footnote{display:flex;justify-content:center;align-items:center;gap:8px;color:#849086;font-size:9px;line-height:1.6;text-align:center}
+.rideforge-app .role-entry-footnote svg{flex:none;color:var(--rf-green)}
+.rideforge-app :focus-visible{outline:3px solid #4b8d59;outline-offset:3px}
+.rideforge-app button:disabled{cursor:not-allowed;opacity:.56}
+@media(max-width:980px){
+ .rideforge-app .booking-hero{grid-template-columns:minmax(0,.8fr) minmax(390px,1.2fr);gap:26px;width:calc(100% - 40px);padding:48px 0 60px}
+ .rideforge-app .booking-hero h1{font-size:clamp(44px,6vw,62px)}
+ .rideforge-app .main-nav{gap:16px}
+ .rideforge-app .safety-link{display:none}
+ .rideforge-app .route-section,.rideforge-app .how-section{width:calc(100% - 40px)}
+}
+@media(max-width:760px){
+ .rideforge-app .app-header{height:66px;padding:0 18px}
+ .rideforge-app .brand{font-size:20px}
+ .rideforge-app .brand-mark{width:38px;height:38px}
+ .rideforge-app .main-nav{display:none;position:absolute;top:65px;left:12px;right:12px;padding:12px;border:1px solid #e5ebe2;border-radius:14px;background:#fff;box-shadow:0 15px 35px #18251b18}
+ .rideforge-app .main-nav.nav-open{display:grid;gap:3px}
+ .rideforge-app .main-nav .nav-link{padding:12px;text-align:left}
+ .rideforge-app .main-nav .nav-link.active:after{display:none}
+ .rideforge-app .header-actions{gap:9px}
+ .rideforge-app .header-cta{padding:10px 13px;font-size:10px}
+ .rideforge-app .mobile-menu{display:grid;place-items:center;width:38px;height:38px;border:1px solid #e2e9df;border-radius:10px;background:#fff;color:#3f5944}
+ .rideforge-app .booking-hero{width:calc(100% - 32px);grid-template-columns:1fr;gap:22px;padding:38px 0 48px}
+ .rideforge-app .booking-hero-copy{padding:0}
+ .rideforge-app .booking-hero h1{font-size:clamp(48px,11vw,66px);margin:18px 0 14px}
+ .rideforge-app .hero-description{font-size:12px;line-height:1.7}
+ .rideforge-app .hero-benefits{grid-template-columns:1fr 1fr;gap:11px;margin:19px 0}
+ .rideforge-app .hero-benefits>div{align-items:flex-start}
+ .rideforge-app .hero-benefits>div:last-child{grid-column:1/-1}
+ .rideforge-app .benefit-icon{width:34px;height:34px;flex:none}
+ .rideforge-app .hero-benefits strong{font-size:10px}
+ .rideforge-app .hero-benefits small{font-size:9px;line-height:1.4}
+ .rideforge-app .booking-card-primary{padding:19px;border-radius:19px}
+ .rideforge-app .booking-card-heading h2{font-size:27px}
+ .rideforge-app .route-section,.rideforge-app .how-section{width:calc(100% - 32px);padding:42px 0}
+ .rideforge-app .route-section-heading{display:block}
+ .rideforge-app .route-section-heading p{max-width:none}
+ .rideforge-app .mini-map{height:270px}
+ .rideforge-app .how-grid{grid-template-columns:1fr;gap:9px}
+ .rideforge-app .how-grid article{min-height:0;padding:18px}
+ .rideforge-app .how-grid article>svg{width:35px;height:35px}
+ .rideforge-app .how-grid h3{margin:11px 0 5px}
+ .rideforge-app .safety-section{width:calc(100% - 32px);margin-bottom:38px;padding:18px;align-items:flex-start;flex-wrap:wrap}
+ .rideforge-app .safety-section>div:nth-child(2){min-width:calc(100% - 70px)}
+ .rideforge-app .safety-section>.outline-button{margin-left:64px}
+ .rideforge-app .site-footer{padding:25px 20px 80px;display:grid;gap:15px}
+ .rideforge-app .footer-links{gap:12px}
+ .rideforge-app .mobile-bottom-bar{position:fixed;z-index:50;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #e4e9e1;background:#ffffffed;backdrop-filter:blur(18px)}
+ .rideforge-app .mobile-bottom-bar>span{display:grid;gap:2px}
+ .rideforge-app .mobile-bottom-bar small{font:800 8px 'JetBrains Mono',monospace;color:#879187;letter-spacing:.08em}
+ .rideforge-app .mobile-bottom-bar strong{font-size:17px;color:var(--rf-ink)}
+ .rideforge-app .mobile-bottom-bar button{display:flex;align-items:center;gap:10px;min-height:42px;padding:10px 15px;border:0;border-radius:10px;background:var(--rf-green);color:#fff;font-size:11px;font-weight:850}
+ .rideforge-app .role-header{min-height:66px;padding:0 16px}
+ .rideforge-app .role-header nav{gap:12px;overflow-x:auto}
+ .rideforge-app .role-header nav a{white-space:nowrap;font-size:9px}
+ .rideforge-app .booking-section{padding:38px 16px 55px}
+ .rideforge-app .booking-layout>.booking-card{padding:17px}
+ .rideforge-app .role-entry-main{width:calc(100% - 32px);padding:42px 0 55px}
+ .rideforge-app .role-entry-intro{text-align:left;margin-bottom:24px}
+ .rideforge-app .role-entry-intro p{font-size:12px}
+ .rideforge-app .role-entry-cards{grid-template-columns:1fr}
+ .rideforge-app .role-entry-card{min-height:0;padding:20px}
+ .rideforge-app .role-entry-footnote{justify-content:flex-start;text-align:left}
+ .rideforge-app .button-row{display:grid;grid-template-columns:1fr}
+ .rideforge-app .button-row .book-button{width:100%}
+}
+@media(max-width:420px){
+ .rideforge-app .app-announcement{justify-content:flex-start;overflow:hidden;white-space:nowrap;font-size:8px;padding-inline:12px}
+ .rideforge-app .app-announcement .announcement-right{display:none}
+ .rideforge-app .header-cta{display:none}
+ .rideforge-app .hero-benefits{grid-template-columns:1fr}
+ .rideforge-app .hero-benefits>div:last-child{grid-column:auto}
+ .rideforge-app .route-presets{align-items:flex-start}
+ .rideforge-app .route-presets>span{width:100%}
+ .rideforge-app .route-stats{gap:4px}
+ .rideforge-app .route-stats>div+div{padding-left:8px}
+ .rideforge-app .route-stats strong{font-size:19px}
+ .rideforge-app .route-stats span{font-size:7px}
+ .rideforge-app .ride-confirmation{overflow-wrap:anywhere}
+}
+@media(prefers-reduced-motion:reduce){
+ .rideforge-app *, .rideforge-app *::before,.rideforge-app *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+@media print{
+ .rideforge-app .app-header,.rideforge-app .app-announcement,.rideforge-app .mobile-bottom-bar,.rideforge-app .site-footer{display:none!important}
+}
+
+/* Document verification and operations review surfaces. */
+.rideforge-app .admin-driver-review>p{font-size:10px;line-height:1.65;color:#748075}
+.rideforge-app .admin-driver-card{display:grid;gap:10px;margin:11px 0;padding:14px}
+.rideforge-app .admin-driver-summary{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rideforge-app .admin-driver-summary>div:first-child{display:grid;gap:4px;min-width:0}
+.rideforge-app .admin-driver-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.rideforge-app .document-readiness{padding:9px 11px;border-radius:9px;background:#fff6e5;color:#815c20;font-size:9px;line-height:1.5}
+.rideforge-app .document-readiness.ready{background:#eef7e9;color:#28613b}
+.rideforge-app .admin-document-list{display:grid;gap:8px;padding-top:11px;border-top:1px solid #e8ede6}
+.rideforge-app .admin-document-list>p{font-size:10px;color:#78847a}
+.rideforge-app .admin-document-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.9fr);gap:12px;padding:12px;border:1px solid #e5ebe3;border-radius:11px;background:#fafcf9}
+.rideforge-app .admin-document-meta{display:grid;align-content:start;gap:5px;min-width:0}
+.rideforge-app .admin-document-meta strong{text-transform:capitalize;font-size:11px}
+.rideforge-app .admin-document-meta span,.rideforge-app .admin-document-meta small{font-size:9px;line-height:1.5;color:#7c887d;overflow-wrap:anywhere}
+.rideforge-app .admin-document-meta a{font-size:9px;color:var(--rf-green);font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.rideforge-app .admin-document-review{display:flex;align-items:end;gap:7px;flex-wrap:wrap}
+.rideforge-app .admin-document-review .auth-field{flex:1;min-width:160px;margin:0}
+.rideforge-app .admin-document-review .auth-field input{min-height:36px;font-size:10px}
+.rideforge-app .admin-document-review .outline-button{min-height:34px}
+@media(max-width:760px){
+ .rideforge-app .admin-driver-summary{align-items:flex-start;flex-direction:column}
+ .rideforge-app .admin-driver-actions{justify-content:flex-start}
+ .rideforge-app .admin-document-card{grid-template-columns:1fr}
+ .rideforge-app .admin-document-review{align-items:stretch}
+ .rideforge-app .admin-document-review .auth-field{flex-basis:100%}
+}
+
+/* Account-synced saved places, driver earnings and admin safety operations. */
+.rideforge-app .saved-place-account{display:grid;gap:9px;margin:8px 0;padding:12px;border:1px solid #e5ebe3;border-radius:11px;background:#fff}
+.rideforge-app .saved-place-account>div:first-child{display:grid;gap:4px;min-width:0}
+.rideforge-app .saved-place-account strong{text-transform:capitalize;font-size:11px}
+.rideforge-app .saved-place-account span{font-size:10px;color:#778378;overflow-wrap:anywhere}
+.rideforge-app .saved-place-actions{display:flex;gap:8px;flex-wrap:wrap}
+.rideforge-app .saved-place-actions .text-action{font-size:9px}
+.rideforge-app .earnings-period-grid,.rideforge-app .admin-metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
+.rideforge-app .earnings-period-grid>div,.rideforge-app .admin-metric-grid>div{display:grid;gap:6px;min-width:0;padding:13px;border:1px solid #e4eae1;border-radius:11px;background:#fff}
+.rideforge-app .earnings-period-grid small,.rideforge-app .admin-metric-grid small{font:800 8px 'JetBrains Mono',monospace;letter-spacing:.08em;color:#879187}
+.rideforge-app .earnings-period-grid strong{font-size:clamp(17px,2.4vw,25px);letter-spacing:-.8px;color:#1e3525}
+.rideforge-app .earnings-period-grid span{font-size:9px;color:#78847a}
+.rideforge-app .admin-metric-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.rideforge-app .admin-metric-grid strong{font-size:clamp(17px,2vw,23px);letter-spacing:-.7px;color:#1e3525;overflow-wrap:anywhere}
+.rideforge-app .admin-sos-card{display:grid;gap:10px;margin:9px 0;padding:13px}
+.rideforge-app .admin-sos-card>div:first-child{display:grid;gap:5px;min-width:0}
+.rideforge-app .admin-sos-card strong{font-size:11px;text-transform:capitalize}
+.rideforge-app .admin-sos-card span,.rideforge-app .admin-sos-card small{font-size:9px;line-height:1.55;color:#778378;overflow-wrap:anywhere}
+.rideforge-app .admin-sos-card a{font-size:9px;color:var(--rf-green);font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.rideforge-app .admin-sos-card .button-row{justify-content:flex-start}
+@media(max-width:760px){
+ .rideforge-app .earnings-period-grid{grid-template-columns:1fr 1fr}
+ .rideforge-app .admin-metric-grid{grid-template-columns:1fr 1fr}
+ .rideforge-app .saved-place-actions{display:grid;grid-template-columns:1fr 1fr}
+}
+@media(max-width:420px){
+ .rideforge-app .earnings-period-grid{grid-template-columns:1fr}
+ .rideforge-app .saved-place-actions{grid-template-columns:1fr}
+}

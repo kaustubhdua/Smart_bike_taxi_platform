@@ -4,6 +4,7 @@ import App from "./App";
 import OperationsWorkspace from "./components/OperationsWorkspace";
 import DemoMode from "./components/DemoMode";
 import "./styles.css";
+import "./rideforge-refresh.css";
 import { ArrowRight, Bike, ShieldCheck, UserRound, Play } from "lucide-react";
 
 const hostname = window.location.hostname.toLowerCase();
