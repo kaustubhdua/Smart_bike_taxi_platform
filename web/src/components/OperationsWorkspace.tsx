@@ -219,7 +219,18 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     setBusy(true);
     try {
       const data = await request("/api/v1/driver/earnings");
-      if (!data.last24h || !data.last7d || !data.last30d || typeof data.last30d.grossFarePaise !== "number") throw new Error("The API returned invalid earnings data.");
+      const isPeriod = (value: unknown): value is DriverEarnings["last24h"] => {
+        if (!value || typeof value !== "object") return false;
+        const period = value as Record<string, unknown>;
+        return typeof period.trips === "number" && typeof period.grossFarePaise === "number";
+      };
+      const rating = data.rating as Record<string, unknown> | undefined;
+      if (!isPeriod(data.last24h) || !isPeriod(data.last7d) || !isPeriod(data.last30d)
+        || typeof data.currency !== "string" || typeof data.note !== "string"
+        || !rating || typeof rating.count !== "number"
+        || !(rating.average === null || typeof rating.average === "number")) {
+        throw new Error("The API returned invalid earnings data.");
+      }
       setDriverEarnings(data as unknown as DriverEarnings);
       setError("Driver earnings summary refreshed from completed ride records.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Earnings summary unavailable."); }
