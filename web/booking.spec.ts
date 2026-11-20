@@ -126,7 +126,7 @@ test("calculates road route and shows a fare only after a valid server quote", a
   });
   await page.goto("/live");
   await fillRideLocations(page);
-  await expect(page.getByText(/DEMONSTRATION WORKSPACE/)).toBeVisible();
+  await expect(page.getByText(/LIVE API WORKSPACE/)).toBeVisible();
   await expect(page.locator(".quote-details")).toContainText(/request a quote/i);
   await expect(page.getByRole("button", { name: /Get server fare quote/ })).toBeEnabled();
   await expect(page.getByText("No invented price")).toBeVisible();
@@ -801,7 +801,7 @@ test("production driver and admin entry points open the correct role workspace",
     quoteRequests += 1;
     await route.abort();
   });
-  await page.goto("http://driver.localhost:4173");
+  await page.goto("http://127.0.0.1:4173/driver");
   await expect(page.getByText(/DEMONSTRATION WORKSPACE/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your next ride starts here." })).toBeVisible();
   await expect(page.getByText("Driver sign in")).toBeVisible();
@@ -955,7 +955,7 @@ test("saves and restores favourite routes locally without creating a quote", asy
   await blockMapTiles(page);
   await page.goto("/live");
   await fillRideLocations(page);
-  await page.getByRole("button", { name: /Save current route to this device/ }).click();
+  await page.getByRole("button", { name: /Save route to this device/ }).click();
   await expect(page.getByLabel("Saved favourite routes")).toContainText("JIIT Sector 128, Noida");
   await page.reload();
   await expect(page.getByLabel("Saved favourite routes")).toContainText("Sector 18 Market, Noida");
