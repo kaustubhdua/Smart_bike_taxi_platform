@@ -52,6 +52,9 @@ export default function App() {
   const [authName, setAuthName] = useState("");
   const [profileName, setProfileName] = useState("");
   const [profileBusy, setProfileBusy] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [bookingBusy, setBookingBusy] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
@@ -348,11 +351,13 @@ export default function App() {
   }
 
   async function authenticate() {
+    if (authBusy) return;
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (base === undefined) {
       setNotice("Configure VITE_API_BASE_URL to connect to the RideForge API.");
       return;
     }
+    setAuthBusy(true);
     try {
       const payload = authMode === "register"
         ? { email: authEmail, displayName: authName, password: authPassword }
@@ -361,6 +366,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
       });
       const data = await response.json() as {
         accessToken?: string;
@@ -389,7 +395,11 @@ export default function App() {
       setAuthPassword("");
       setNotice(`Signed in as ${data.account.email}. Your access token stays in memory for this session.`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not connect to the authentication service.");
+      setNotice(error instanceof Error && error.name === "TimeoutError"
+        ? "Authentication took too long. Check your connection and try again."
+        : error instanceof Error ? error.message : "Could not connect to the authentication service.");
+    } finally {
+      setAuthBusy(false);
     }
   }
 
@@ -434,6 +444,7 @@ export default function App() {
   }
 
   async function createBooking() {
+    if (bookingBusy) return;
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (base === undefined || !quote || !account) {
       setNotice("Get a valid quote and sign in before confirming a ride.");
@@ -447,6 +458,7 @@ export default function App() {
     }
     const key = bookingKey || ("rideforge-" + crypto.randomUUID());
     setBookingKey(key);
+    setBookingBusy(true);
     try {
       const response = await fetch(apiUrl(base, "/api/v1/rides"), {
         method: "POST",
@@ -457,6 +469,7 @@ export default function App() {
           "Idempotency-Key": key,
         },
         body: JSON.stringify({ quoteId: quote.quoteId }),
+        signal: AbortSignal.timeout(15000),
       });
       const data = await response.json() as { rideId?: string; status?: string; error?: string };
       if (!response.ok || !data.rideId || !data.status) {
@@ -467,24 +480,35 @@ export default function App() {
       setRide({ rideId: data.rideId, status: data.status });
       setNotice(`Ride request created. Reference: ${data.rideId}. Status: ${data.status}.`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not create the ride request.");
+      setNotice(error instanceof Error && error.name === "TimeoutError"
+        ? "The booking request timed out. Retry safely; the same request reference will be reused."
+        : error instanceof Error ? error.message : "Could not create the ride request.");
+    } finally {
+      setBookingBusy(false);
     }
   }
 
   async function cancelRide() {
+    if (cancelBusy) return;
     const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (base === undefined || !account || !ride) return;
+    setCancelBusy(true);
     try {
       const response = await fetch(apiUrl(base, "/api/v1/rides/" + encodeURIComponent(ride.rideId) + "/cancel"), {
         method: "POST",
         headers: { "Accept": "application/json", "Authorization": "Bearer " + account.token },
+        signal: AbortSignal.timeout(15000),
       });
       const data = await response.json() as { status?: string; error?: string };
       if (!response.ok || !data.status) throw new Error(data.error || "Cancellation failed (HTTP " + response.status + ").");
       setRide({ ...ride, status: data.status });
       setNotice("Ride request cancelled.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not cancel this ride request.");
+      setNotice(error instanceof Error && error.name === "TimeoutError"
+        ? "Cancellation timed out. Refresh the ride status before retrying."
+        : error instanceof Error ? error.message : "Could not cancel this ride request.");
+    } finally {
+      setCancelBusy(false);
     }
   }
 
@@ -702,7 +726,7 @@ export default function App() {
                   <div className="auth-session">
                     <div className="session-identity"><span className="confirmation-icon"><Check size={15} /></span><span><strong>You're signed in</strong><small>{account.displayName || account.email}</small></span></div>
                     <button className="text-action" onClick={() => { setAccount(null); setProfileName(""); setSupportReports([]); setPassengerHistory([]); setReceiptRideId(null); }}>Sign out</button>
-                    {quote && !ride && <button className="book-button" onClick={createBooking}>Confirm ride request <ArrowRight size={17} /></button>}
+                    {quote && !ride && <button className="book-button" onClick={createBooking} disabled={bookingBusy}>{bookingBusy ? "Requesting ride…" : "Confirm ride request"} <ArrowRight size={17} /></button>}
                   </div>
                 ) : (
                   <>
@@ -714,7 +738,7 @@ export default function App() {
                     {authMode === "register" && <label className="auth-field"><span>Your name</span><input required value={authName} onChange={event => setAuthName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Full name" /></label>}
                     <label className="auth-field"><span>Email address</span><input required type="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></label>
                     <label className="auth-field"><span>Password</span><input required type="password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} maxLength={128} minLength={authMode === "register" ? 12 : 1} autoComplete={authMode === "register" ? "new-password" : "current-password"} placeholder={authMode === "register" ? "At least 12 characters" : "Your password"} /></label>
-                    <button className="book-button" onClick={authenticate} disabled={!authEmail.trim() || !authPassword || (authMode === "register" && (!authName.trim() || authPassword.length < 12))}>{authMode === "register" ? "Create passenger account" : "Sign in and continue"} <ArrowRight size={17} /></button>
+                    <button className="book-button" onClick={authenticate} disabled={authBusy || !authEmail.trim() || !authPassword || (authMode === "register" && (!authName.trim() || authPassword.length < 12))}>{authBusy ? "Authenticating…" : authMode === "register" ? "Create passenger account" : "Sign in and continue"} <ArrowRight size={17} /></button>
                     <p className="auth-caption">Email verification may be required. Your access token stays in memory and is cleared when you refresh or sign out.</p>
                   </>
                 )}
@@ -725,7 +749,7 @@ export default function App() {
               <div className="confirmation-icon"><Check size={16} /></div>
               <div className="ride-status-copy"><span className="card-eyebrow">03 / RIDE STATUS</span><strong>{ride.status === "failed" ? "No driver found" : ride.status === "matching" || ride.status === "requested" ? "Finding your driver" : "Your ride request is active"}</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status.replaceAll("_", " ")} · Updates refresh automatically while this page is open.</small></div>
               <div className="ride-status-actions">
-                {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && <button className="outline-button" onClick={cancelRide}>Cancel request</button>}
+                {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && <button className="outline-button" onClick={cancelRide} disabled={cancelBusy}>{cancelBusy ? "Cancelling…" : "Cancel request"}</button>}
                 <button className="text-action" onClick={() => { setRide(null); setQuote(null); setBookingKey(null); setNotice("Your previous ride remains in trip history. You can plan another ride."); }}>New ride</button>
               </div>
             </div>}
