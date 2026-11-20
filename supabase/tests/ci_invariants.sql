@@ -31,6 +31,13 @@ BEGIN
      OR has_function_privilege('authenticated', 'public.suspend_driver_for_document_reverification(uuid)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Document re-review suspension function is executable by a client role';
   END IF;
+  IF NOT has_function_privilege('service_role', 'public.review_driver_document(uuid,uuid,text,text,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'service_role cannot execute the atomic driver document review function';
+  END IF;
+  IF has_function_privilege('anon', 'public.review_driver_document(uuid,uuid,text,text,uuid)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.review_driver_document(uuid,uuid,text,text,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Driver document review function is executable by a client role';
+  END IF;
   SELECT count(*) INTO auth_account_triggers FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'auth' AND c.relname = 'users' AND t.tgname = 'rideforge_auth_user_created' AND NOT t.tgisinternal;
   IF auth_account_triggers <> 1 THEN RAISE EXCEPTION 'Expected auth.users account-bridge trigger exactly once, found %', auth_account_triggers; END IF;
   SELECT count(*) INTO realtime_tables FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename IN ('rides', 'ride_events');
