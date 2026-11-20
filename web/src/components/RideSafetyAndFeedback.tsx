@@ -9,6 +9,7 @@ type Props = {
   role: "passenger" | "driver";
   /** Supplied by the parent's existing ride polling, so no extra requests are made. */
   startCode?: string | null;
+  startCodeExpiresAt?: string | null;
   driverRating?: { count: number; average: number | null } | null;
 };
 
@@ -22,7 +23,7 @@ type Receipt = {
 const ACTIVE = ["assigned", "driver_arriving", "in_progress"];
 const rupees = (paise: number) => "₹" + (paise / 100).toFixed(2);
 
-export default function RideSafetyAndFeedback({ base, token, rideId, status, role, startCode = null, driverRating = null }: Props) {
+export default function RideSafetyAndFeedback({ base, token, rideId, status, role, startCode = null, startCodeExpiresAt = null, driverRating = null }: Props) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [stars, setStars] = useState(0);
@@ -83,6 +84,7 @@ export default function RideSafetyAndFeedback({ base, token, rideId, status, rol
           <span className="card-eyebrow">START CODE</span>
           <strong className="start-code-digits" aria-label={"Start code " + startCode.split("").join(" ")}>{startCode}</strong>
           <small>Tell this code to your driver only when you meet. The trip cannot start without it.</small>
+          {startCodeExpiresAt && <small>Expires at {new Date(startCodeExpiresAt).toLocaleTimeString()} local time.</small>}
           {driverRating && driverRating.count > 0 && driverRating.average !== null && <small>Driver rating {driverRating.average.toFixed(1)} from {driverRating.count} {driverRating.count === 1 ? "ride" : "rides"}</small>}
         </div>
       )}
