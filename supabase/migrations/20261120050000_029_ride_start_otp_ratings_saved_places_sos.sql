@@ -286,7 +286,7 @@ REVOKE ALL ON FUNCTION public.rideforge_raise_sos(uuid, uuid, double precision, 
 GRANT EXECUTE ON FUNCTION public.rideforge_raise_sos(uuid, uuid, double precision, double precision, text) TO service_role;
 
 INSERT INTO public.schema_migrations(version)
-VALUES ('027_start_otp_ratings_saved_places_sos')
+VALUES ('029_ride_start_otp_ratings_saved_places_sos')
 ON CONFLICT(version) DO NOTHING;
 
 COMMIT;

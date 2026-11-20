@@ -409,6 +409,11 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       });
       if (typeof data.rideId !== "string" || typeof data.status !== "string") throw new Error("The API returned an invalid ride state.");
       if (action !== "decline") setActiveRide({ rideId: data.rideId, status: data.status });
+      if (action === "completed") {
+        setOnline(false);
+        setDriverLocation(null);
+        setDriverProfile(current => current ? { ...current, online: false } : current);
+      }
 
       setRides(current => current.filter(ride => ride.rideId !== rideId));
       setError(action === "decline"

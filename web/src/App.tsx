@@ -802,7 +802,7 @@ export default function App() {
               <button type="button" onClick={() => { setPickup("JIIT Sector 128, Noida"); setDestination("Botanical Garden Metro, Noida"); setPickupCoordinates(null); setDestinationCoordinates(null); clearBookingState(); setNotice("Suggested route selected. Get a fresh server quote to see live route data."); }} disabled={routeLoading}>
                 JIIT → Botanical Garden <ArrowRight size={13} />
               </button>
-              <button type="button" onClick={saveCurrentRoute} disabled={routeLoading || !pickup.trim() || !destination.trim()} aria-label="Save current route to this device">
+              <button type="button" onClick={saveCurrentRoute} disabled={routeLoading || !pickup.trim() || !destination.trim()} aria-label="Save route to this device">
                 <Bookmark size={13} /> Save route
               </button>
             </div>
