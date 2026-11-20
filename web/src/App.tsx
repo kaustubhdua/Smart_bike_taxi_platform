@@ -659,6 +659,16 @@ export default function App() {
               <span>Noida-focused suggestions. Address lookup runs only when you request a quote; road distance and fare are calculated by the server. © OpenStreetMap contributors.</span>
             </div>
 
+            <div className="route-presets" aria-label="Suggested real routes">
+              <span>TRY A ROUTE</span>
+              <button type="button" onClick={() => { setPickup("JIIT Sector 128, Noida"); setDestination("Sector 18 Market, Noida"); setPickupCoordinates(null); setDestinationCoordinates(null); clearBookingState(); setNotice("Suggested route selected. Get a fresh server quote to see live route data."); }} disabled={routeLoading}>
+                JIIT → Sector 18 <ArrowRight size={13} />
+              </button>
+              <button type="button" onClick={() => { setPickup("JIIT Sector 128, Noida"); setDestination("Botanical Garden Metro, Noida"); setPickupCoordinates(null); setDestinationCoordinates(null); clearBookingState(); setNotice("Suggested route selected. Get a fresh server quote to see live route data."); }} disabled={routeLoading}>
+                JIIT → Botanical Garden <ArrowRight size={13} />
+              </button>
+            </div>
+
             <div className="quote-row">
               <div className="quote-icon"><Route size={18} /></div>
               <div className="quote-details"><strong>{routeLoading ? "Finding your route" : route ? "Route found" : "Your route estimate"}</strong><span>{routeLoading ? "Checking the road network and calculating your fare…" : route ? `${route.km.toFixed(1)} km · ${route.mins} min · Road route` : routeError || "Address lookup runs only when you request a quote. The server calculates the route and fare; no price appears before it responds."}</span></div>
