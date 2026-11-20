@@ -91,3 +91,16 @@ Official references:
 - Public application tables have RLS enabled, with no current Security or Health Advisor findings.
 
 Do not claim that real passenger signup, driver onboarding, full ride completion, payments, emergency response, backup recovery, legal licensing, or commercial readiness are complete.
+
+
+## 6. Release verification addendum — 20 November 2026, 07:15 IST
+
+This addendum supersedes earlier deployment/CI statements above where they conflict.
+
+- **Current GitHub main HEAD:** `440afb157c7981368252eed55745024e8255165c` (`test(e2e): target current Vercel production for live quote acceptance`).
+- **Latest observed READY Vercel production deployment:** `dpl_8mZasVUEQ2AGMtKyX8ZUYrj6j2Lc`, built from `8ecfe94a5a249b3d808377778982b48f3e9d2859`. The later main HEAD is therefore **not yet proven deployed**.
+- **Vercel status for current main HEAD:** failure with Vercel's `build-rate-limit` response. This is a deployment quota/account limit, not a confirmed application build failure. Do not claim the latest driver/admin workspace styling is live until a deployment built from the current HEAD is READY.
+- **GitHub Actions run:** [run 44647862357](https://github.com/kaustubhdua/Smart_bike_taxi_platform/actions/runs/44647862357). All 15 returned jobs completed successfully, including both CodeQL analyses, dependency audit, API smoke at 5 km and 20 km, Supabase schema/RLS and Edge API tests, PostgreSQL backup/restore test, container scans, and web build/typecheck/browser suite.
+- **Web acceptance:** 56 Playwright tests; 53 passed and 3 skipped. The route-preset regression test passed. The one-time live production passenger quote acceptance step was skipped. The live route quote remains demonstrated in the prior deployed build/runbook, but this workflow does not establish a fresh live quote on the latest source commit.
+- **Latest hosted DB counts rechecked:** 0 Auth users, 0 application accounts, 0 rides, 7 route quotes. Security Advisor and Health Advisor both returned zero findings.
+- **Release decision remains:** deployed academic/portfolio MVP only; not a completed commercial ride-hailing operation. The owner must still provision real passenger/driver/admin identities, configure Auth redirects and email delivery, complete real multi-account ride lifecycle acceptance, provision backup credentials/secrets and run hosted recovery, configure repository rules/MFA/monitoring, and obtain written transport/legal clearance before any real passenger service.
