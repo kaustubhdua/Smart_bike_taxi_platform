@@ -638,6 +638,7 @@ test("driver refreshes a controlled browser location and goes offline on sign-ou
     }) });
   });
   const availability: Array<{ online: boolean; latitude?: number; longitude?: number }> = [];
+  await mockApprovedDriverApplication(page);
   await page.route("http://api.test/api/v1/driver/availability", async route => {
     expect(route.request().headers()["authorization"]).toBe("Bearer test-driver-token");
     availability.push(route.request().postDataJSON() as { online: boolean; latitude: number; longitude: number });
@@ -848,6 +849,7 @@ test("driver and admin portals have same-origin routes and driver polls offers b
       }),
     });
   });
+  await mockApprovedDriverApplication(page);
   await page.route("http://api.test/api/v1/driver/availability", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ online: true }) });
   });
