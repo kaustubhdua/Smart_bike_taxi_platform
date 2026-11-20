@@ -11,9 +11,9 @@ This is an evidence-based status snapshot. A green build, a route quote, or a he
 | Area | Evidence observed | Status |
 |---|---|---|
 | GitHub main | Latest source/documentation changes committed to `main` | Verified |
-| Vercel | Production deployment READY; alias `https://smart-bike-taxi-platform.vercel.app`; deployed SHA `eb942c6e3eba61690c49f52fe0dfd9280f380528` | Verified |
-| Public access | Production SSO protection changed to preview-only; production homepage and JS/CSS/map assets return HTTP 200; preview deployments remain SSO-protected | Verified |
-| Frontend design | Nirdhoom-inspired design-system port is in main | Implemented; manual visual/device QA still needed |
+| Vercel | Production deployment READY at main SHA `7853d94a241be7a2f9b4691c03ad089002cab116` (deployment `dpl_DoSBAF1en1ZbmVLKMNM1qQk19R2v`); alias `https://smart-bike-taxi-platform.vercel.app` | Verified |
+| Public access | Production SSO protection changed to preview-only; production homepage, current JS and CSS assets return HTTP 200; preview deployments remain SSO-protected | Verified |
+| Frontend design | Nirdhoom-inspired cream/forest-green/saffron/navy visual system; new forest-gradient hero, refined booking card, responsive polish, reduced-motion-aware motion and one-tap real route presets are deployed | Implemented; manual visual/device QA still needed |
 | Frontend API config | Vercel production `VITE_API_BASE_URL` points to the Supabase `rideforge-api` Edge Function | Verified |
 | Supabase project | `ACTIVE_HEALTHY` | Verified |
 | Edge Function | `rideforge-api` ACTIVE, version 15 | Verified |
@@ -24,6 +24,15 @@ This is an evidence-based status snapshot. A green build, a route quote, or a he
 | Performance Advisor | 15 informational unused-index findings | Informational; do not remove indexes on an empty workload |
 | Route quotes | 7 persisted quote rows | Verified |
 | Auth users / accounts / rides | 0 / 0 / 0 | No hosted account or ride lifecycle evidence |
+
+
+### Latest 20 November UI release verification
+
+- Main HEAD: `7853d94a241be7a2f9b4691c03ad089002cab116`; Vercel production deployment is READY and the Vercel commit status is SUCCESS.
+- Public production homepage returned HTTP 200. The deployed JavaScript bundle returned HTTP 200 (430,482 bytes) and contains the Noida route presets and configured Supabase API base URL. The deployed stylesheet returned HTTP 200 (87,484 bytes) and contains the new hero and route-preset styles.
+- Vercel runtime error query returned no errors in the selected time range. This is not a substitute for interactive browser acceptance.
+- The latest 15/15 full release-readiness workflow remains historical; no new GitHub Actions workflow run was returned for this documentation-only release commit. Manual visual/device and full passenger/driver/admin acceptance remain outstanding.
+- The route preset buttons only fill pickup/drop-off inputs; the user must request a fresh server quote. They do not insert mock coordinates, fake fares, drivers, or rides.
 
 ## 2. Blocking production acceptance
 
