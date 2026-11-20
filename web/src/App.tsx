@@ -66,6 +66,7 @@ export default function App() {
   const [account, setAccount] = useState<{ token: string; email: string; displayName?: string; role: string } | null>(null);
   const [ride, setRide] = useState<{ rideId: string; status: string } | null>(null);
   const [rideStartCode, setRideStartCode] = useState<string | null>(null);
+  const [rideStartCodeExpiresAt, setRideStartCodeExpiresAt] = useState<string | null>(null);
   const [rideDriverRating, setRideDriverRating] = useState<{ count: number; average: number | null } | null>(null);
   const [rideDriverLocation, setRideDriverLocation] = useState<{ latitude: number; longitude: number; updatedAt: string } | null>(null);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
@@ -212,10 +213,11 @@ export default function App() {
           signal: AbortSignal.timeout(8000),
         });
         if (!response.ok) return;
-        const data = await response.json() as { rideId?: string; status?: string; startCode?: string; driverRating?: { count?: number; average?: number | null }; driverLocation?: { latitude?: number; longitude?: number; updatedAt?: string } };
+        const data = await response.json() as { rideId?: string; status?: string; startCode?: string; startCodeExpiresAt?: string; driverRating?: { count?: number; average?: number | null }; driverLocation?: { latitude?: number; longitude?: number; updatedAt?: string } };
         applyStatus(data);
         if (data.rideId === ride.rideId) {
           setRideStartCode(typeof data.startCode === "string" ? data.startCode : null);
+          setRideStartCodeExpiresAt(typeof data.startCodeExpiresAt === "string" ? data.startCodeExpiresAt : null);
           setRideDriverRating(data.driverRating && typeof data.driverRating.count === "number" ? { count: data.driverRating.count, average: data.driverRating.average ?? null } : null);
         }
         if (data.rideId === ride.rideId && data.driverLocation &&
@@ -868,12 +870,12 @@ export default function App() {
               <div className="ride-status-copy"><span className="card-eyebrow">03 / RIDE STATUS</span><strong>{ride.status === "failed" ? "No driver found" : ride.status === "matching" || ride.status === "requested" ? "Finding your driver" : "Your ride request is active"}</strong><span>Reference: {ride.rideId}</span><small>Status: {ride.status.replaceAll("_", " ")} · Updates refresh automatically while this page is open.</small></div>
               <div className="ride-status-actions">
                 {["requested", "matching", "assigned", "driver_arriving"].includes(ride.status) && account?.role === "passenger" && <button className="outline-button" onClick={cancelRide} disabled={cancelBusy}>{cancelBusy ? "Cancelling…" : "Cancel request"}</button>}
-                <button className="text-action" onClick={() => { setRide(null); setQuote(null); setBookingKey(null); setNotice("Your previous ride remains in trip history. You can plan another ride."); }}>New ride</button>
+                <button className="text-action" onClick={() => { setRide(null); setRideStartCode(null); setRideStartCodeExpiresAt(null); setQuote(null); setBookingKey(null); setNotice("Your previous ride remains in trip history. You can plan another ride."); }}>New ride</button>
               </div>
             </div>}
 
             {ride && account?.role === "passenger" && import.meta.env.VITE_API_BASE_URL !== undefined && (
-              <RideSafetyAndFeedback base={String(import.meta.env.VITE_API_BASE_URL)} token={account.token} rideId={ride.rideId} status={ride.status} role="passenger" startCode={rideStartCode} driverRating={rideDriverRating} />
+              <RideSafetyAndFeedback base={String(import.meta.env.VITE_API_BASE_URL)} token={account.token} rideId={ride.rideId} status={ride.status} role="passenger" startCode={rideStartCode} startCodeExpiresAt={rideStartCodeExpiresAt} driverRating={rideDriverRating} />
             )}
 
             {account?.role === "passenger" && (
