@@ -579,7 +579,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       <div className="section-intro">
         <span className="section-kicker">{mode === "driver" ? "DRIVER WORKSPACE" : "OPERATIONS CONSOLE"}</span>
         <h2>{mode === "driver" ? "Your next ride starts here." : "Operations, backed by data."}</h2>
-        <p>{mode === "driver" ? "Sign in with a provisioned driver account to manage availability and ride requests." : "Admin metrics come from the API and PostgreSQL, not browser-side mock data."}</p>
+        <p>{mode === "driver" ? "Sign in or apply as a driver. Approved partners can go online, receive nearby ride offers and manage their trips." : "Admin metrics come from the API and PostgreSQL, not browser-side mock data."}</p>
       </div>
       <div className="booking-layout">
         <div className="booking-card">
@@ -621,7 +621,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                   const label = documentType === "driving_license" ? "Driving licence" : documentType === "vehicle_rc" ? "Vehicle registration certificate (RC)" : "Vehicle insurance";
                   return <div className="ride-confirmation" key={documentType}>
                     <div><strong>{label}</strong><small>{latest ? "Latest upload: " + latest.review_status.replaceAll("_"," ") : "Not uploaded yet"}{latest?.review_note ? " · " + latest.review_note : ""}</small></div>
-                    <label className="auth-field"><span className="sr-only">{label} file</span><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event => setDocumentFiles(current => ({ ...current, [documentType]: event.currentTarget.files?.[0] ?? null }))} /></label>
+                    <label className="auth-field"><span className="sr-only">{label} file</span><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event => { const file = event.currentTarget.files?.[0] ?? null; setDocumentFiles(current => ({ ...current, [documentType]: file })); }} /></label>
                     <button className="text-action" onClick={() => uploadDriverDocument(documentType)} disabled={busy || !documentFiles[documentType]}>Upload</button>
                   </div>;
                 })}
