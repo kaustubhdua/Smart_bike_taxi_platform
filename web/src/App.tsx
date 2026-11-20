@@ -379,7 +379,12 @@ export default function App() {
           : response.status === 401 ? "Email or password is incorrect."
           : data.error || `Authentication failed (HTTP ${response.status}).`);
       }
-      setAccount({ token: data.accessToken, email: data.account.email, displayName: data.account.displayName, role: data.account.role ?? "passenger" });
+      if (data.account.role !== "passenger") {
+        throw new Error(data.account.role === "driver"
+          ? "This is a driver account. Choose Driver on the RideForge home screen to manage ride offers."
+          : "Passenger access is required to book rides.");
+      }
+      setAccount({ token: data.accessToken, email: data.account.email, displayName: data.account.displayName, role: "passenger" });
       setProfileName(data.account.displayName ?? "");
       setAuthPassword("");
       setNotice(`Signed in as ${data.account.email}. Your access token stays in memory for this session.`);
