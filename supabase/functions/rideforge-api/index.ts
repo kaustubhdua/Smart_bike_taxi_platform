@@ -651,9 +651,14 @@ async function handle(req: Request): Promise<Response> {
       const ids = (profiles ?? []).map(x => x.account_id);
       const { data: people } = await db.from("accounts").select("id,email,display_name").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
       const byId = new Map((people ?? []).map(x => [x.id, x]));
-      const { data: documents } = await db.from("driver_documents").select("driver_id,document_type,review_status").in("driver_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+      const { data: documents } = await db.from("driver_documents").select("driver_id,document_type,review_status,created_at").in("driver_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("created_at", { ascending: false });
       const docsByDriver = new Map<string, Array<{ documentType: string; status: string }>>();
-      for (const doc of documents ?? []) docsByDriver.set(doc.driver_id, [...(docsByDriver.get(doc.driver_id) ?? []), { documentType: doc.document_type, status: doc.review_status }]);
+      for (const doc of documents ?? []) {
+        const current = docsByDriver.get(doc.driver_id) ?? [];
+        if (!current.some(item => item.documentType === doc.document_type)) {
+          docsByDriver.set(doc.driver_id, [...current, { documentType: doc.document_type, status: doc.review_status }]);
+        }
+      }
       return json({ drivers: (profiles ?? []).map(x => ({
         driverId: x.account_id, email: byId.get(x.account_id)?.email ?? "",
         displayName: byId.get(x.account_id)?.display_name ?? "",
@@ -683,7 +688,7 @@ async function handle(req: Request): Promise<Response> {
       const approved = body.approved === true;
       if (approved) {
         const { data: documents, error: documentsError } = await db.from("driver_documents")
-          .select("document_type,review_status").eq("driver_id", approval[1]);
+          .select("document_type,review_status,created_at").eq("driver_id", approval[1]).order("created_at", { ascending: false });
         if (documentsError) return fail("Could not verify driver documents; approval was not changed.", 503, origin);
         const missing = missingVerifiedDriverDocuments(documents ?? []);
         if (missing.length) return fail("Driver approval requires verified driving licence, vehicle RC and insurance documents. Missing verification: " + missing.join(", ") + ".", 409, origin);
