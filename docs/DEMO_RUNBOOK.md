@@ -7,6 +7,18 @@ This guide documents how to verify the currently deployed preview without overst
 - Production frontend: https://smart-bike-taxi-platform.vercel.app
 - Repository: https://github.com/kaustubhdua/Smart_bike_taxi_platform
 
+## No-login interactive demo
+
+Open https://smart-bike-taxi-platform.vercel.app/demo (or choose **Explore demo mode** on the home page). This browser-only walkthrough does not require an account, password, GPS permission or API connection.
+
+- Switch between Passenger, Driver and Admin tabs.
+- Select one of the sample Noida routes in Passenger view and request a sample ride.
+- Switch to Driver view to go online/offline, accept the sample dispatch offer, mark arrival, start and complete the trip.
+- Switch back to Passenger to see the shared trip state and sample receipt; use Admin to inspect the illustrative operations view and sample activity timeline.
+- Reset the sample trip to repeat the flow.
+
+Every fare, driver, metric and ride in this mode is illustrative and local to the browser. It is not a live quote, real dispatch, payment, admin action or production database record. The live API-backed passenger, driver and admin portals remain separate and continue to require their normal authentication.
+
 ## 60–90 second route-quote walkthrough
 
 1. Open the production frontend and wait for the top service indicator to report **RideForge API connected**.
