@@ -884,3 +884,26 @@ test("public landing page describes backend dispatch accurately", async ({ page 
   await expect(page.getByText(/no historical GPS trail is retained/i)).toBeVisible();
   await expect(page.getByText(/no automated driver dispatch is provided/i)).toHaveCount(0);
 });
+
+test("passenger can select a pickup from the Noida map picker", async ({ page }) => {
+  await page.route("https://tile.openstreetmap.org/**", route => route.abort());
+  await page.route("https://photon.komoot.io/reverse**", async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        features: [{
+          properties: { name: "Noida City Centre", city: "Noida", state: "Uttar Pradesh", country: "India" },
+          geometry: { type: "Point", coordinates: [77.356, 28.574] },
+        }],
+      }),
+    });
+  });
+  await page.goto("/passenger");
+  await page.getByRole("button", { name: "Pick pickup on map" }).click();
+  const map = page.getByRole("application", { name: /Noida map/ });
+  await expect(map).toBeVisible();
+  await map.click({ position: { x: 180, y: 130 } });
+  await expect(page.getByLabel("Pickup point")).toHaveValue(/Noida City Centre/);
+  await expect(page.getByText(/Pickup selected from the map/)).toBeVisible();
+});
