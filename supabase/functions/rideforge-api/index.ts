@@ -318,7 +318,7 @@ async function handle(req: Request): Promise<Response> {
     const rides = data ?? [];
     return json({ rides: rides.map(mapRide), grossCompletedFarePaise: rides.filter(r => r.status === "completed").reduce((sum, r) => sum + Number(r.final_fare_paise ?? 0), 0), currency: "INR", note: "Gross completed fares are not a payout ledger." }, 200, origin);
   }
-  const driverRidePath = path.match(/^\/driver\/rides\/([0-9a-f-]+)\/(accept|decline|status)$/i);
+  const driverRidePath = path.match(/^\/driver\/rides\/([0-9a-f-]+)\/(accept|decline|status|cancel)$/i);
   if (driverRidePath && account.role === "driver") {
     const [, rideId, action] = driverRidePath;
     if (action === "accept" && method === "POST") {
@@ -328,6 +328,13 @@ async function handle(req: Request): Promise<Response> {
     if (action === "decline" && method === "POST") {
       const { data, error } = await db.rpc("rideforge_decline_offer", { p_driver_id: accountId, p_ride_id: rideId });
       return error ? fail("This offer is expired or no longer available.", 409, origin) : json(data, 200, origin);
+    }
+    if (action === "cancel" && method === "POST") {
+      const reason = clean(body.reason, 240);
+      const { data, error } = await db.rpc("rideforge_driver_cancel_ride", {
+        p_driver_id: accountId, p_ride_id: rideId, p_reason: reason || null,
+      });
+      return error ? fail("This ride cannot be cancelled by this driver.", 409, origin) : json(data, 200, origin);
     }
     if (action === "status" && method === "PUT") {
       const status = clean(body.status, 32);
