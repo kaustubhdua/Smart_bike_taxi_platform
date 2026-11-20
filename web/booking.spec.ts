@@ -891,7 +891,7 @@ test("the home page is the live API-backed planner, not a simulation", async ({ 
 test("home page reports an unreachable API honestly and never invents a ride or fare", async ({ page }) => {
   await blockMapTiles(page);
   await page.route("http://api.test/**", route => route.abort("connectionrefused"));
-  await page.goto("/");
+  await page.goto("/passenger");
   await fillRideLocations(page);
   await page.getByRole("button", { name: /Get server fare quote/ }).click();
   await expect(page.locator(".fare-amount")).toContainText("—");
@@ -902,7 +902,7 @@ test("home page reports an unreachable API honestly and never invents a ride or 
 
 
 test("public landing page describes backend dispatch accurately", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/passenger");
   await expect(page.getByText(/backend creates time-limited offers for eligible, approved drivers/i)).toBeVisible();
   await expect(page.getByText(/no historical GPS trail is retained/i)).toBeVisible();
   await expect(page.getByText(/no automated driver dispatch is provided/i)).toHaveCount(0);
