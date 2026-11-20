@@ -493,7 +493,7 @@ async function handle(req: Request): Promise<Response> {
     const adminDocumentPath = path.match(/^\/admin\/drivers\/([0-9a-f-]+)\/documents$/i);
     if (adminDocumentPath && method === "GET") {
       const { data, error } = await db.from("driver_documents")
-        .select("id,driver_id,document_type,original_name,mime_type,byte_size,review_status,review_note,created_at")
+        .select("id,driver_id,document_type,object_path,original_name,mime_type,byte_size,review_status,review_note,created_at")
         .eq("driver_id", adminDocumentPath[1]).order("created_at", { ascending: false });
       if (error) return fail("Driver documents unavailable.", 500, origin);
       const documents = await Promise.all((data ?? []).map(async doc => {
