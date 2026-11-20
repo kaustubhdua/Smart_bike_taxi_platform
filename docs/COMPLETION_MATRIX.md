@@ -81,9 +81,9 @@ These counts are a snapshot of the 100 rows below; they change only when evidenc
 | # | Task | Status | Owner | Evidence / acceptance still required |
 |---:|---|---|---|---|
 | 21 | Driver registration | PARTIAL | Engineering | Admin can provision pending driver accounts; public/self-service onboarding is absent |
-| 22 | Identity, licence, vehicle and document verification | BLOCKED | Provider / User / Authority | Manual approval is not identity/document verification; requires approved verification workflow and legal requirements |
+| 22 | Identity, licence, vehicle and document verification | PARTIAL | Engineering / Operations / Authority | Admin can review private licence, RC and insurance uploads and approval is server-gated; no third-party identity, police, permit or authority verification exists |
 | 23 | Driver availability controls | IMPLEMENTED | Engineering | Online/offline and location freshness checks exist; end-to-end live device verification pending |
-| 24 | Onboarding approval and suspension | IMPLEMENTED | Engineering | Admin approval/suspension, forced offline and audit events exist; exact-head tests pending |
+| 24 | Onboarding approval and suspension | IMPLEMENTED | Engineering | Approval requires all three required documents to be verified; rejecting a document suspends the driver and forces offline; audit events retained |
 | 25 | Durable driver offer screen | IMPLEMENTED | Engineering | Driver queue displays pickup, destination, fare and expiry; deployed workflow not verified |
 | 26 | Accept/reject with server-side checks | IMPLEMENTED | Engineering | Transactional assignment and persisted decline exist; concurrency suite execution pending |
 | 27 | Driver arrival confirmation | PARTIAL | Engineering | Driver can record arriving state; GPS/geofence proof is not implemented |
