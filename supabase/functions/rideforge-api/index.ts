@@ -212,7 +212,7 @@ async function handle(req: Request): Promise<Response> {
       email, password,
       options: { data: { display_name: displayName }, emailRedirectTo },
     });
-    if (error || !data.user) return fail(error?.message ?? "Could not create driver account.", error?.status ?? 409, origin);
+    if (error || !data.user || (data.user.identities?.length ?? 0) === 0) return fail("Could not create this driver account. If you already registered, sign in instead.", error?.status ?? 409, origin);
     const { error: roleError } = await db.from("accounts").update({ role: "driver", display_name: displayName }).eq("id", data.user.id);
     const { error: profileError } = await db.from("driver_profiles").upsert({
       account_id: data.user.id, vehicle_registration: vehicleRegistration, is_approved: false, is_online: false,
@@ -258,6 +258,16 @@ async function handle(req: Request): Promise<Response> {
   const accountId = ctx.user.id;
   const account = ctx.account;
 
+  if (path === "/driver/profile" && method === "GET") {
+    if (account.role !== "driver") return fail("Driver account required.", 403, origin);
+    const { data, error } = await db.from("driver_profiles")
+      .select("vehicle_registration,is_approved,is_online,approved_at,created_at")
+      .eq("account_id", accountId).maybeSingle();
+    return error || !data ? fail("Driver application profile unavailable.", 404, origin) : json({
+      vehicleRegistration: data.vehicle_registration, approved: data.is_approved,
+      online: data.is_online, approvedAt: data.approved_at, createdAt: data.created_at,
+    }, 200, origin);
+  }
   if (path === "/driver/documents" && method === "GET") {
     if (account.role !== "driver") return fail("Driver account required.", 403, origin);
     const { data, error } = await db.from("driver_documents")
