@@ -46,6 +46,8 @@ jobs:
         run: deno test supabase/functions/rideforge-api/geocoding_test.ts
       - name: Test exact-origin CORS policy
         run: deno test supabase/functions/rideforge-api/cors_test.ts
+      - name: Test required driver document verification gate
+        run: deno test supabase/functions/rideforge-api/driver_verification_test.ts
       - uses: actions/setup-node@v4
         with:
           node-version: 22
