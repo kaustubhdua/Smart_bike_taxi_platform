@@ -41,6 +41,9 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const [driverHistory, setDriverHistory] = useState<DriverHistory | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [adminDriverDocuments, setAdminDriverDocuments] = useState<Record<string, DriverDocument[]>>({});
+  const [expandedDriverDocuments, setExpandedDriverDocuments] = useState<string | null>(null);
+  const [documentReviewNotes, setDocumentReviewNotes] = useState<Record<string, string>>({});
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [driverEmail, setDriverEmail] = useState("");
   const [driverName, setDriverName] = useState("");
@@ -117,7 +120,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       }
       if (data.account?.role !== "driver") throw new Error("The server did not create a driver account.");
       setToken(data.accessToken);
-      setError("Driver application created successfully. Document uploads are optional for this demonstration. Your account must be approved by an administrator before you can go online.");
+      setError("Driver application created. Upload all required documents for administrator review; approval is blocked until every required document is verified.");
       await loadDriverApplication(data.accessToken);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Driver application failed.");
@@ -525,6 +528,28 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     finally { setBusy(false); }
   }
 
+  async function loadAdminDriverDocuments(driverId: string) {
+    const data = await request("/api/v1/admin/drivers/" + encodeURIComponent(driverId) + "/documents");
+    if (!Array.isArray(data.documents)) throw new Error("The API returned an invalid driver document list.");
+    setAdminDriverDocuments(current => ({ ...current, [driverId]: data.documents as DriverDocument[] }));
+  }
+
+  async function reviewDriverDocument(driver: Driver, document: DriverDocument, status: "verified" | "rejected") {
+    const note = (documentReviewNotes[document.id] ?? "").trim();
+    if (status === "rejected" && note.length < 8) { setError("Add a clear rejection reason of at least 8 characters."); return; }
+    setBusy(true);
+    try {
+      await request("/api/v1/admin/drivers/" + encodeURIComponent(driver.driverId) + "/documents/" + encodeURIComponent(document.id) + "/review", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, note }),
+      });
+      setError((status === "verified" ? "Verified " : "Rejected ") + document.document_type.replaceAll("_", " ") + " for " + driver.displayName + ".");
+      await loadAdminDriverDocuments(driver.driverId);
+      await refreshDrivers();
+      await refreshAudit();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Document review failed."); }
+    finally { setBusy(false); }
+  }
+
   async function provisionDriver(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -543,6 +568,11 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   }
 
   async function changeDriverApproval(driver: Driver) {
+    if (!driver.approved) {
+      const requiredDocuments = ["driving_license", "vehicle_rc", "insurance"];
+      const missing = requiredDocuments.filter(type => !driver.documents?.some(document => document.documentType === type && document.status === "verified"));
+      if (missing.length) { setError("Approval blocked. Verify all required documents first: " + missing.map(type => type.replaceAll("_", " ")).join(", ") + "."); return; }
+    }
     if (driver.approved && !window.confirm("Suspend " + driver.displayName + " and take this driver offline?")) return;
     setBusy(true);
     try {
@@ -551,7 +581,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ approved: !driver.approved }),
       });
-      setError(driver.approved ? "Driver suspended and taken offline." : "Driver approved. The driver must still sign in and explicitly go online.");
+      setError(driver.approved ? "Driver suspended and taken offline." : "Driver approved after all required documents were verified. The driver must still sign in and explicitly go online.");
       await refreshDrivers();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Driver approval update failed."); }
     finally { setBusy(false); }
@@ -580,7 +610,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                   <label className="auth-field"><span>Password (12+ characters)</span><input required type="password" value={applicationPassword} onChange={event => setApplicationPassword(event.target.value)} minLength={12} maxLength={128} autoComplete="new-password" /></label>
                   <label className="auth-field"><span>Vehicle registration number</span><input required value={applicationVehicle} onChange={event => setApplicationVehicle(event.target.value)} minLength={3} maxLength={32} autoComplete="off" placeholder="e.g. UP16 XX 1234" /></label>
                   <button className="book-button" type="submit" disabled={busy || !applicationName.trim() || !applicationEmail.trim() || applicationPassword.length < 12 || applicationVehicle.trim().length < 3}>Create driver application <ArrowRight size={18} /></button>
-                  <p className="auth-caption">Document uploads are optional for now. An administrator can approve your driver account for the demonstration.</p>
+                  <p className="auth-caption">Approval requires a verified driving licence, vehicle registration certificate (RC), and valid insurance. Uploads are private and reviewed by an administrator.</p>
                 </form>
               ) : (
                 <>
@@ -597,8 +627,8 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               <div className="card-heading"><div><span className="card-eyebrow">DRIVER SESSION</span><h3>Availability and rides</h3></div><button className="text-action" onClick={() => { void signOutDriver(); }} disabled={busy}>Sign out</button></div>
               {driverProfile && !driverProfile.approved && <div className="inline-notice" role="status">Your driver account is awaiting administrator approval. You do not need to upload documents for this demonstration.</div>}
               <div className="driver-queue">
-                <h3>Optional driver documents</h3>
-                <p className="auth-caption">Optional for now — you can skip these uploads and continue with your driver application. If you choose to upload later, files are stored privately.</p>
+                <h3>Required verification documents</h3>
+                <p className="auth-caption">Upload a driving licence, vehicle RC and current insurance. Files are stored in private verification storage and must be reviewed before the account can go online.</p>
                 {(["driving_license","vehicle_rc","insurance"] as const).map(documentType => {
                   const latest = driverDocuments.find(document => document.document_type === documentType);
                   const label = documentType === "driving_license" ? "Driving licence" : documentType === "vehicle_rc" ? "Vehicle registration certificate (RC)" : "Vehicle insurance";
@@ -666,20 +696,58 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
               </div>
               <form className="auth-panel" onSubmit={provisionDriver}>
                 <div className="card-heading"><div><span className="card-eyebrow">TRUSTED ONBOARDING</span><h3>Provision a driver</h3></div><ShieldCheck size={20} /></div>
-                <p className="auth-caption">New accounts start unapproved. Approve a driver here to enable online availability. Document uploads are optional for this demonstration.</p>
+                <p className="auth-caption">A driver can only be approved after an administrator verifies the driving licence, vehicle RC and insurance documents.</p>
                 <label className="auth-field"><span>Driver name</span><input required maxLength={120} value={driverName} onChange={event => setDriverName(event.target.value)} autoComplete="name" /></label>
                 <label className="auth-field"><span>Email</span><input required type="email" maxLength={254} value={driverEmail} onChange={event => setDriverEmail(event.target.value)} autoComplete="email" /></label>
                 <label className="auth-field"><span>Temporary password (12+ characters)</span><input required type="password" minLength={12} maxLength={128} value={driverPassword} onChange={event => setDriverPassword(event.target.value)} autoComplete="new-password" /></label>
                 <label className="auth-field"><span>Vehicle registration</span><input required minLength={3} maxLength={32} value={vehicleRegistration} onChange={event => setVehicleRegistration(event.target.value)} autoComplete="off" /></label>
                 <button className="book-button" type="submit" disabled={busy || !driverEmail || !driverName || driverPassword.length < 12 || !vehicleRegistration}>Create pending driver <ArrowRight size={18} /></button>
               </form>
-              <div className="driver-queue"><h3>Driver approvals ({drivers.length})</h3>
-                {drivers.length === 0 ? <p>Refresh the driver list to review registered applications.</p> : drivers.map(driver => (
-                  <div className="ride-confirmation" key={driver.driverId}>
-                    <div><strong>{driver.displayName}</strong><span>{driver.email} · {driver.vehicleRegistration}</span><small>{driver.approved ? "Approved" : "Pending approval"} · {driver.online ? "Online" : "Offline"}</small></div>
-                    <button className="text-action" onClick={() => changeDriverApproval(driver)} disabled={busy}>{driver.approved ? "Suspend" : "Approve driver"}</button>
-                  </div>
-                ))}
+              <div className="driver-queue admin-driver-review"><h3>Driver verification & approvals ({drivers.length})</h3>
+                <p>Review the original documents before approving a driver. Approval is also enforced by the API, not just this interface.</p>
+                {drivers.length === 0 ? <p>Refresh the driver list to review registered applications.</p> : drivers.map(driver => {
+                  const required = ["driving_license", "vehicle_rc", "insurance"];
+                  const verified = required.filter(type => driver.documents?.some(document => document.documentType === type && document.status === "verified"));
+                  const ready = verified.length === required.length;
+                  const documents = adminDriverDocuments[driver.driverId] ?? [];
+                  const isExpanded = expandedDriverDocuments === driver.driverId;
+                  return <article className="ride-confirmation admin-driver-card" key={driver.driverId}>
+                    <div className="admin-driver-summary">
+                      <div><strong>{driver.displayName}</strong><span>{driver.email} · {driver.vehicleRegistration}</span><small>{driver.approved ? "Approved" : "Pending approval"} · {driver.online ? "Online" : "Offline"} · {verified.length}/3 required documents verified</small></div>
+                      <div className="admin-driver-actions">
+                        <button className="outline-button" onClick={async () => {
+                          if (isExpanded) { setExpandedDriverDocuments(null); return; }
+                          setExpandedDriverDocuments(driver.driverId);
+                          if (!adminDriverDocuments[driver.driverId]) {
+                            setBusy(true);
+                            try { await loadAdminDriverDocuments(driver.driverId); }
+                            catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load driver documents."); }
+                            finally { setBusy(false); }
+                          }
+                        }} disabled={busy}>{isExpanded ? "Hide documents" : "Review documents"}</button>
+                        <button className="text-action" onClick={() => changeDriverApproval(driver)} disabled={busy || (!driver.approved && !ready)}>{driver.approved ? "Suspend" : ready ? "Approve driver" : "Approval locked"}</button>
+                      </div>
+                    </div>
+                    {!driver.approved && <div className={ready ? "document-readiness ready" : "document-readiness"}>{ready ? "All required documents verified — eligible for approval." : "Approval locked until driving licence, vehicle RC and insurance are all verified."}</div>}
+                    {isExpanded && <div className="admin-document-list">
+                      {documents.length === 0 ? <p>No documents have been uploaded for this driver yet.</p> : documents.map(document => (
+                        <div className="admin-document-card" key={document.id}>
+                          <div className="admin-document-meta">
+                            <strong>{document.document_type.replaceAll("_", " ")}</strong>
+                            <span>{document.original_name} · {(document.byte_size / 1024).toFixed(0)} KB · {document.review_status.replaceAll("_", " ")}</span>
+                            {document.review_note && <small>Review note: {document.review_note}</small>}
+                            {document.signedUrl && <a href={document.signedUrl} target="_blank" rel="noreferrer">Open private document preview</a>}
+                          </div>
+                          {document.review_status === "pending" && <div className="admin-document-review">
+                            <label className="auth-field"><span>Review note (required when rejecting)</span><input value={documentReviewNotes[document.id] ?? ""} onChange={event => setDocumentReviewNotes(current => ({ ...current, [document.id]: event.target.value }))} maxLength={500} placeholder="Add a reason if rejecting" /></label>
+                            <button className="outline-button" onClick={() => reviewDriverDocument(driver, document, "verified")} disabled={busy}>Verify document</button>
+                            <button className="outline-button" onClick={() => reviewDriverDocument(driver, document, "rejected")} disabled={busy || (documentReviewNotes[document.id] ?? "").trim().length < 8}>Reject</button>
+                          </div>}
+                        </div>
+                      ))}
+                    </div>}
+                  </article>;
+                })}
               </div>
               <div className="driver-queue">
                 <div className="driver-panel-head"><h3>Support and incident reports ({supportReports.length})</h3><button className="outline-button" onClick={refreshSupportReports} disabled={busy}><RefreshCw size={15} /> Refresh reports</button></div>
