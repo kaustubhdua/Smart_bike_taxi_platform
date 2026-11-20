@@ -642,18 +642,21 @@ async function handle(req: Request): Promise<Response> {
       if (!["verified","rejected"].includes(reviewStatus) || (reviewStatus === "rejected" && note.length < 8)) {
         return fail("Choose verified or rejected; rejected documents require a reason.", 422, origin);
       }
-      const { data, error } = await db.from("driver_documents").update({
-        review_status: reviewStatus, review_note: note || null,
-        reviewed_by: accountId, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }).eq("id", adminReviewPath[2]).eq("driver_id", adminReviewPath[1])
-        .select("id,document_type,review_status,review_note").maybeSingle();
-      if (error || !data) return fail("Document not found or review could not be saved.", 404, origin);
+      const { data: reviewedRows, error } = await db.rpc("review_driver_document", {
+        p_driver_id: adminReviewPath[1],
+        p_document_id: adminReviewPath[2],
+        p_review_status: reviewStatus,
+        p_note: note || null,
+        p_admin_id: accountId,
+      });
+      const data = Array.isArray(reviewedRows) ? reviewedRows[0] : reviewedRows;
+      if (error || !data) return fail("Document not found or review could not be saved.", error?.message.includes("driver_not_found") ? 404 : 409, origin);
       await db.from("admin_audit_events").insert({
         actor_id: accountId, action: "driver_document_" + reviewStatus,
         target_type: "driver_document", target_id: data.id,
-        details: { driverId: adminReviewPath[1], documentType: data.document_type, note },
+        details: { driverId: adminReviewPath[1], documentType: data.document_type, note, driverSuspended: reviewStatus === "rejected" },
       });
-      return json({ document: data }, 200, origin);
+      return json({ document: data, driverSuspended: reviewStatus === "rejected" }, 200, origin);
     }
     if (path === "/admin/drivers" && method === "GET") {
       const { data: profiles, error } = await db.from("driver_profiles").select("*").order("created_at", { ascending: false }).limit(100);
