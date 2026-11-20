@@ -288,3 +288,33 @@ button,input,select,textarea{font-family:inherit}
  .rideforge-app .admin-document-review{align-items:stretch}
  .rideforge-app .admin-document-review .auth-field{flex-basis:100%}
 }
+
+/* Account-synced saved places, driver earnings and admin safety operations. */
+.rideforge-app .saved-place-account{display:grid;gap:9px;margin:8px 0;padding:12px;border:1px solid #e5ebe3;border-radius:11px;background:#fff}
+.rideforge-app .saved-place-account>div:first-child{display:grid;gap:4px;min-width:0}
+.rideforge-app .saved-place-account strong{text-transform:capitalize;font-size:11px}
+.rideforge-app .saved-place-account span{font-size:10px;color:#778378;overflow-wrap:anywhere}
+.rideforge-app .saved-place-actions{display:flex;gap:8px;flex-wrap:wrap}
+.rideforge-app .saved-place-actions .text-action{font-size:9px}
+.rideforge-app .earnings-period-grid,.rideforge-app .admin-metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
+.rideforge-app .earnings-period-grid>div,.rideforge-app .admin-metric-grid>div{display:grid;gap:6px;min-width:0;padding:13px;border:1px solid #e4eae1;border-radius:11px;background:#fff}
+.rideforge-app .earnings-period-grid small,.rideforge-app .admin-metric-grid small{font:800 8px 'JetBrains Mono',monospace;letter-spacing:.08em;color:#879187}
+.rideforge-app .earnings-period-grid strong{font-size:clamp(17px,2.4vw,25px);letter-spacing:-.8px;color:#1e3525}
+.rideforge-app .earnings-period-grid span{font-size:9px;color:#78847a}
+.rideforge-app .admin-metric-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.rideforge-app .admin-metric-grid strong{font-size:clamp(17px,2vw,23px);letter-spacing:-.7px;color:#1e3525;overflow-wrap:anywhere}
+.rideforge-app .admin-sos-card{display:grid;gap:10px;margin:9px 0;padding:13px}
+.rideforge-app .admin-sos-card>div:first-child{display:grid;gap:5px;min-width:0}
+.rideforge-app .admin-sos-card strong{font-size:11px;text-transform:capitalize}
+.rideforge-app .admin-sos-card span,.rideforge-app .admin-sos-card small{font-size:9px;line-height:1.55;color:#778378;overflow-wrap:anywhere}
+.rideforge-app .admin-sos-card a{font-size:9px;color:var(--rf-green);font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.rideforge-app .admin-sos-card .button-row{justify-content:flex-start}
+@media(max-width:760px){
+ .rideforge-app .earnings-period-grid{grid-template-columns:1fr 1fr}
+ .rideforge-app .admin-metric-grid{grid-template-columns:1fr 1fr}
+ .rideforge-app .saved-place-actions{display:grid;grid-template-columns:1fr 1fr}
+}
+@media(max-width:420px){
+ .rideforge-app .earnings-period-grid{grid-template-columns:1fr}
+ .rideforge-app .saved-place-actions{grid-template-columns:1fr}
+}
