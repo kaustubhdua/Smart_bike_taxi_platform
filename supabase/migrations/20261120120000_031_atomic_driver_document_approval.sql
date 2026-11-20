@@ -87,7 +87,7 @@ RETURNS TABLE(id uuid, document_type text, review_status text, review_note text)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
+AS $review_fn$
 BEGIN
   IF p_review_status NOT IN ('verified', 'rejected') THEN
     RAISE EXCEPTION 'invalid_document_review_status';
@@ -128,8 +128,7 @@ BEGIN
      WHERE account_id = p_driver_id;
   END IF;
 END;
-$;
-
+$review_fn$;
 REVOKE ALL ON FUNCTION public.review_driver_document(uuid, uuid, text, text, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.review_driver_document(uuid, uuid, text, text, uuid) TO service_role;
 
