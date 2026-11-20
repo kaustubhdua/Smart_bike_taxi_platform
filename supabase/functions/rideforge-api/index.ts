@@ -227,11 +227,11 @@ async function handle(req: Request): Promise<Response> {
       return fail("Driver account setup could not be completed.", 500, origin);
     }
     if (!data.session) {
-      return json({ verificationRequired: true, message: "Driver application created. Verify your email, sign in to the driver portal, then upload your driving licence, vehicle RC and insurance. Your account stays offline until an administrator approves the documents." }, 202, origin);
+      return json({ verificationRequired: true, message: "Driver application created. Verify your email and sign in to the driver portal. Document uploads are optional for now; an administrator can approve your driver account." }, 202, origin);
     }
     return json({
       accessToken: data.session.access_token, account: accountView(account),
-      approved: false, applicationStatus: "documents_required",
+      approved: false, applicationStatus: "pending_approval",
     }, 201, origin);
   }
   if (path === "/auth/login" && method === "POST") {
