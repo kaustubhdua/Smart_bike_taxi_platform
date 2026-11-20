@@ -560,13 +560,31 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
         <div className="booking-card">
           {!token ? (
             <div className="auth-panel">
-              <div className="card-heading"><div><span className="card-eyebrow">SECURE ACCESS</span><h3>{mode === "driver" ? "Driver sign in" : "Admin sign in"}</h3></div><ShieldCheck size={20} /></div>
-              <label className="auth-field"><span>Email</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="username" maxLength={254} placeholder="you@example.com" /></label>
-              <label className="auth-field"><span>Password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" maxLength={128} placeholder="Your password" /></label>
-              <button className="book-button" onClick={signIn} disabled={busy || !email || !password}>Sign in securely <ArrowRight size={18} /></button>
-              <p className="auth-caption">Driver and admin accounts must be provisioned by an administrator. This form cannot grant roles.</p>
+              <div className="card-heading"><div><span className="card-eyebrow">SECURE ACCESS</span><h3>{mode === "driver" ? (driverAuthMode === "login" ? "Driver sign in" : "Apply to drive") : "Admin sign in"}</h3></div><ShieldCheck size={20} /></div>
+              {mode === "driver" && <div className="auth-switch" role="group" aria-label="Driver account action">
+                <button type="button" className={driverAuthMode === "login" ? "auth-tab selected" : "auth-tab"} onClick={() => setDriverAuthMode("login")}>Sign in</button>
+                <button type="button" className={driverAuthMode === "apply" ? "auth-tab selected" : "auth-tab"} onClick={() => setDriverAuthMode("apply")}>New driver application</button>
+              </div>}
+              {mode === "driver" && driverAuthMode === "apply" ? (
+                <form onSubmit={applyAsDriver}>
+                  <label className="auth-field"><span>Full name</span><input required value={applicationName} onChange={event => setApplicationName(event.target.value)} maxLength={120} autoComplete="name" /></label>
+                  <label className="auth-field"><span>Email</span><input required type="email" value={applicationEmail} onChange={event => setApplicationEmail(event.target.value)} maxLength={254} autoComplete="email" /></label>
+                  <label className="auth-field"><span>Password (12+ characters)</span><input required type="password" value={applicationPassword} onChange={event => setApplicationPassword(event.target.value)} minLength={12} maxLength={128} autoComplete="new-password" /></label>
+                  <label className="auth-field"><span>Vehicle registration number</span><input required value={applicationVehicle} onChange={event => setApplicationVehicle(event.target.value)} minLength={3} maxLength={32} autoComplete="off" placeholder="e.g. UP16 XX 1234" /></label>
+                  <button className="book-button" type="submit" disabled={busy || !applicationName.trim() || !applicationEmail.trim() || applicationPassword.length < 12 || applicationVehicle.trim().length < 3}>Create driver application <ArrowRight size={18} /></button>
+                  <p className="auth-caption">You will remain offline until you upload your driving licence, vehicle RC and insurance and an administrator verifies them.</p>
+                </form>
+              ) : (
+                <>
+                  <label className="auth-field"><span>Email</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="username" maxLength={254} placeholder="you@example.com" /></label>
+                  <label className="auth-field"><span>Password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" maxLength={128} placeholder="Your password" /></label>
+                  <button className="book-button" onClick={signIn} disabled={busy || !email || !password}>Sign in securely <ArrowRight size={18} /></button>
+                  {mode === "driver" && <p className="auth-caption">Driver access is verified server-side. An unapproved driver cannot go online or accept rides.</p>}
+                  {mode === "admin" && <p className="auth-caption">Administrator access is verified server-side.</p>}
+                </>
+              )}
             </div>
-          ) : mode === "driver" ? (
+          )          ) : mode === "driver" ? (
             <>
               <div className="card-heading"><div><span className="card-eyebrow">DRIVER SESSION</span><h3>Availability and rides</h3></div><button className="text-action" onClick={() => { void signOutDriver(); }} disabled={busy}>Sign out</button></div>
               <p className="auth-caption">Location permission is used to refresh your dispatch eligibility while online. The queue requires a recent location.</p>
