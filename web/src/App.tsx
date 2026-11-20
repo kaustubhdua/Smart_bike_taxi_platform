@@ -685,7 +685,7 @@ export default function App() {
               <button className="location-action" type="button" onClick={() => void useCurrentLocation()} disabled={locationBusy || routeLoading}>
                 <LocateFixed size={15} /> {locationBusy ? "Finding your location…" : "Use my current location"}
               </button>
-              <span>Noida-focused suggestions. Address lookup runs only when you request a quote; road distance and fare are calculated by the server. © OpenStreetMap contributors.</span>
+              <span>Noida-focused suggestions. Use public landmarks in this preview; do not enter home addresses or sensitive locations. Address lookup uses a public geocoding service only after you request a quote. © OpenStreetMap contributors.</span>
             </div>
 
             <div className="route-presets" aria-label="Suggested real routes">
