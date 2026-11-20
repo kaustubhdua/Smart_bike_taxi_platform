@@ -1282,3 +1282,15 @@ body{background:var(--rf-paper);color:var(--rf-ink);font-family:'DM Sans',ui-san
 .demo-timeline{color:#64746a;font-size:11px;line-height:2}
 @media(max-width:850px){.role-entry-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.role-entry-card.demo{grid-column:1/-1;min-height:210px}}
 @media(max-width:640px){.role-entry-cards{grid-template-columns:1fr}.role-entry-card.demo{grid-column:auto}.demo-mode-shell .role-header{width:calc(100% - 36px)}.demo-mode-main{width:calc(100% - 32px);padding:38px 0 45px}.demo-mode-heading{text-align:left}.demo-fare-grid,.demo-admin-metrics{gap:6px}.demo-fare-grid>div,.demo-admin-metrics>div{padding:10px}.demo-fare-grid strong,.demo-admin-metrics strong{font-size:17px}.demo-queue-card{align-items:flex-start;flex-direction:column}}
+
+
+/* Saved route shortcuts are deliberately device-local, not account or server state. */
+.rideforge-app .saved-routes{display:grid;gap:7px;margin:12px 0 3px;padding:12px;border:1px solid #e5dac4;border-radius:13px;background:#fffdf7}
+.rideforge-app .saved-routes>span{font:750 8px 'JetBrains Mono',monospace;letter-spacing:.1em;color:#738076}
+.rideforge-app .saved-route-item{display:flex;align-items:center;gap:8px;min-width:0}
+.rideforge-app .saved-route-item>button:first-child{display:flex;align-items:center;gap:8px;min-width:0;flex:1;text-align:left;padding:8px;border:1px solid #e4e9df;border-radius:9px;background:#f8faf6;color:#24563a;font-size:10px;font-weight:700}
+.rideforge-app .saved-route-item>button:first-child svg{flex:none}
+.rideforge-app .saved-route-item>button:first-child span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rideforge-app .saved-route-item>button:first-child b{color:#9aab9b;padding:0 4px}
+.rideforge-app .saved-route-item .saved-route-remove{display:grid;place-items:center;width:34px;height:34px;flex:none;border:1px solid #ecd9d1;border-radius:9px;background:#fff8f5;color:#9a432a}
+.rideforge-app .saved-route-item button:focus-visible{outline:3px solid #e8821b;outline-offset:2px}
