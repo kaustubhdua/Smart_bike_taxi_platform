@@ -3,6 +3,7 @@ import { createClient, type User } from "npm:@supabase/supabase-js@2.119.0";
 import { getRateLimitClientIp } from "./client_ip.ts";
 import { createCorsHeaders } from "./cors.ts";
 import { buildGeocodingUrl, parseCoordinatePair, parseGeocodingCoordinates } from "./geocoding.ts";
+import { missingRequiredDriverDocuments } from "./driver_verification.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
