@@ -72,5 +72,23 @@ The repository release-readiness workflow additionally validates Supabase migrat
 - [ ] No secrets, private documents, personal data or real credentials appear in screenshots or repository history.
 - [ ] Reviewer has a clean demo reset procedure and a fallback local runbook.
 
+
+## Verified hosted environment snapshot — 20 November 2026
+
+Read-only checks against the connected `rideforge-production` Supabase project on 20 November 2026 returned:
+- Auth users: 1
+- Application accounts: 1 (role: driver)
+- Driver profiles: 1
+- Ride records: 0
+- Uploaded driver verification documents: 0
+- Route quote records: 10
+- Latest applied hosted migration: `030_index_driver_documents_reviewed_by`
+
+This confirms the hosted database and quote path have been used, but it does **not** demonstrate a passenger account, administrator account, uploaded-document review, or a persisted ride lifecycle. Migration `031_atomic_driver_document_approval` is part of this pull request only and has not been applied to production.
+
+The live Supabase Security Advisor currently reports **Leaked Password Protection Disabled**. Enable leaked-password protection in the Supabase Auth password security settings before accepting real users. The Performance Advisor reports 23 unused indexes; treat these as low-volume/usage observations, not an instruction to remove indexes without workload evidence. The Health Advisor returned no findings at the time of the check.
+
+The Vercel project is currently blocked from creating further deployments by the account's `api-deployments-free-per-day` limit (HTTP 402; retry window reported as 24 hours). A READY preview exists for an earlier PR commit, not the latest PR head. Do not present that older preview as proof that this PR has deployed.
+
 ## Current release stance
 RideForge is an academic product preview with real API-backed workflows where configured. It is not a public ride-hailing service and must not be used to arrange real travel until the production blockers above are closed and independently verified.
