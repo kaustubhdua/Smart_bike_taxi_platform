@@ -91,6 +91,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     }
     setDriverProfile({ vehicleRegistration: profileData.vehicleRegistration, approved: profileData.approved, online: profileData.online === true });
     setDriverDocuments(documentsData.documents);
+    setOnline(profileData.online === true);
   }
 
   async function applyAsDriver(event: FormEvent<HTMLFormElement>) {
@@ -287,7 +288,6 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
     setBusy(true);
     try {
       if (online) {
-        if (!driverLocation) throw new Error("No last known location is available. Refresh location before going offline.");
         await request("/api/v1/driver/availability", {
           method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ online: false }),
@@ -420,7 +420,7 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   async function signOutDriver() {
     setBusy(true);
     try {
-      if (online && driverLocation) {
+      if (online) {
         await request("/api/v1/driver/availability", {
           method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ online: false }),
