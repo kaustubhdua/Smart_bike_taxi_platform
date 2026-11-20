@@ -407,11 +407,16 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       });
       if (typeof data.rideId !== "string" || typeof data.status !== "string") throw new Error("The API returned an invalid ride state.");
       if (action !== "decline") setActiveRide({ rideId: data.rideId, status: data.status });
+      if (action === "completed") {
+        setOnline(false);
+        setDriverProfile(current => current ? { ...current, online: false } : current);
+        setDriverLocation(null);
+      }
       setRides(current => current.filter(ride => ride.rideId !== rideId));
       setError(action === "decline"
         ? "Request declined for your driver account. The passenger's booking remains active for other drivers."
         : action === "cancel" ? "Ride cancellation saved and passenger booking updated."
-        : "Ride state saved: " + data.status + ".");
+        : action === "completed" ? "Ride completed. You are now offline; go online again when you are ready for another request." : "Ride state saved: " + data.status + ".");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Ride action failed."); }
     finally { setBusy(false); }
   }
