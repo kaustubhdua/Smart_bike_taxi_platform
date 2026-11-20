@@ -343,9 +343,13 @@ async function handle(req: Request): Promise<Response> {
       if (dp?.last_location_at && Date.now() - Date.parse(dp.last_location_at) < 120_000) driverLocation = { latitude: dp.current_latitude, longitude: dp.current_longitude, updatedAt: dp.last_location_at };
     }
     let startCode: string | undefined;
+    let startCodeExpiresAt: string | undefined;
     if (ride.passenger_id === accountId && ["assigned", "driver_arriving"].includes(String(ride.status))) {
-      const { data: sc } = await db.from("ride_start_codes").select("code").eq("ride_id", ride.id).maybeSingle();
-      if (sc?.code) startCode = String(sc.code);
+      const { data: sc } = await db.from("ride_start_codes").select("code,expires_at").eq("ride_id", ride.id).maybeSingle();
+      if (sc?.code && sc.expires_at && Date.parse(sc.expires_at) > Date.now()) {
+        startCode = String(sc.code);
+        startCodeExpiresAt = String(sc.expires_at);
+      }
     }
     let driverRating: unknown;
     if (ride.driver_id && ride.passenger_id === accountId) {
@@ -355,7 +359,7 @@ async function handle(req: Request): Promise<Response> {
     return json({
       ...mapRide(ride),
       ...(driverLocation ? { driverLocation } : {}),
-      ...(startCode ? { startCode } : {}),
+      ...(startCode ? { startCode, startCodeExpiresAt } : {}),
       ...(driverRating ? { driverRating } : {}),
     }, 200, origin);
   }
@@ -521,6 +525,7 @@ async function handle(req: Request): Promise<Response> {
       const { data, error } = await db.rpc("rideforge_advance_ride", { p_driver_id: accountId, p_ride_id: rideId, p_status: status, p_otp: status === "in_progress" ? otp : null });
       if (error) return fail("Ride transition is not allowed.", 409, origin);
       if (data?.otpRejected) return json({ error: data.attemptsRemaining > 0 ? `Incorrect start code. ${data.attemptsRemaining} attempt${data.attemptsRemaining === 1 ? "" : "s"} left.` : "Too many incorrect codes. Ask support or cancel the ride.", attemptsRemaining: data.attemptsRemaining }, 422, origin);
+      if (data?.otpExpired) return fail("The start code expired after 60 minutes. Cancel this ride and request a new booking.", 409, origin);
       return json(data, 200, origin);
     }
   }
