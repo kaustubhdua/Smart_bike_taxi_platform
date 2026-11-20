@@ -70,8 +70,78 @@ export default function OperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
         : "Administrator access is required.");
       setToken(data.accessToken); setPassword("");
       setError("Signed in. Protected operations are enabled for this session.");
+      if (mode === "driver") await loadDriverApplication(data.accessToken);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not sign in.");
+    } finally { setBusy(false); }
+  }
+
+  async function loadDriverApplication(accessToken = token) {
+    if (!apiBase || !accessToken) return;
+    const headers = { Accept: "application/json", Authorization: "Bearer " + accessToken };
+    const [profileResponse, documentsResponse] = await Promise.all([
+      fetch(apiBase + "/api/v1/driver/profile", { headers }),
+      fetch(apiBase + "/api/v1/driver/documents", { headers }),
+    ]);
+    const profileData = await profileResponse.json() as { vehicleRegistration?: string; approved?: boolean; online?: boolean; error?: string };
+    const documentsData = await documentsResponse.json() as { documents?: DriverDocument[]; error?: string };
+    if (!profileResponse.ok || !documentsResponse.ok) throw new Error(profileData.error || documentsData.error || "Could not load driver application.");
+    if (typeof profileData.vehicleRegistration !== "string" || typeof profileData.approved !== "boolean" || !Array.isArray(documentsData.documents)) {
+      throw new Error("Driver application response was invalid.");
+    }
+    setDriverProfile({ vehicleRegistration: profileData.vehicleRegistration, approved: profileData.approved, online: profileData.online === true });
+    setDriverDocuments(documentsData.documents);
+  }
+
+  async function applyAsDriver(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!apiBase) { setError("Driver registration service is not configured."); return; }
+    setBusy(true); setError("");
+    try {
+      const response = await fetch(apiBase + "/api/v1/auth/driver/register", {
+        method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          email: applicationEmail, displayName: applicationName,
+          password: applicationPassword, vehicleRegistration: applicationVehicle,
+        }),
+      });
+      const data = await response.json() as { accessToken?: string; account?: { role?: string }; verificationRequired?: boolean; message?: string; error?: string };
+      if (!response.ok) throw new Error(data.error || "Driver application could not be created.");
+      setEmail(applicationEmail); setPassword(""); setApplicationPassword("");
+      if (data.verificationRequired || !data.accessToken) {
+        setDriverAuthMode("login");
+        setError(data.message || "Verify your email, then sign in to upload your documents.");
+        return;
+      }
+      if (data.account?.role !== "driver") throw new Error("The server did not create a driver account.");
+      setToken(data.accessToken);
+      setError("Driver account created. Upload your verification documents; you cannot go online until approved.");
+      await loadDriverApplication(data.accessToken);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Driver application failed.");
+    } finally { setBusy(false); }
+  }
+
+  async function uploadDriverDocument(documentType: "driving_license" | "vehicle_rc" | "insurance") {
+    const file = documentFiles[documentType];
+    if (!file) { setError("Choose a file before uploading."); return; }
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("documentType", documentType);
+      form.append("file", file);
+      const response = await fetch(apiBase + "/api/v1/driver/documents", {
+        method: "POST",
+        headers: { Accept: "application/json", Authorization: "Bearer " + token },
+        body: form,
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Document upload failed.");
+      setDocumentFiles(current => ({ ...current, [documentType]: null }));
+      await loadDriverApplication();
+      setError("Document uploaded to private verification storage. It is not approved until reviewed by operations.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Document upload failed.");
     } finally { setBusy(false); }
   }
 
