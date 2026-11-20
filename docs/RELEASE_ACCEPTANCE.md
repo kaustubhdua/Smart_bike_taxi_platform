@@ -24,7 +24,7 @@ This document distinguishes implemented application workflows from launch prereq
 ### Administrator
 - Server-authorized administrator sign-in.
 - Driver provisioning, private signed document previews, per-document verification/rejection with a reason, approval and suspension.
-- Approval is denied unless the driving licence, vehicle RC, and insurance each have a verified record.
+- Approval is denied unless the latest driving licence, vehicle RC, and insurance uploads are each verified. Uploading a replacement document immediately resets approval and takes the driver offline until re-review.
 - Ride search, operational metrics, audit history, and support-report triage.
 
 ## Design and accessibility
