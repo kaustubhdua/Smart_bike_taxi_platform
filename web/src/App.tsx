@@ -691,7 +691,7 @@ export default function App() {
             {!pickup.trim() || !destination.trim() ? <p className="form-hint">Add both locations to continue. Try “JIIT Sector 128, Noida” and “Botanical Garden Metro, Noida”.</p> : !valid ? <p className="form-hint">Pickup and drop-off must be different locations.</p> : null}
             {apiHealth === "offline" && <div className="service-warning" role="status">The RideForge API did not respond to the last health check. You can still try a quote; the result will show whether booking services are available.</div>}
 
-            {((quote && !ride) || account) && account?.role !== "driver" && account?.role !== "admin" && (
+            {account?.role !== "driver" && account?.role !== "admin" && (
               <div className="auth-panel booking-auth-panel">
                 {account ? (
                   <div className="auth-session">
